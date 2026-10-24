@@ -183,6 +183,16 @@ def _image(b, ctx, max_w, max_h, out, x, y):
     return vis.w * s, vis.h * s
 
 
+def image_pads(b: Block) -> Tuple[float, float, float, float]:
+    """Transparent margins (left, top, right, bottom) of an image block as
+    multiples of its visible width / height; zero for other blocks."""
+    if b.kind != "image":
+        return (0.0, 0.0, 0.0, 0.0)
+    fx0, fy0, fx1, fy1 = b.items[0].visible_frac
+    vw, vh = max(fx1 - fx0, 1e-6), max(fy1 - fy0, 1e-6)
+    return (fx0 / vw, fy0 / vh, (1 - fx1) / vw, (1 - fy1) / vh)
+
+
 def _image_on_canvas(it: Item, s: float, slot: Rect, ctx: Ctx) -> Placement:
     """Centre the visible pixels on `slot`; if the padded box would leave the
     canvas, shrink around that centre instead of letting it be shifted."""
@@ -290,8 +300,7 @@ def stack_place(blocks: List[Block], ctx: Ctx, region: Rect, out: Dict[int, Plac
 
 
 def panel_pads(b: Block) -> Tuple[float, float, float, float]:
-    inner = bounding([c.src for c in b.children]) or b.frame.box
-    f = b.frame.box
+    inner, f = b.inner or b.frame.box, b.frame.box
     return (max(0.0, inner.x - f.x), max(0.0, inner.y - f.y), max(0.0, f.x1 - inner.x1), max(0.0, f.y1 - inner.y1))
 
 
@@ -307,7 +316,7 @@ def _panel(b, ctx, max_w, max_h, out, x, y):
     if out is not None:
         out[b.frame.idx] = Placement(x, y, width, h)
         inner = Rect(x + l, y + t, inner_w, h - t - bt)
-        kids = panel_layout_hook(b.children, bounding([c.src for c in b.children]), inner, ctx) \
+        kids = panel_layout_hook(b.children, b.inner or b.frame.box, inner, ctx) \
             if panel_layout_hook else None
         if kids:
             out.update(kids)

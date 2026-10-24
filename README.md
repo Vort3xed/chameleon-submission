@@ -21,7 +21,8 @@ source design + target canvas
 semantic labels:
 
 * *backgrounds* – images/shapes covering ≥90% of the canvas → re-fitted full-bleed;
-* *decor* – faint, tiny or off-canvas shapes holding no content → kept, re-anchored proportionally;
+* *decor* – faint, tiny or off-canvas shapes holding no content → kept, re-anchored
+  proportionally (large faint frames instead keep their distance to each canvas edge);
 * *hidden* – invisible elements and images whose asset is missing (the
   intentional `holiday_watermark` case) → skipped gracefully (opacity 0);
 * *blocks* – the units that get laid out: single texts and images, **rigid
@@ -31,7 +32,8 @@ semantic labels:
   (side-by-side runs like a badge strip);
 * *ornaments* – rotated or corner-pinned small blocks, placed last in free corner space.
 
-Roles come from cues a designer would use: largest type → headline, verbs like
+Roles come from cues a designer would use: largest type → headline (a price
+like "From $24" is never the headline, even when it is the biggest), verbs like
 "Shop/Buy/Learn" or the biggest pill → CTA, wide image near an edge or an
 asset named *logo* → logo, the block carrying the most product imagery → hero,
 smallest long text near the bottom → legal. Each role has an importance used
@@ -57,16 +59,20 @@ calmer 0.82× variant), for several image-to-text ratios. Text never drops
 below a legibility floor tuned to how a judge views the canvas (≈10.5 px at
 1024 px viewing size, less for legal/badges, never more than the source had).
 When even that cannot fit — e.g. a 17-element poster into 728×90 — whole
-low-importance blocks are dropped progressively (legal → badges/ribbons →
-body → secondary text → product), never the headline or CTA; the logo only
-as a last resort.
+low-importance blocks (also inside cards) are dropped progressively (legal →
+badges/ribbons → body → secondary text → product), never the headline or CTA;
+the logo only as a last resort.  In banner rows, images fill the height while
+their transparent padding stays on the canvas, and the logo never outgrows
+the text by more than 1.5× its original proportion.
 
 **4. Rank them (`objective.py`).** Terms in [0, 1]: legibility, headline size,
 product size, visible coverage, fill, kept content, overlap beyond what the
 source layered, short phrases not shattered into one-word lines, faithfulness
-of position. The weighting follows a fit to an AI judge's rankings of the
-engine's own candidates (`eval/collect_prefs.py` + `eval/fit_prefs.py`),
-adjusted by hand where that data was thin.
+of position — plus which arrangement family suits how stretched the canvas is
+(near-square → keep the composition, wide → product beside text, very wide →
+banner row). The weights are a logistic fit to an AI judge's rankings of the
+engine's own candidates on ~320 tasks (`eval/collect_prefs.py` +
+`eval/fit_prefs.py`), with overlap kept as a safety term the data cannot price.
 
 **5. Enforce the rules (`finalize.py`).** Same elements in the same order,
 only geometry / `font_size` / `opacity` (and, for hidden text, `z_index`) change;

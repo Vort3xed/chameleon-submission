@@ -101,7 +101,7 @@ def main():
             rankings = []
             for seed in (1, 2):
                 perm = list(range(len(imgs)))
-                random.Random(hash(tid) + seed).shuffle(perm)
+                random.Random(f"{tid}:{seed}").shuffle(perm)  # str seeds are stable across runs
                 r = rank(src, [imgs[i] for i in perm], tw, th, a.endpoint, a.model)
                 if r is not None:
                     rankings.append([perm[i] for i in r])

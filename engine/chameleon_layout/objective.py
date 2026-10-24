@@ -12,8 +12,10 @@ Each term is in [0, 1] (higher is better):
   kept         important elements stay visible
   overlap      elements do not collide (beyond what the source layered)
   faithful     blocks stay roughly where they were (same composition)
-plus one-hot arrangement-family features.  `WEIGHTS` combine them into the
-ranking score (fitted to AI-judge preferences by eval/fit_prefs.py).
+plus one-hot features for the arrangement family in each band of region
+shape (near-square / wide / very wide, either orientation): which family
+suits a canvas depends on how stretched it is.  `WEIGHTS` combine them into
+the ranking score (fitted to AI-judge preferences by eval/fit_prefs.py).
 """
 
 from __future__ import annotations
@@ -26,10 +28,14 @@ from .blocks import SMALL_ROLES
 from .geometry import bounding
 from .scene import Block
 
-# Direction fitted to AI-judge rankings of candidates (eval/fit_prefs.py), kept
-# conservative where the data was thin (overlap/kept stay as safety terms).
-WEIGHTS = {"legibility": 0.24, "headline": 0.14, "hero": 0.14, "coverage": 0.08, "fill": 0.06, "kept": 0.12,
-           "overlap": 0.12, "faithful": 0.04, "size": 0.02, "wrap": 0.12, "is_row": 0.03, "is_stack": -0.03}
+# Half the logistic weights fitted to ~300 tasks of AI-judge rankings
+# (eval/fit_prefs.py); overlap is kept as a safety term (candidates rarely
+# overlap, so the data cannot price it).
+WEIGHTS = {"hero": 0.16, "fill": 0.14, "coverage": 0.12, "headline": 0.12, "kept": 0.12, "legibility": 0.10,
+           "balance": 0.07, "faithful": 0.06, "wrap": 0.05, "overlap": 0.12,
+           "is_preserve_near": 0.06, "is_stack_near": 0.05, "is_split_near": -0.11,
+           "is_preserve_mid": 0.10, "is_split_mid": 0.13, "is_stack_mid": -0.09, "is_row_mid": -0.14,
+           "is_split_wide": 0.04, "is_stack_wide": -0.24, "is_row_wide": 0.20}
 
 
 def leaf_blocks(blocks: List[Block]) -> List[Block]:
@@ -72,8 +78,8 @@ def evaluate(lay: Layout, scope: Scope, items) -> Dict[str, float]:
     box = bounding([r for b, r in lay.placed if not b.ornament])
     t["fill"] = min(1.0, (box.intersection(reg) / reg.area) / 0.55) if box else 0.0
 
-    total = sum(b.importance for b in scope.blocks) or 1.0
-    t["kept"] = max(0.0, 1.0 - sum(b.importance * (1.5 if b.hero else 1.0) for b in lay.hidden) / total)
+    lost = sum(_mass([b]) * (1.5 if b.hero else 1.0) for b in lay.hidden)
+    t["kept"] = max(0.0, 1.0 - lost / (_mass(scope.blocks) or 1.0))
 
     vis = visible_inks(lay.out, scope.blocks)
     t["overlap"] = math.exp(-3 * new_overlap(vis))
@@ -102,13 +108,17 @@ def evaluate(lay: Layout, scope: Scope, items) -> Dict[str, float]:
     t["faithful"] = _wavg(dist)
 
     family = lay.name.split()[0].rstrip("0123456789.")
+    stretch = max(reg.w / reg.h, reg.h / reg.w) if reg.w > 0 and reg.h > 0 else 1.0
+    band = "near" if stretch < 1.5 else ("mid" if stretch < 2.5 else "wide")
     for f in FAMILIES:
-        t["is_" + f] = 1.0 if family == f else 0.0
+        for b in BANDS:
+            t[f"is_{f}_{b}"] = 1.0 if (f, b) == (family, band) else 0.0
     t["total"] = sum(WEIGHTS.get(k, 0.0) * v for k, v in t.items())
     return t
 
 
 FAMILIES = ("preserve", "stack", "split", "row")
+BANDS = ("near", "mid", "wide")
 
 
 def visible_inks(out, blocks: List[Block]):
@@ -134,6 +144,10 @@ def new_overlap(vis) -> float:
             s = sa.intersection(sb) / max(1.0, min(sa.area, sb.area))
             excess += max(0.0, o - s - 0.02)
     return excess
+
+
+def _mass(blocks: List[Block]) -> float:
+    return sum(b.importance for b in leaf_blocks(blocks))
 
 
 def _wavg(pairs) -> float:

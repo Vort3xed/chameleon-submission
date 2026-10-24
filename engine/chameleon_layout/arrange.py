@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import itertools
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Callable, Dict, List, Optional, Tuple
 
 from . import blocks as B
@@ -60,7 +60,7 @@ def bisect(fits: Callable[[float], bool], lo: float, hi: float, steps: int = 14)
 def scale_bounds(scope: Scope) -> Tuple[float, float]:
     sx, sy = scope.region.w / scope.src.w, scope.region.h / scope.src.h
     m, M = min(sx, sy), max(sx, sy)
-    return 0.02, max(m, math.sqrt(m * M)) * 1.15
+    return 0.02, m ** 0.3 * M ** 0.7 * 1.15  # leans to the long side: banners keep short text large
 
 
 def _fit_scale(build):
@@ -137,8 +137,8 @@ def stack(scope: Scope, ctx0: Ctx, k: float, shrink: float = 1.0) -> Optional[La
 
 
 def visual_block(blocks: List[Block]) -> Optional[Block]:
-    cands = [b for b in blocks if b.role in ("hero", "image")
-             or (b.kind == "row" and all(c.role == "image" for c in b.children))]
+    cands = [b for b in blocks if b.role in ("hero", "image") or b.hero
+             or (b.kind == "row" and all(c.role in ("hero", "image") for c in b.children))]
     return max(cands, key=lambda b: b.src.area) if cands else None
 
 
@@ -212,13 +212,15 @@ def row(scope: Scope, ctx0: Ctx, shrink: float = 1.0) -> List[Layout]:
             c = Ctx(ctx0.W, ctx0.H, ctx0.src_W, ctx0.src_H, ts, ts, relax)
             fixed = [(b, _slot_size(b, c, reg)) for b in lead]
             tail = [(b, _slot_size(b, c, reg)) for b in cta]
-            used = sum(w for _, (w, _) in fixed + tail) + gap * (len(fixed) + len(tail) + len(parts) - 1)
+            inset = (_edge_inset(fixed[0], 0, reg.x) if fixed else 0.0,
+                     _edge_inset(tail[-1], 2, c.W - reg.x1) if tail else 0.0)
+            used = sum(inset) + sum(w for _, (w, _) in fixed + tail) + gap * (len(fixed) + len(tail) + len(parts) - 1)
             weights = [_text_weight(p) for p in parts]
             widths = [(reg.w - used) * w / sum(weights) for w in weights] if parts else []
-            return c, fixed, tail, widths
+            return c, fixed, tail, widths, inset
 
         def fits(ts, relax):
-            c, fixed, tail, widths = columns(ts, relax)
+            c, fixed, tail, widths, _ = columns(ts, relax)
             if any(w <= 4 for w in widths) or any(h > reg.h for _, (_, h) in fixed + tail):
                 return False
             for p, w in zip(parts, widths):
@@ -234,11 +236,12 @@ def row(scope: Scope, ctx0: Ctx, shrink: float = 1.0) -> List[Layout]:
                 break
         if ts is None:
             continue
-        c, fixed, tail, widths = columns(ts * shrink, relax)
+        c, fixed, tail, widths, inset = columns(ts * shrink, relax)
         lay = Layout(f"row {len(parts)}col s={shrink}", c)
         seq = [(b, wh[0]) for b, wh in fixed] + [(p, w) for p, w in zip(parts, widths)] + [(b, wh[0]) for b, wh in tail]
-        extra = max(0.0, reg.w - sum(w for _, w in seq) - gap * (len(seq) - 1)) / max(1, len(seq) - 1)
-        x = reg.x
+        free = reg.w - sum(inset) - sum(w for _, w in seq) - gap * (len(seq) - 1)
+        extra = max(0.0, free) / max(1, len(seq) - 1)
+        x = reg.x + inset[0]
         for obj, w in seq:
             if isinstance(obj, Block):
                 bc = _slot_ctx(obj, c, reg)
@@ -252,15 +255,27 @@ def row(scope: Scope, ctx0: Ctx, shrink: float = 1.0) -> List[Layout]:
 
 
 def _slot_ctx(b: Block, c: Ctx, reg: Rect) -> Ctx:
-    """Banner items: images fill the height (logo a bit less), chips follow the text scale."""
+    """Banner items: images fill the height as far as their padded box stays on
+    the canvas (the logo at most half of it, and not outgrowing the text by
+    more than 1.5x its source proportion); chips follow the text scale."""
     if b.role in ("logo", "hero", "image") or b.kind == "image":
-        return fit_block(b, c, reg.w / 3, reg.h * (0.75 if b.role == "logo" else 1.0))
+        _, top, _, bottom = B.image_pads(b)
+        h = min(reg.h, reg.cy / (0.5 + top), (c.H - reg.cy) / (0.5 + bottom))
+        if b.role == "logo":
+            h = min(h, 0.5 * reg.h, 1.5 * measure(b, c, INF)[1])
+        return fit_block(b, c, reg.w / 3, h)
     w, h = measure(b, c, reg.w / 3)
     return c if h <= reg.h else fit_block(b, c, reg.w / 3, reg.h)
 
 
 def _slot_size(b: Block, c: Ctx, reg: Rect) -> Tuple[float, float]:
     return measure(b, _slot_ctx(b, c, reg), reg.w / 3)
+
+
+def _edge_inset(slot, side: int, room: float) -> float:
+    """How far a banner's end item moves inwards so its padded box stays on the canvas."""
+    b, (w, _) = slot
+    return max(0.0, B.image_pads(b)[side] * w - room)
 
 
 def arrangements(scope: Scope, ctx0: Ctx, items, allow_preserve: bool = True) -> List[Layout]:
@@ -318,6 +333,20 @@ def _proportional(it, scene: Scene, W: float, H: float, scale: float) -> Placeme
     return Placement(cx - w / 2, cy - h / 2, w, h, font)
 
 
+def _is_frame(it, scene: Scene) -> bool:
+    """A large unrotated rectangle (inset border, tint) spanning most of the canvas."""
+    return it.type == "shape" and not it.rotation and it.el.get("shape_type", "rectangle") == "rectangle" \
+        and it.box.w >= 0.5 * scene.W and it.box.h >= 0.5 * scene.H
+
+
+def _anchored(it, scene: Scene, W: float, H: float, scale: float) -> Placement:
+    """Each edge keeps its scaled distance to the matching canvas edge."""
+    b = it.box
+    x0, y0 = max(0.0, b.x) * scale, max(0.0, b.y) * scale
+    x1, y1 = W - max(0.0, scene.W - b.x1) * scale, H - max(0.0, scene.H - b.y1) * scale
+    return Placement(x0, y0, max(1.0, x1 - x0), max(1.0, y1 - y0))
+
+
 def _corner_positions(corner: str, W, H, w, h, m, steps=6):
     """Corner first, then sliding along both edges away from it, then other corners."""
     for c in [corner] + [c for c in ("tr", "tl", "br", "bl") if c != corner]:
@@ -364,7 +393,8 @@ def finish(scene: Scene, lay: Layout, ornaments: List[Block]) -> Layout:
     canvas_src = Rect(0, 0, scene.W, scene.H)
     for it in scene.decor:
         visible = it.bounds.intersection(canvas_src) / max(1e-6, it.bounds.area)
-        lay.out[it.idx] = _proportional(it, scene, W, H, m * math.sqrt(max(0.2, visible)))
+        lay.out[it.idx] = _anchored(it, scene, W, H, m) if _is_frame(it, scene) else \
+            _proportional(it, scene, W, H, m * math.sqrt(max(0.2, visible)))
     for it in scene.hidden:
         p = _proportional(it, scene, W, H, m)
         p.hidden = it.missing  # graceful skip of a missing asset
@@ -380,19 +410,42 @@ def finish(scene: Scene, lay: Layout, ornaments: List[Block]) -> Layout:
 DROP_STEPS = (0.25, 0.36, 0.45, 0.55, 0.65, 0.8, 0.9)  # the last step may drop the logo
 
 
-def drop_levels(scene: Scene) -> List[List[Block]]:
-    """Progressively larger sets of low-importance blocks that may be hidden
-    when the canvas is too small to show everything legibly.  Headline, CTA
-    and logo are never dropped; text only when it can really be hidden."""
-    def droppable(b):
-        return b.importance < 0.9 and b.role not in ("headline", "cta") and b.kind != "panel" \
-            and (scene.hide_z is not None or not b.texts)
+def _never_dropped(b: Block) -> bool:
+    return b.importance >= DROP_STEPS[-1] or b.role in ("headline", "cta") or b.kind == "panel"
 
+
+def _drop_pool(blocks: List[Block]) -> List[Block]:
+    """Blocks that could be hidden: these, and the children of panels that
+    keep at least one child for sure (so no panel is ever left empty)."""
+    out = []
+    for b in blocks:
+        out.append(b)
+        if b.kind == "panel" and any(_never_dropped(c) for c in b.children):
+            out += _drop_pool(b.children)
+    return out
+
+
+def prune(b: Block, drop: List[Block]) -> Block:
+    """`b` without the dropped blocks nested inside it (panels keep their frame)."""
+    gone = {it.idx for d in drop for it in d.items}
+    if b.kind != "panel" or not any(it.idx in gone for it in b.items):
+        return b
+    return replace(b, items=[it for it in b.items if it.idx not in gone],
+                   children=[prune(c, drop) for c in b.children if c not in drop])
+
+
+def drop_levels(scene: Scene) -> List[List[Block]]:
+    """Progressively larger sets of low-importance blocks (also inside panels)
+    that may be hidden when the canvas is too small to show everything
+    legibly.  Headline, CTA and logo are never dropped; text only when it
+    can really be hidden."""
+    pool = _drop_pool(scene.blocks) + scene.ornaments
     levels, seen = [[]], set()
     for thr in DROP_STEPS:
-        drop = [b for b in scene.blocks + scene.ornaments if b.importance < thr and droppable(b)]
+        drop = [b for b in pool if b.importance < thr and not _never_dropped(b)
+                and (scene.hide_z is not None or not b.texts)]
         key = frozenset(map(id, drop))
-        if drop and key not in seen and len(drop) < len(scene.blocks) + len(scene.ornaments):
+        if drop and key not in seen and len(drop) < len(pool):
             seen.add(key)
             levels.append(drop)
     return levels
@@ -436,7 +489,7 @@ def candidates(scene: Scene, ctx0: Ctx) -> Tuple[Scope, List[Layout]]:
                 out.append(finish(scene, lay, []))
                 break
     for drop in drop_levels(scene):
-        flow = [b for b in scene.blocks if b not in drop]
+        flow = [prune(b, drop) for b in scene.blocks if b not in drop]
         if not flow:
             continue
         lays = arrangements(Scope(flow, src, region), ctx0, scene.items, allow_preserve=False)

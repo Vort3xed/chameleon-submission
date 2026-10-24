@@ -27,7 +27,9 @@ _RGBA = re.compile(r"rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*(
 _CTA_WORDS = re.compile(r"^(shop|buy|order|get|learn|discover|try|find|reserve|book|join|sign|download|start|"
                         r"rsvp|subscribe|explore|see|view|claim|grab|register|call|visit|watch|read|apply)\b", re.I)
 
-IMPORTANCE = {"headline": 1.0, "cta": 0.85, "logo": 0.85, "hero": 0.75, "subhead": 0.6, "text": 0.5,
+_PRICE = re.compile(r"^((from|only|just|now)\s+)?[$€£¥]\s?\d[\d.,]*\b.{0,12}$", re.I)
+
+IMPORTANCE = {"headline": 1.0, "cta": 0.85, "logo": 0.85, "hero": 0.75, "subhead": 0.6, "price": 0.6, "text": 0.5,
               "body": 0.4, "image": 0.5, "badge": 0.35, "ribbon": 0.35, "legal": 0.2, "divider": 0.15,
               "shape": 0.2, "panel": 0.8, "row": 0.4}
 
@@ -132,6 +134,7 @@ class Block:
     align: str = "center"
     corner: str = ""  # for ornaments: tl/tr/bl/br
     hero: bool = False  # carries the main product imagery
+    inner: Optional[Rect] = None  # panels: where the children sat inside the frame
 
     @property
     def src(self) -> Rect:
@@ -304,7 +307,7 @@ def make_block(members: List[Item], children_of: Dict[int, List[Item]], scope: R
     if big and not any(m.rotation for m in members) and frame.box.contains(bounding([m.bounds for m in inner]), 0.95):
         direct = [m for m in inner if not any(m in children_of.get(o.idx, []) for o in inner)]
         kids = build_blocks(direct, children_of, frame.box)
-        return Block("panel", members, children=kids, frame=frame)
+        return Block("panel", members, children=kids, frame=frame, inner=bounding([k.src for k in kids]))
     return Block("rigid", members, frame=frame)
 
 
@@ -329,7 +332,7 @@ def group_rows(blocks: List[Block]) -> List[Block]:  # noqa: C901
         if len(row) >= 2 and row[0].kind in ("rigid", "image"):
             items = [i for b in row for i in b.items]
             out.append(Block("row", items, children=sorted(row, key=lambda b: b.src.x), role="row",
-                             importance=max(b.importance for b in row)))
+                             importance=max(b.importance for b in row), hero=any(b.hero for b in row)))
         else:
             out.extend(row)
     return out
@@ -359,13 +362,18 @@ def assign_roles(blocks: List[Block], W: float, H: float):
         flat.append(b)
         flat.extend(_all_children(b))
     singles = [b for b in flat if b.kind == "text"]
-    fonts = sorted({round(b.items[0].font, 1) for b in singles}, reverse=True)
+    prices = {id(b) for b in singles if _PRICE.match(b.items[0].content.strip())}
+    # a price can be the biggest type on a card, but the message is the headline
+    titled = [b for b in singles if id(b) not in prices] or singles
+    fonts = sorted({round(b.items[0].font, 1) for b in titled}, reverse=True)
     for b in flat:
         if b.kind == "text":
             it = b.items[0]
             n = len(it.content)
-            rank = fonts.index(round(it.font, 1)) if fonts else 0
-            if rank == 0 and n <= 160:
+            rank = fonts.index(round(it.font, 1)) if round(it.font, 1) in fonts else 0
+            if id(b) in prices and titled is not singles:
+                b.role = "price"
+            elif rank == 0 and n <= 160:
                 b.role = "headline"
             elif _CTA_WORDS.match(it.content.strip()) and n <= 30:
                 b.role = "cta"
