@@ -132,8 +132,9 @@ Development-only tooling, not copied into the image
 * `vlm_judge.py`, `vlm_pairwise.py` – a local multimodal LLM as a stand-in for
   the AI evaluator: absolute rubric scores, and A/B preference between engine versions.
 * `sheets.py`, `format_sheet.py` – contact sheets for eyeballing results.
-* `tests/test_robustness.py` – 98 tests: samples pass the gate at many sizes,
-  fuzzed/malformed inputs never crash or break invariants, outputs render,
+* `tests/test_robustness.py` – 138 tests: samples pass the gate at many sizes,
+  fuzzed/malformed inputs never crash or break invariants (and are absorbed
+  by the main engine, not just the fallback), outputs render,
   determinism, no-fonts/no-assets operation, import from any cwd or as a
   top-level module, and `python -m engine.main` end to end.
 
