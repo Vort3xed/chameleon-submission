@@ -123,7 +123,12 @@ Development-only tooling, not copied into the image
   story stacks, adversarial messes with junk fields, rotation, missing assets,
   off-canvas and zero-size elements), each paired with near / far / extreme
   targets from a 42-format catalogue; `--formats` builds every design × every
-  format (1,638 tasks).
+  format (1,638 tasks); `--seed 2026` gives a holdout set never used for tuning.
+* `gen_crazy.py` – 20 stress designs (walls of text, 3×3 grids, giant type,
+  two CTAs, photo + scrim, no background, vertical and rotated type, collages,
+  CJK/Arabic/emoji, unbreakable words, hard line breaks, nested cards, one
+  group holding everything, edge bars, price lists, lone elements) × 10
+  targets including 10:1 strips, 64 px squares and 4K.
 * `score.py` – a hard structural gate (schema, ids, frozen content/fonts/assets,
   bounds, aspect, renderability) plus 17 rubric metrics computed from real font
   metrics and actual renders (collisions, cut-off, readability, contrast,
@@ -132,11 +137,14 @@ Development-only tooling, not copied into the image
 * `vlm_judge.py`, `vlm_pairwise.py` – a local multimodal LLM as a stand-in for
   the AI evaluator: absolute rubric scores, and A/B preference between engine versions.
 * `sheets.py`, `format_sheet.py` – contact sheets for eyeballing results.
-* `tests/test_robustness.py` – 138 tests: samples pass the gate at many sizes,
+* `tests/test_robustness.py` – 258 tests: samples pass the gate at many sizes,
   fuzzed/malformed inputs never crash or break invariants (and are absorbed
   by the main engine, not just the fallback), outputs render,
   determinism, no-fonts/no-assets operation, import from any cwd or as a
-  top-level module, and `python -m engine.main` end to end.
+  top-level module, `python -m engine.main` end to end, and every stress
+  design at five targets.
+* `RUNS.md` – log of every kept change and rejected experiment with scorer
+  and AI-judge results.
 
 ```bash
 .venv/bin/python -m eval.gen_testset --out eval/testsets/main

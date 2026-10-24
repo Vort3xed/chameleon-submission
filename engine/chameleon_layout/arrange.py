@@ -98,6 +98,8 @@ def preserve(scope: Scope, ctx0: Ctx, boost: float, items) -> Optional[Layout]:
         y = max(reg.y, min(max(reg.y + t, reg.y + (r.cy - src.y) / src.h * reg.h - h / 2), reg.y1 - bt - h))
         scale_block(b, s, x, y, lay.out)
         lay.placed.append((b, Rect(x, y, w, h)))
+    if any(p.x < -0.5 or p.y < -0.5 or p.x + p.w > ctx0.W + 0.5 or p.y + p.h > ctx0.H + 0.5 for p in lay.out.values()):
+        return None  # e.g. a rotated element whose box only fits off-canvas
     from .objective import new_overlap, visible_inks
 
     g = 0.2 * m  # half the breathing room each side: elements that were apart must not touch
@@ -318,8 +320,13 @@ def best_layout(scope: Scope, ctx0: Ctx, items, allow_preserve: bool = True) -> 
 
 
 def _panel_inner(children: List[Block], src: Rect, region: Rect, ctx: Ctx, items) -> Dict[int, Placement]:
-    """Lay out a panel's children inside its new box (hooked into blocks.py)."""
-    lay = best_layout(Scope(children, src, region), ctx, items)
+    """Lay out a panel's children inside its new box (hooked into blocks.py).
+    Panels nested deeper simply stack, which keeps the search linear in depth."""
+    hook, B.panel_layout_hook = B.panel_layout_hook, None
+    try:
+        lay = best_layout(Scope(children, src, region), ctx, items)
+    finally:
+        B.panel_layout_hook = hook
     return lay.out if lay else {}
 
 
@@ -370,21 +377,36 @@ def place_ornaments(ornaments: List[Block], lay: Layout):
     m = margin(W, H) * 0.6
     taken = [r for _, r in lay.placed]
     for b in ornaments:
-        best = None
-        for shrink in (1.0, 0.85, 0.7, 0.55, 0.4, 0.3):
-            c = ctx.with_scale(ctx.ts * shrink, ctx.img * shrink)
+        # a single rotated element measures unrotated; groups already measure rotated bounds
+        rot = b.items[0].rotation if b.kind in ("text", "image", "shape") else 0.0
+        best, fit = None, 1.0
+        for shrink in (1.0, 0.85, 0.7, 0.55, 0.4, 0.3, None):
+            if shrink is None:  # nothing fitted: scale exactly to fit, legibility floors off
+                if best is not None:
+                    break
+                c = Ctx(W, H, ctx.src_W, ctx.src_H, ctx.ts * 0.3 * fit, ctx.img * 0.3 * fit, 0.0)
+            else:
+                c = ctx.with_scale(ctx.ts * shrink, ctx.img * shrink)
             w, h = measure(b, c, W - 2 * m, H - 2 * m)
-            for x, y in _corner_positions(b.corner, W, H, w, h, m):
-                r = Rect(x, y, w, h)
+            foot = Rect(0, 0, w, h).rotated_bounds(rot)
+            fit = min(1.0, (W - 2 * m) / max(foot.w, 1e-6), (H - 2 * m) / max(foot.h, 1e-6), W / max(w, 1e-6),
+                      H / max(h, 1e-6))
+            if fit < 1.0 and shrink is not None:
+                continue  # the rotated footprint (or the box itself) does not fit the canvas yet
+            for x, y in _corner_positions(b.corner, W, H, foot.w, foot.h, m):
+                # the unrotated box must stay on the canvas too: clamp its centre
+                cx = min(max(x + foot.w / 2, w / 2), W - w / 2)
+                cy = min(max(y + foot.h / 2, h / 2), H - h / 2)
+                r = Rect(cx - foot.w / 2, cy - foot.h / 2, foot.w, foot.h)
                 hit = sum(r.intersection(t) for t in taken)
                 if best is None or hit < best[0] - 1e-6:
-                    best = (hit, c, r)
+                    best = (hit, c, r, w, h)
                 if hit <= 0:
                     break
-            if best[0] <= 0:
+            if best and best[0] <= 0:
                 break
-        _, c, r = best
-        place(b, c, r.x, r.y, r.w + 0.01, r.h + 0.01, lay.out)
+        _, c, r, w, h = best
+        place(b, c, r.cx - w / 2, r.cy - h / 2, w + 0.01, h + 0.01, lay.out)
         lay.placed.append((b, r))
         taken.append(r)
 

@@ -768,11 +768,12 @@ def score_task(source: dict, target: dict, output, src_prep: Optional[Prep] = No
         vis_ids = [i for i in ids if O.by_id.get(i) and O.by_id[i].visible and S.by_id[i].visible]
         if len(vis_ids) < 2:
             continue
-        sb = union_rect([S.by_id[i].box for i in vis_ids])
-        ob = union_rect([O.by_id[i].box for i in vis_ids])
+        # compare what is visible (a label's box may tighten around its words)
+        sb = union_rect([S.by_id[i].ink for i in vis_ids])
+        ob = union_rect([O.by_id[i].ink for i in vis_ids])
         if not sb or not ob:
             continue
-        diffs = [_box_shift(S.by_id[i].box, sb, O.by_id[i].box, ob) for i in vis_ids]
+        diffs = [_box_shift(S.by_id[i].ink, sb, O.by_id[i].ink, ob) for i in vis_ids]
         d = sum(diffs) / len(diffs)
         sc = max(0.0, 1 - d * 4)
         gs.append((sc, 1.0))

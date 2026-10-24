@@ -17,6 +17,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass, field
+from functools import cached_property
 from typing import Dict, List, Optional, Tuple
 
 from . import assets
@@ -139,6 +140,13 @@ class Block:
     @property
     def src(self) -> Rect:
         return bounding([i.bounds for i in self.items])
+
+    @cached_property
+    def visible(self) -> Rect:
+        """Like `src`, but unrotated text counts by its words' horizontal extent
+        (centred labels often sit in boxes far wider than the words)."""
+        return bounding([Rect(i.ink.x, i.box.y, i.ink.w, i.box.h) if i.type == "text" and not i.rotation else i.bounds
+                         for i in self.items])
 
     @property
     def texts(self) -> List[Item]:
@@ -284,7 +292,11 @@ def build_blocks(scope_items: List[Item], children_of: Dict[int, List[Item]], sc
             if m.group:
                 groups.setdefault(m.group, []).append(it)
     for members in groups.values():
-        if len({m.idx for m in members}) > 1:
+        members = list({m.idx: m for m in members}.values())
+        # a group sprawling over most of the scope (say every element tagged with
+        # one id) is a label, not a unit that must move rigidly
+        sprawling = len(members) > 4 and bounding([m.bounds for m in members]).area > 0.4 * scope.area
+        if len(members) > 1 and not sprawling:
             add_unit([d for m in members for d in _descendants(m, children_of)])
 
     blocks = []

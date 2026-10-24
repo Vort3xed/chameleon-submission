@@ -18,7 +18,7 @@ pairwise logs); `eval/runs/history.jsonl` has every scorer run.
 
 ## Current best
 
-**v27b**: main 97.98 · formats 98.38 · 0 gate failures · 0.06 s/design.
+**v29**: formats 98.30 (scorer v2) · crazy 95.83 · 0 gate failures · 0.06 s/design.
 Holdout: v23b beats v12 (start of day 2) **65–20 (35 ties), +0.37**; v27b beats
 v23b 27–19 (+0.10).
 
@@ -44,7 +44,10 @@ v23b 27–19 (+0.10).
 | v26 | "keep the composition" may enlarge everything 1.5× (was 1.3×) | – | 98.40 | **51–3, +0.59** (formats) | |
 | v26b | …while keeping the usual margin from the canvas edge | – | 98.38 | 23–19, +0.09 | |
 | v27 | …up to 2× (beyond 2× never fits) | 97.98 | 98.38 | **24–1, +0.68** (formats); 31–23 +0.09 (main); 25–20 +0.09 (holdout) | |
-| v27b | …and elements that were apart must keep a gap (no touching) | – | 98.38 | 11–13 vs v27 (formats); 27–19 +0.10 vs v23b (holdout) | |
+| v27b | …and elements that were apart must keep a gap (no touching) | – | 98.38 | 11–13 vs v27 (formats); 27–19 +0.10 vs v23b (holdout) | `8ca3c99` |
+| v29 | fixes from the stress set: rigid groups sized by visible words (3×3 grids no longer dropped), nested cards stack (3.6 s → 0.4 s), a group spanning the design is broken up, rotated elements fit by footprint and box, preserve never pushes a box off-canvas | – | 98.30² | 17–11 +0.06 (formats); 5–11 −0.06 (holdout) | |
+
+² scorer v2: group integrity compares visible extents, not boxes (v27b rescored: 98.34).
 
 ¹ official samples × 42 formats only (126 tasks).
 

@@ -251,3 +251,38 @@ def test_main_end_to_end(tmp_path):
     for s in SAMPLES:
         assert (tmp_path / "output" / f"{s.stem}_output.json").exists()
         assert (tmp_path / "output" / f"{s.stem}_output.png").stat().st_size > 1000
+
+
+# ---------------------------------------------------------------------------
+# stress designs (eval/gen_crazy.py): walls of text, 3x3 grids, vertical and
+# rotated type, non-Latin scripts, unbreakable words, nested cards, ...
+
+
+def _crazy(arch):
+    from eval.gen_crazy import CRAZY, SOURCES
+
+    W, H = SOURCES[list(CRAZY).index(arch) % len(SOURCES)]
+    return CRAZY[arch](random.Random(arch), W, H).to_source()
+
+
+def _crazy_names():
+    from eval.gen_crazy import CRAZY
+
+    return list(CRAZY)
+
+
+@pytest.mark.parametrize("arch", _crazy_names())
+@pytest.mark.parametrize("target", [(1080, 1080), (728, 90), (160, 600), (64, 64), (200, 2000)])
+def test_crazy_designs_pass_gate(arch, target):
+    src = _crazy(arch)
+    tc = {"width": target[0], "height": target[1]}
+    out = resize(copy.deepcopy(src), tc)
+    assert_valid(src, tc, out)
+    assert gate(src, tc, out) == []
+
+
+@pytest.mark.parametrize("arch", _crazy_names())
+def test_crazy_designs_render(arch):
+    from eval.render import render
+
+    render(resize(_crazy(arch), {"width": 1200, "height": 628}), max_size=600)

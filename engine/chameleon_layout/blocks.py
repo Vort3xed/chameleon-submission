@@ -238,15 +238,18 @@ def rigid_scale(b: Block, ctx: Ctx, max_w: float = INF, max_h: float = INF) -> f
     s = ctx.ts if b.texts else ctx.img
     for t in b.texts:
         s = max(s, ctx.font_floor(t, b.role) / t.font)
-    return _uniform_fit(b.src, s, max_w, max_h)
+    return _uniform_fit(b.visible, s, max_w, max_h)
 
 
 def _rigid(b, ctx, max_w, max_h, out, x, y):
-    src = b.src
+    src = b.visible
     s = rigid_scale(b, ctx, max_w, max_h)
     if out is not None:
         for it in b.items:
-            p = Placement(x + (it.box.x - src.x) * s, y + (it.box.y - src.y) * s, it.box.w * s, it.box.h * s)
+            tight = it.type == "text" and not it.rotation
+            r = Rect(it.ink.x, it.box.y, it.ink.w, it.box.h) if tight else it.box
+            pad = 0.1 * it.font * s + 1 if tight else 0.0  # slack so the words never re-wrap
+            p = Placement(x + (r.x - src.x) * s - pad, y + (r.y - src.y) * s, r.w * s + 2 * pad, r.h * s)
             if it.type == "text":
                 p.font = keep_lines(it, it.font * s, p.w)
             out[it.idx] = p
