@@ -25,3 +25,4 @@ output/*
 eval/testsets/
 eval/runs/
 eval/prefs/
+eval/snapshots/
