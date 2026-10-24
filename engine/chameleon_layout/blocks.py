@@ -16,7 +16,7 @@ at most `max_w` x `max_h`, and where each of its elements lands.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Dict, List, Optional, Tuple
 
 from . import text_metrics as tm
@@ -246,14 +246,25 @@ def _rigid(b, ctx, max_w, max_h, out, x, y):
     s = rigid_scale(b, ctx, max_w, max_h)
     if out is not None:
         for it in b.items:
-            tight = it.type == "text" and not it.rotation
-            r = Rect(it.ink.x, it.box.y, it.ink.w, it.box.h) if tight else it.box
-            pad = 0.1 * it.font * s + 1 if tight else 0.0  # slack so the words never re-wrap
-            p = Placement(x + (r.x - src.x) * s - pad, y + (r.y - src.y) * s, r.w * s + 2 * pad, r.h * s)
+            p = Placement(x + (it.box.x - src.x) * s, y + (it.box.y - src.y) * s, it.box.w * s, it.box.h * s)
             if it.type == "text":
                 p.font = keep_lines(it, it.font * s, p.w)
+                if not it.rotation:
+                    p = _tighten(it, p)
             out[it.idx] = p
     return src.w * s, src.h * s
+
+
+def _tighten(it: Item, p: Placement) -> Placement:
+    """Shrink a label's box to its measured lines, aligned as the text is, so
+    a wide centred box cannot reach past the group (or off the canvas)."""
+    lay = it.text_layout(p.font, p.w)
+    w = min(p.w, lay.max_line_width + 0.1 * p.font + 2)
+    if it.text_layout(p.font, w).lines != lay.lines:
+        return p
+    align = it.el.get("text_align", "left")
+    x = p.x + {"center": (p.w - w) / 2, "right": p.w - w}.get(align, 0.0)
+    return replace(p, x=x, w=w)
 
 
 def keep_lines(it: Item, font: float, width: float) -> int:

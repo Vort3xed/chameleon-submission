@@ -18,9 +18,9 @@ pairwise logs); `eval/runs/history.jsonl` has every scorer run.
 
 ## Current best
 
-**v31**: formats 98.31 (scorer v2) · holdout 97.84 · crazy 96.13 · 0 gate failures · 0.06 s/design.
-Holdout: v23b beats v12 (start of day 2) **65–20 (35 ties), +0.37**; v27b beats
-v23b 27–19 (+0.10).
+**v33**: holdout 97.89 · crazy 96.19 · 0 gate failures · 0.06 s/design.
+Holdout (never tuned on): v31-era engine beats v12 (start of day 2) 55–19 (+0.29);
+v33 ties v27 18–17 over all 233 differing tasks.
 
 ## Kept changes
 
@@ -50,6 +50,12 @@ v23b 27–19 (+0.10).
 | v30 | wall-clock time budget replaced by a candidate cap (output no longer depends on machine speed; under x86 emulation the old budget changed 2/30 outputs) | – | 98.30² | outputs identical | `6ef0c83` |
 | v31 | stacked rows of like tiles form one grid; wrapped lines are evened out (9 tiles: 3×3 or 5+4) | – | 98.31² | 7–1 +0.60 (formats); 4–1 +0.38 (holdout) | |
 
+| v33 | regression fix: grouped labels keep the font the full box allowed, *then* the box tightens around the measured lines (v29 had sized tight boxes from scaled glyph widths, which run short at small sizes, so labels lost a pixel: holdout 11–27 vs v23b) | – | – | holdout: 12–10 vs v23b; 18–17 (198 ties) vs v27 on all differing tasks | |
+
+**Lesson (v29–v31):** a chain of small A/B wins (+0.06, +0.06, +0.38 on 8
+tasks) hid a real regression. Every few versions, compare against a fixed
+baseline on *all* differing holdout tasks.
+
 ² scorer v2: group integrity compares visible extents, not boxes (v27b rescored: 98.34).
 
 ¹ official samples × 42 formats only (126 tasks).
@@ -72,6 +78,7 @@ does; the judge consistently prefers keeping content and bigger product art.
 | v24: button padding compresses in tight slots | 13–7, +0.08 | tiny labels went *up* (43 → 46); reverted |
 | v25: same aspect ratio → return the source layout scaled exactly | **1–76, −0.93** | the judge prefers our larger text even to the designer's own sizing |
 | v28: preserve boosts 2.5× / 3× | 0 differing | never fit |
+| edge bands (full-width header/footer bars) | not built | they scale rigidly and get dropped in banners; needs a band concept — deferred, the official samples have none |
 
 ## Objective fits (`eval/collect_prefs.py` + `eval/fit_prefs.py`)
 

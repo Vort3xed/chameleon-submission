@@ -98,8 +98,9 @@ def preserve(scope: Scope, ctx0: Ctx, boost: float, items) -> Optional[Layout]:
         y = max(reg.y, min(max(reg.y + t, reg.y + (r.cy - src.y) / src.h * reg.h - h / 2), reg.y1 - bt - h))
         scale_block(b, s, x, y, lay.out)
         lay.placed.append((b, Rect(x, y, w, h)))
-    if any(p.x < -0.5 or p.y < -0.5 or p.x + p.w > ctx0.W + 0.5 or p.y + p.h > ctx0.H + 0.5 for p in lay.out.values()):
-        return None  # e.g. a rotated element whose box only fits off-canvas
+    if any(it.rotation and (p.x < -0.5 or p.y < -0.5 or p.x + p.w > ctx0.W + 0.5 or p.y + p.h > ctx0.H + 0.5)
+           for it, p in ((items[i], p) for i, p in lay.out.items())):
+        return None  # a rotated element whose box only fits off-canvas would be dragged across the design
     from .objective import new_overlap, visible_inks
 
     g = 0.2 * m  # half the breathing room each side: elements that were apart must not touch
