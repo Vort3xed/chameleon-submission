@@ -342,17 +342,19 @@ def _panel(b, ctx, max_w, max_h, out, x, y):
 
 
 def _row_gap(b: Block, ctx: Ctx) -> float:
-    xs = sorted(b.children, key=lambda c: c.src.x)
-    gaps = [max(0.0, c.src.x - p.src.x1) for p, c in zip(xs, xs[1:])]
+    """Median source gap between neighbours on the same line (children are in reading order)."""
+    gaps = [c.src.x - p.src.x1 for p, c in zip(b.children, b.children[1:])
+            if min(p.src.y1, c.src.y1) > max(p.src.y, c.src.y) and c.src.x >= p.src.x1]
     g = sorted(gaps)[len(gaps) // 2] if gaps else 0.0
     return max(2.0, g * ctx.ts)
 
 
 def row_lines(b: Block, ctx: Ctx, max_w: float):
+    """Flex-wrap the children, then even out the lines (9 tiles: 5+4, not 7+2)."""
     gap = _row_gap(b, ctx)
+    sized = [(c, *measure(c, ctx, max_w)) for c in b.children]
     lines, cur, cur_w = [], [], 0.0
-    for c in b.children:
-        w, h = measure(c, ctx, max_w)
+    for c, w, h in sized:
         if cur and cur_w + gap + w > max_w:
             lines.append(cur)
             cur, cur_w = [], 0.0
@@ -360,6 +362,10 @@ def row_lines(b: Block, ctx: Ctx, max_w: float):
         cur_w += (gap if len(cur) > 1 else 0.0) + w
     if cur:
         lines.append(cur)
+    per = -(-len(sized) // len(lines))
+    even = [sized[i:i + per] for i in range(0, len(sized), per)]
+    if len(even) == len(lines) and all(sum(w for _, w, _ in ln) + gap * (len(ln) - 1) <= max_w for ln in even):
+        lines = even
     return lines, gap
 
 

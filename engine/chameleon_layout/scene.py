@@ -341,14 +341,33 @@ def group_rows(blocks: List[Block]) -> List[Block]:  # noqa: C901
         else:
             rows.append([b])
     out = [b for b in blocks if b not in eligible]
-    for row in rows:
-        if len(row) >= 2 and row[0].kind in ("rigid", "image"):
-            items = [i for b in row for i in b.items]
-            out.append(Block("row", items, children=sorted(row, key=lambda b: b.src.x), role="row",
-                             importance=max(b.importance for b in row), hero=any(b.hero for b in row)))
-        else:
-            out.extend(row)
+    tiles = [sorted(r, key=lambda b: b.src.x) for r in rows if len(r) >= 2 and r[0].kind in ("rigid", "image")]
+    out += [b for r in rows if not (len(r) >= 2 and r[0].kind in ("rigid", "image")) for b in r]
+    for grid in _stack_rows(tiles):
+        kids = [b for r in grid for b in r]
+        out.append(Block("row", [i for b in kids for i in b.items], children=kids, role="row",
+                         importance=max(b.importance for b in kids), hero=any(b.hero for b in kids)))
     return out
+
+
+def _stack_rows(rows: List[List[Block]]) -> List[List[List[Block]]]:
+    """Rows of like tiles stacked one above the other form one grid."""
+    def extent(r):
+        return bounding([b.src for b in r])
+
+    grids: List[List[List[Block]]] = []
+    for r in sorted(rows, key=lambda r: extent(r).y):
+        e, t = extent(r), r[0].src
+        for g in grids:
+            ge, gt = extent(g[-1]), g[-1][0].src
+            like = r[0].kind == g[-1][0].kind and max(t.h, gt.h) / max(1e-6, min(t.h, gt.h)) < 1.3
+            aligned = min(e.x1, ge.x1) - max(e.x, ge.x) >= 0.6 * min(e.w, ge.w)
+            if like and aligned and 0 <= e.y - ge.y1 <= max(t.h, gt.h):
+                g.append(r)
+                break
+        else:
+            grids.append([r])
+    return grids
 
 
 def reading_order(blocks: List[Block]) -> List[Block]:

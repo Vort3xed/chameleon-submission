@@ -18,7 +18,7 @@ pairwise logs); `eval/runs/history.jsonl` has every scorer run.
 
 ## Current best
 
-**v29**: formats 98.30 (scorer v2) · crazy 95.83 · 0 gate failures · 0.06 s/design.
+**v31**: formats 98.31 (scorer v2) · holdout 97.84 · crazy 96.13 · 0 gate failures · 0.06 s/design.
 Holdout: v23b beats v12 (start of day 2) **65–20 (35 ties), +0.37**; v27b beats
 v23b 27–19 (+0.10).
 
@@ -46,6 +46,9 @@ v23b 27–19 (+0.10).
 | v27 | …up to 2× (beyond 2× never fits) | 97.98 | 98.38 | **24–1, +0.68** (formats); 31–23 +0.09 (main); 25–20 +0.09 (holdout) | |
 | v27b | …and elements that were apart must keep a gap (no touching) | – | 98.38 | 11–13 vs v27 (formats); 27–19 +0.10 vs v23b (holdout) | `8ca3c99` |
 | v29 | fixes from the stress set: rigid groups sized by visible words (3×3 grids no longer dropped), nested cards stack (3.6 s → 0.4 s), a group spanning the design is broken up, rotated elements fit by footprint and box, preserve never pushes a box off-canvas | – | 98.30² | 17–11 +0.06 (formats); 5–11 −0.06 (holdout) | |
+
+| v30 | wall-clock time budget replaced by a candidate cap (output no longer depends on machine speed; under x86 emulation the old budget changed 2/30 outputs) | – | 98.30² | outputs identical | `6ef0c83` |
+| v31 | stacked rows of like tiles form one grid; wrapped lines are evened out (9 tiles: 3×3 or 5+4) | – | 98.31² | 7–1 +0.60 (formats); 4–1 +0.38 (holdout) | |
 
 ² scorer v2: group integrity compares visible extents, not boxes (v27b rescored: 98.34).
 
