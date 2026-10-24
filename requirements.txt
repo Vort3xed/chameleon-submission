@@ -1,4 +1,43 @@
-# Pinned to the exact versions the engine was developed and tested against.
-Pillow==13.0.0
+# Every runtime package pinned to the exact versions the engine was tested with
+# (binary wheels exist for linux/amd64 and linux/arm64, Python 3.11).
+aiohappyeyeballs==2.7.1
+aiohttp==3.14.5
+aiosignal==1.4.0
+annotated-types==0.8.0
+anyio==4.15.1
+attrs==26.1.0
+click==8.5.0
+cr-renderer @ git+https://github.com/CyberAgentAILab/cr-renderer@a17e1fb9a732959dd6c21ae168d5ee09d74bd64f
+datasets==5.1.0
+dill==0.4.1
+filelock==4.2.4
+frozenlist==1.8.0
+fsspec==2026.7.0
+h11==0.16.0
+hf-xet==1.7.0
+httpcore2==2.16.0
+httpx2==2.16.0
+huggingface-hub==2.3.0
+idna==3.20
+multidict==7.1.0
+multiprocess==0.70.19
+numpy==2.4.6
+packaging==26.3
+pandas==3.1.0
+pillow==13.0.0
+propcache==0.5.4
+pyarrow==26.0.0
+pybind11==3.1.0
+pydantic==2.14.1
+pydantic-core==2.50.1
+python-dateutil==3.0.0
+pyyaml==6.0.3
+six==1.17.0
 skia-python==144.1
-git+https://github.com/CyberAgentAILab/cr-renderer@a17e1fb9a732959dd6c21ae168d5ee09d74bd64f
+tqdm==4.70.1
+truststore==0.10.5
+typing-extensions==4.16.0
+typing-inspection==0.4.4
+tzdata==2026.5
+xxhash==4.0.2
+yarl==1.25.1
