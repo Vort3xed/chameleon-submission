@@ -30,6 +30,10 @@ _src_cache = {}
 
 def _init(engine_root: str):
     global _resize
+    import resource
+
+    # a runaway render must fail in this worker, not exhaust the machine
+    resource.setrlimit(resource.RLIMIT_AS, (8 * 1024 ** 3, resource.getrlimit(resource.RLIMIT_AS)[1]))
     os.environ.setdefault("OMP_NUM_THREADS", "1")
     sys.path.insert(0, str(ROOT))
     if engine_root and Path(engine_root).resolve() != ROOT:
@@ -87,7 +91,8 @@ def quick_subset(manifest, frac=3):
     seen = defaultdict(int)
     for m in manifest:
         arch = m["archetype"]
-        idx = int(m["task_id"].split("_")[-2]) if arch != "official" else 0
+        digits = [int(t) for t in m["task_id"].replace("__", "_").split("_") if t.isdigit()]
+        idx = digits[0] if digits and arch != "official" else 0
         if arch == "official" or idx % frac == 0:
             keep.append(m["task_id"])
     return set(keep)

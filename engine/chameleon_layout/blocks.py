@@ -131,7 +131,7 @@ def fit_block(b: Block, ctx: Ctx, max_w: float, max_h: float) -> Ctx:
     max_w x max_h (legibility floors are dropped if they make it impossible)."""
     def fits(c, f):
         w, h = measure(b, c.with_scale(c.ts * f, c.img * f), max_w)
-        return w <= max_w + 0.5 and h <= max_h + 0.5
+        return w <= max_w and h <= max_h
 
     for c in (ctx, Ctx(ctx.W, ctx.H, ctx.src_W, ctx.src_H, ctx.ts, ctx.img, 0.0)):
         lo, hi = 1e-3, 1e3

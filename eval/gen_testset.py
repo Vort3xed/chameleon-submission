@@ -854,13 +854,49 @@ def generate(out_dir: Path, per_arch: int, seed: int):
     return manifest
 
 
+def generate_formats(out_dir: Path, per_arch: int, seed: int):
+    """Exhaustive format coverage: every catalogue format for the official
+    samples and for `per_arch` designs of every archetype."""
+    out_dir = Path(out_dir)
+    tasks_dir = out_dir / "tasks"
+    tasks_dir.mkdir(parents=True, exist_ok=True)
+    sources = []
+    for p in sorted((ROOT / "input").glob("chameleon_sample_*.json")):
+        t = json.loads(p.read_text())
+        sources.append(("official_" + t.get("task_id", p.stem), "official", 3, t["source"]))
+    rng_master = random.Random(seed)
+    for arch, (fn, classes) in ARCHETYPES.items():
+        for i in range(per_arch):
+            rng = random.Random(rng_master.random())
+            W, H = rng.choice(SHAPE_CLASSES[classes[i % len(classes)]])
+            cx = complexity_for(arch, rng, i + 1)
+            sources.append((f"{arch}_{i:02d}", arch, cx, fn(rng, W, H, cx).to_source()))
+    manifest = []
+    for sid, arch, cx, src in sources:
+        sw, sh = src["canvas"]["width"], src["canvas"]["height"]
+        for name, tw, th in FORMATS:
+            dist = ratio_distance(sw, sh, tw, th)
+            lvl = 3 if (min(tw, th) <= 100 or max(tw, th) <= 340 or dist > 1.55) else (2 if dist > 0.55 else 1)
+            slug = name.lower().replace(" ", "_").replace(":", "x")
+            tid = f"{sid}__{slug}"
+            task = {"task_id": tid, "archetype": arch, "complexity": cx, "ratio_level": lvl, "target_name": name,
+                    "source": src, "target_canvas": {"width": tw, "height": th}}
+            (tasks_dir / f"{tid}.json").write_text(json.dumps(task, ensure_ascii=False))
+            manifest.append({"task_id": tid, "archetype": arch, "complexity": cx, "ratio_level": lvl,
+                             "difficulty": max(1, min(3, round((cx + lvl) / 2 + 0.01))), "source": [sw, sh],
+                             "target": [tw, th], "target_name": name, "n_elements": len(src["elements"])})
+    (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=1))
+    print(f"wrote {len(manifest)} tasks to {tasks_dir}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(ROOT / "eval" / "testsets" / "main"))
     ap.add_argument("--designs-per-archetype", type=int, default=10)
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--formats", action="store_true", help="every catalogue format per design (coverage set)")
     a = ap.parse_args()
-    generate(Path(a.out), a.designs_per_archetype, a.seed)
+    (generate_formats if a.formats else generate)(Path(a.out), a.designs_per_archetype, a.seed)
 
 
 if __name__ == "__main__":

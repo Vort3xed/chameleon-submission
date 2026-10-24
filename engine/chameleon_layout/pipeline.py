@@ -7,7 +7,7 @@ import sys
 from typing import Tuple
 
 from .arrange import candidates
-from .blocks import Ctx, Placement
+from .blocks import Ctx
 from .finalize import finalize
 from .objective import evaluate
 from .scene import analyze, num
@@ -30,7 +30,7 @@ def _extent(elements) -> Tuple[float, float]:
     return (max(xs, default=1080) or 1080, max(ys, default=1080) or 1080)
 
 
-def retarget(source: dict, target_canvas: dict) -> dict:
+def _candidates(source: dict, target_canvas: dict):
     elements = source.get("elements") or []
     work = [e if isinstance(e, dict) else {} for e in elements]
     sW, sH = canvas_size(source.get("canvas") or {}, _extent(work))
@@ -40,9 +40,23 @@ def retarget(source: dict, target_canvas: dict) -> dict:
     if not layouts:
         raise RuntimeError("no candidate layout")
     scored = [(evaluate(lay, scope, scene.items), lay) for lay in layouts]
+    return elements, W, H, scene, scored
+
+
+def retarget(source: dict, target_canvas: dict) -> dict:
+    elements, W, H, scene, scored = _candidates(source, target_canvas)
     best_terms, best = max(scored, key=lambda t: t[0]["total"])
     if os.environ.get("CHAMELEON_DEBUG"):
         for terms, lay in sorted(scored, key=lambda t: -t[0]["total"]):
             print(f"  {terms['total']:.3f} {lay.name:24s} " + " ".join(f"{k}={v:.2f}" for k, v in terms.items()
-                                                                       if k != "total"), file=sys.stderr)
+                                                                       if k != "total" and not k.startswith("is_")),
+                  file=sys.stderr)
     return finalize({"elements": elements}, W, H, best.out, scene.hide_z)
+
+
+def candidate_outputs(source: dict, target_canvas: dict):
+    """[(terms, layout name, finalized design)] for every candidate - used by
+    the evaluation tooling to learn the objective weights."""
+    elements, W, H, scene, scored = _candidates(source, target_canvas)
+    return [(terms, lay.name, finalize({"elements": elements}, W, H, lay.out, scene.hide_z))
+            for terms, lay in scored]

@@ -95,9 +95,9 @@ def preserve(scope: Scope, ctx0: Ctx, boost: float, items) -> Optional[Layout]:
         y = min(max(reg.y, reg.y + (r.cy - src.y) / src.h * reg.h - h / 2), reg.y1 - h)
         scale_block(b, s, x, y, lay.out)
         lay.placed.append((b, Rect(x, y, w, h)))
-    from .objective import new_overlap
+    from .objective import new_overlap, visible_inks
 
-    if new_overlap(lay.out, scope.blocks, items) > 0.05:
+    if new_overlap(visible_inks(lay.out, scope.blocks)) > 0.05:
         return None  # elements that were apart (or barely touching) now collide
     return lay
 
@@ -112,7 +112,7 @@ def scale_block(b: Block, s: float, x: float, y: float, out: Dict[int, Placement
         out[it.idx] = p
 
 
-def stack(scope: Scope, ctx0: Ctx, k: float) -> Optional[Layout]:
+def stack(scope: Scope, ctx0: Ctx, k: float, shrink: float = 1.0) -> Optional[Layout]:
     blocks, reg = scope.blocks, scope.region
     if not blocks:
         return None
@@ -128,7 +128,8 @@ def stack(scope: Scope, ctx0: Ctx, k: float) -> Optional[Layout]:
         ts = bisect(fits, lo, hi)
         if ts is None:
             return None
-        lay = Layout(f"stack k={k}", base.with_scale(ts, ts * k))
+        ts *= shrink
+        lay = Layout(f"stack k={k} s={shrink}", base.with_scale(ts, ts * k))
         lay.placed = stack_place(blocks, lay.ctx, reg, lay.out)
         return lay
 
@@ -141,7 +142,7 @@ def visual_block(blocks: List[Block]) -> Optional[Block]:
     return max(cands, key=lambda b: b.src.area) if cands else None
 
 
-def split(scope: Scope, ctx0: Ctx, side: str, frac: float, k: float) -> Optional[Layout]:
+def split(scope: Scope, ctx0: Ctx, side: str, frac: float, k: float, shrink: float = 1.0) -> Optional[Layout]:
     vis = visual_block(scope.blocks)
     rest = [b for b in scope.blocks if b is not vis]
     if vis is None or not rest:
@@ -163,7 +164,8 @@ def split(scope: Scope, ctx0: Ctx, side: str, frac: float, k: float) -> Optional
         ts = bisect(fits, lo, hi)
         if ts is None:
             return None
-        lay = Layout(f"split {side} {frac} k={k}", base.with_scale(ts, ts * k))
+        ts *= shrink
+        lay = Layout(f"split {side} {frac} k={k} s={shrink}", base.with_scale(ts, ts * k))
         big = fit_block(vis, lay.ctx, vcol.w, vcol.h * 0.92)
         w, h = measure(vis, big, vcol.w)
         r = place(vis, big, vcol.x + (vcol.w - w) / 2, vcol.y + (vcol.h - h) / 2, vcol.w, INF, lay.out)
@@ -174,9 +176,19 @@ def split(scope: Scope, ctx0: Ctx, side: str, frac: float, k: float) -> Optional
 
 
 def _partitions(items: List[Block], max_parts: int):
+    """Contiguous splits of `items` into 1..max_parts columns.  Cuts are taken
+    near equal shares of text weight (plus neighbours), so the count stays
+    small however many blocks there are."""
     n = len(items)
+    cum = list(itertools.accumulate(_text_weight([b]) for b in items))
+    seen = set()
     for parts in range(1, min(max_parts, n) + 1):
-        for cuts in itertools.combinations(range(1, n), parts - 1):
+        ideal = [min(range(1, n), key=lambda i: abs(cum[i - 1] - cum[-1] * k / parts)) for k in range(1, parts)]
+        options = [sorted({max(1, min(n - 1, c + d)) for d in (-1, 0, 1)}) for c in ideal]
+        for cuts in itertools.product(*options):
+            if list(cuts) != sorted(set(cuts)) or cuts in seen:
+                continue
+            seen.add(cuts)
             bounds = (0,) + cuts + (n,)
             yield [items[a:b] for a, b in zip(bounds, bounds[1:])]
 
@@ -185,7 +197,7 @@ def _text_weight(blocks: List[Block]) -> float:
     return sum(sum(len(t.content) * t.font for t in b.texts) or b.src.w for b in blocks) or 1.0
 
 
-def row(scope: Scope, ctx0: Ctx) -> List[Layout]:
+def row(scope: Scope, ctx0: Ctx, shrink: float = 1.0) -> List[Layout]:
     reg, blocks = scope.region, scope.blocks
     logo = [b for b in blocks if b.role == "logo"][:1]
     vis = visual_block([b for b in blocks if b not in logo])
@@ -222,8 +234,8 @@ def row(scope: Scope, ctx0: Ctx) -> List[Layout]:
                 break
         if ts is None:
             continue
-        c, fixed, tail, widths = columns(ts, relax)
-        lay = Layout(f"row {len(parts)}col", c)
+        c, fixed, tail, widths = columns(ts * shrink, relax)
+        lay = Layout(f"row {len(parts)}col s={shrink}", c)
         seq = [(b, wh[0]) for b, wh in fixed] + [(p, w) for p, w in zip(parts, widths)] + [(b, wh[0]) for b, wh in tail]
         extra = max(0.0, reg.w - sum(w for _, w in seq) - gap * (len(seq) - 1)) / max(1, len(seq) - 1)
         x = reg.x
@@ -260,22 +272,20 @@ def arrangements(scope: Scope, ctx0: Ctx, items, allow_preserve: bool = True) ->
             if lay is not None:
                 out.append(lay)
                 break
-    for k in (0.7, 1.0, 1.4, 2.0):
-        lay = stack(scope, ctx0, k)
-        if lay:
-            out.append(lay)
     aspect = reg.w / max(reg.h, 1e-6)
-    if aspect > 0.9:
-        vis = visual_block(scope.blocks)
-        side = "left" if vis is None or vis.src.cx <= scope.src.cx else "right"
-        for frac in (0.38, 0.5):
-            for k in (1.0, 1.5):
-                lay = split(scope, ctx0, side, frac, k)
-                if lay:
-                    out.append(lay)
-    if aspect > 1.8:
-        out += row(scope, ctx0)
+    vis = visual_block(scope.blocks)
+    side = "left" if vis is None or vis.src.cx <= scope.src.cx else "right"
+    for shrink in SHRINKS:  # the largest text that fits, and a calmer variant
+        out += [lay for k in (0.7, 1.0, 1.4, 2.0) if (lay := stack(scope, ctx0, k, shrink))]
+        if aspect > 0.9:
+            out += [lay for frac in (0.38, 0.5) for k in (1.0, 1.5)
+                    if (lay := split(scope, ctx0, side, frac, k, shrink))]
+        if aspect > 1.8:
+            out += row(scope, ctx0, shrink)
     return out
+
+
+SHRINKS = (1.0, 0.82)
 
 
 def best_layout(scope: Scope, ctx0: Ctx, items, allow_preserve: bool = True) -> Optional[Layout]:
@@ -388,10 +398,30 @@ def drop_levels(scene: Scene) -> List[List[Block]]:
     return levels
 
 
+def letterbox(scene: Scene, ctx0: Ctx) -> Layout:
+    """Always-valid fallback: the source composition scaled uniformly and centred."""
+    W, H = ctx0.W, ctx0.H
+    s = min(W / scene.W, H / scene.H)
+    ox, oy = (W - scene.W * s) / 2, (H - scene.H * s) / 2
+    lay = Layout("letterbox", ctx0.with_scale(s, s))
+    for b in scene.blocks + scene.ornaments:
+        r = b.src
+        x, y = ox + r.x * s, oy + r.y * s
+        scale_block(b, s, x, y, lay.out)
+        lay.placed.append((b, Rect(x, y, r.w * s, r.h * s)))
+    return lay
+
+
+TIME_BUDGET = 4.0  # seconds; past this no further drop levels are explored
+
+
 def candidates(scene: Scene, ctx0: Ctx) -> Tuple[Scope, List[Layout]]:
     """All candidate layouts, plus the scope they should be judged in."""
+    import time
+
     from .objective import evaluate
 
+    start = time.monotonic()
     W, H = ctx0.W, ctx0.H
     m = margin(W, H)
     src = Rect(0, 0, scene.W, scene.H)
@@ -416,4 +446,8 @@ def candidates(scene: Scene, ctx0: Ctx) -> Tuple[Scope, List[Layout]]:
         out += lays
         if any(evaluate(lay, judge, scene.items)["legibility"] >= 0.97 for lay in lays):
             break  # everything left is legible: no need to drop more
+        if time.monotonic() - start > TIME_BUDGET:
+            break
+    if not out:
+        out.append(finish(scene, letterbox(scene, ctx0), []))
     return judge, out

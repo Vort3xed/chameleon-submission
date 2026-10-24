@@ -36,7 +36,7 @@ def letterbox(source, target_canvas) -> dict:
         if not isinstance(el, dict):
             out.append(copy.deepcopy(el))
             continue
-        e = copy.deepcopy(el)
+        e = {k: (0.0 if isinstance(v, float) and not math.isfinite(v) else v) for k, v in copy.deepcopy(el).items()}
         x, y, w, h = (_num(el.get(k)) for k in ("x", "y", "width", "height"))
         full = w * h >= 0.9 * sW * sH and el.get("type") in ("image", "shape")
         if full:

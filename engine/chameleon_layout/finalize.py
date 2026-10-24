@@ -35,6 +35,20 @@ def _fit_inside(p: Placement, W: float, H: float, rotation: float, keep_aspect: 
     return replace(p, x=cx - w / 2, y=cy - h / 2, w=w, h=h)
 
 
+_DEFAULTS = {"opacity": 1.0, "line_height": 1.2}
+
+
+def _finite(value, key=None):
+    """Recursively replace NaN/inf (invalid JSON) with safe defaults."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return _DEFAULTS.get(key, 0.0)
+    if isinstance(value, dict):
+        return {k: _finite(v, k) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_finite(v, key) for v in value]
+    return value
+
+
 def _r(v: float) -> float:
     v = round(float(v), 2)
     return 0.0 if v == 0 else v
@@ -44,9 +58,9 @@ def finalize(source: dict, W: int, H: int, placements: Dict[int, Placement], hid
     out = []
     for idx, el in enumerate(source.get("elements", [])):
         if not isinstance(el, dict):
-            out.append(copy.deepcopy(el))
+            out.append(_finite(copy.deepcopy(el)))
             continue
-        new = copy.deepcopy(el)
+        new = _finite(copy.deepcopy(el))
         p = placements.get(idx)
         if p is None:
             p = Placement(num(el.get("x")), num(el.get("y")), num(el.get("width")), num(el.get("height")))
