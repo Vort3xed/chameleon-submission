@@ -20,8 +20,8 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 from . import text_metrics as tm
-from .geometry import Rect, bounding
-from .scene import Block, Item, num
+from .geometry import Rect
+from .scene import Block, Item
 
 INF = float("inf")
 SMALL_ROLES = {"legal", "badge", "ribbon", "divider"}

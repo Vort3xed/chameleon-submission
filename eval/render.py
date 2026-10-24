@@ -8,7 +8,7 @@ import logging
 import math
 import sys
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Tuple
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -40,7 +40,6 @@ def render(design: dict, max_size: int = 2048, canvas_color="white") -> Tuple[Im
     convert = _get()
     r = convert._get_renderer(str(FONTS_DIR))
     example, warnings = convert.convert_chameleon_to_crello(design, r.font_manager, str(ASSETS_DIR))
-    import skia  # noqa
 
     kwargs = {}
     if canvas_color is None:

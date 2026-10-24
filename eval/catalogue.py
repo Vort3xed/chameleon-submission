@@ -50,23 +50,6 @@ FORMATS = [
     ("Spotify Canvas", 720, 1280),
 ]
 
-# Formats that commonly appear as *source* designs.
-SOURCE_FORMATS = [
-    ("Instagram Post", 1080, 1080),
-    ("Instagram Portrait", 1080, 1350),
-    ("Instagram Story", 1080, 1920),
-    ("Facebook Post", 1200, 630),
-    ("Presentation 16:9", 1920, 1080),
-    ("Pinterest Pin", 1000, 1500),
-    ("X Post", 1600, 900),
-    ("Poster 18x24", 1800, 2400),
-    ("YouTube Thumbnail", 1280, 720),
-    ("Google Display Square", 1200, 1200),
-    ("US Letter Flyer", 1275, 1650),
-    ("X Header", 1500, 500),
-]
-
-
 def ratio_distance(w1, h1, w2, h2):
     """How different two aspect ratios are: |log(ar1/ar2)| (0 = same shape)."""
     import math

@@ -470,7 +470,7 @@ def render_layers(design: dict, scale_max: int = 1024):
     """Full render + background-only render (texts removed), plus scale."""
     from eval.render import render
 
-    W, H = design["canvas"]["width"], design["canvas"]["height"]
+    W = design["canvas"]["width"]
     full, warns = render(design, max_size=scale_max)
     bg_design = {"canvas": design["canvas"], "elements": [e for e in design["elements"] if e.get("type") != "text"]}
     if not bg_design["elements"]:
@@ -611,7 +611,6 @@ def score_task(source: dict, target: dict, output, src_prep: Optional[Prep] = No
     m: Dict[str, float] = {}
 
     imp = {v.id: IMPORTANCE.get(v.role, 0.3) for v in S.vis}
-    src_vis_ids = {v.id for v in S.vis if v.visible}
 
     # groups and containment in the source
     groups: Dict[str, List[str]] = {}

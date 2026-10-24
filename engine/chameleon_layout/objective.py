@@ -29,11 +29,12 @@ from .geometry import bounding
 from .scene import Block
 
 # Half the logistic weights fitted to ~300 tasks of AI-judge rankings
-# (eval/fit_prefs.py); overlap is kept as a safety term (candidates rarely
-# overlap, so the data cannot price it).
-WEIGHTS = {"hero": 0.16, "fill": 0.14, "coverage": 0.12, "headline": 0.12, "kept": 0.12, "legibility": 0.10,
-           "balance": 0.07, "faithful": 0.06, "wrap": 0.05, "overlap": 0.12,
-           "is_preserve_near": 0.06, "is_stack_near": 0.05, "is_split_near": -0.11,
+# (eval/fit_prefs.py).  Guard terms keep their earlier weights: the judge only
+# ever saw candidates these already screened (narrow shattered columns, tiny
+# text, overlaps), so the data cannot price them.
+WEIGHTS = {"hero": 0.16, "fill": 0.14, "coverage": 0.12, "headline": 0.12, "kept": 0.12, "legibility": 0.16,
+           "balance": 0.07, "faithful": 0.06, "wrap": 0.12, "overlap": 0.12,
+           "is_preserve_near": 0.06, "is_stack_near": 0.05, "is_split_near": -0.05,
            "is_preserve_mid": 0.10, "is_split_mid": 0.13, "is_stack_mid": -0.09, "is_row_mid": -0.14,
            "is_split_wide": 0.04, "is_stack_wide": -0.24, "is_row_wide": 0.20}
 

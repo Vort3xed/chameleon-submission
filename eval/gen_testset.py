@@ -30,7 +30,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from engine.chameleon_layout import text_metrics as tm  # noqa: E402
-from eval.catalogue import FORMATS, SOURCE_FORMATS, ratio_distance  # noqa: E402
+from eval.catalogue import FORMATS, ratio_distance  # noqa: E402
 
 BG = "solstice_bg_gradient.png"
 LOGO = "solstice_logo_lockup.png"
@@ -705,7 +705,6 @@ def a_adversarial(rng, W, H, cx):
     d = a_poster_center(rng, W, H, 3)
     els = d.els
     u = d.u
-    extra = []
     # junk / optional fields
     for el in els:
         if rng.random() < 0.3:

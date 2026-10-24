@@ -8,7 +8,6 @@ renderer accepts - whatever it is fed.
 import copy
 import json
 import math
-import os
 import random
 import subprocess
 import sys

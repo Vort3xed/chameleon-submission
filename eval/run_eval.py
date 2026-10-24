@@ -88,7 +88,6 @@ def _one(args):
 def quick_subset(manifest, frac=3):
     """Every `frac`-th design per archetype, all three targets, + officials."""
     keep = []
-    seen = defaultdict(int)
     for m in manifest:
         arch = m["archetype"]
         digits = [int(t) for t in m["task_id"].replace("__", "_").split("_") if t.isdigit()]
