@@ -136,8 +136,11 @@ Development-only tooling, not copied into the image
 * `run_eval.py` – parallel engine + scorer over a test set (`--vlm` adds AI-judge scores).
 * `vlm_judge.py`, `vlm_pairwise.py` – a local multimodal LLM as a stand-in for
   the AI evaluator: absolute rubric scores, and A/B preference between engine versions.
+* `vlm_sanity.py` – how far the judge can be trusted: a resize against copies
+  with known defects (smaller text, collisions, squashed product, text cut off,
+  dropped headline, naive stretch) and against itself, in both orders.
 * `sheets.py`, `format_sheet.py` – contact sheets for eyeballing results.
-* `tests/test_robustness.py` – 258 tests: samples pass the gate at many sizes,
+* `tests/test_robustness.py` – 259 tests: samples pass the gate at many sizes,
   fuzzed/malformed inputs never crash or break invariants (and are absorbed
   by the main engine, not just the fallback), outputs render,
   determinism, no-fonts/no-assets operation, import from any cwd or as a

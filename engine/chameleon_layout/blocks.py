@@ -184,7 +184,7 @@ def _image(b, ctx, max_w, max_h, out, x, y):
     vis = Rect(0, 0, it.box.w * (fx1 - fx0), it.box.h * (fy1 - fy0))
     s = ctx.img
     if b.role == "logo" and vis.h > 0:  # keep the brand mark legible
-        need = min(18.0, vis.h * ctx.src_view) / ctx.view * ctx.floor_relax
+        need = min(28.0, vis.h * ctx.src_view) / ctx.view * ctx.floor_relax
         s = max(s, need / vis.h)
     s = _uniform_fit(vis, s, max_w, max_h)
     if out is not None:

@@ -18,9 +18,9 @@ pairwise logs); `eval/runs/history.jsonl` has every scorer run.
 
 ## Current best
 
-**v33**: holdout 97.89 · crazy 96.19 · 0 gate failures · 0.06 s/design.
+**v34**: formats 98.23 · holdout 97.76 · crazy 96.19 · 0 gate failures · 0.06 s/design.
 Holdout (never tuned on): v31-era engine beats v12 (start of day 2) 55–19 (+0.29);
-v33 ties v27 18–17 over all 233 differing tasks.
+v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 
 ## Kept changes
 
@@ -46,11 +46,10 @@ v33 ties v27 18–17 over all 233 differing tasks.
 | v27 | …up to 2× (beyond 2× never fits) | 97.98 | 98.38 | **24–1, +0.68** (formats); 31–23 +0.09 (main); 25–20 +0.09 (holdout) | |
 | v27b | …and elements that were apart must keep a gap (no touching) | – | 98.38 | 11–13 vs v27 (formats); 27–19 +0.10 vs v23b (holdout) | `8ca3c99` |
 | v29 | fixes from the stress set: rigid groups sized by visible words (3×3 grids no longer dropped), nested cards stack (3.6 s → 0.4 s), a group spanning the design is broken up, rotated elements fit by footprint and box, preserve never pushes a box off-canvas | – | 98.30² | 17–11 +0.06 (formats); 5–11 −0.06 (holdout) | |
-
 | v30 | wall-clock time budget replaced by a candidate cap (output no longer depends on machine speed; under x86 emulation the old budget changed 2/30 outputs) | – | 98.30² | outputs identical | `6ef0c83` |
 | v31 | stacked rows of like tiles form one grid; wrapped lines are evened out (9 tiles: 3×3 or 5+4) | – | 98.31² | 7–1 +0.60 (formats); 4–1 +0.38 (holdout) | |
-
 | v33 | regression fix: grouped labels keep the font the full box allowed, *then* the box tightens around the measured lines (v29 had sized tight boxes from scaled glyph widths, which run short at small sizes, so labels lost a pixel: holdout 11–27 vs v23b) | – | – | holdout: 12–10 vs v23b; 18–17 (198 ties) vs v27 on all differing tasks | |
+| v34 | logo floor 18 → 28 px visible height (the wordmark was ~5 px in 300×250 / 250×250) | – | 98.23 | **90–40, +0.16** (formats, 310 tasks); 16–13 +0.03 (holdout) | |
 
 **Lesson (v29–v31):** a chain of small A/B wins (+0.06, +0.06, +0.38 on 8
 tasks) hid a real regression. Every few versions, compare against a fixed
@@ -79,6 +78,35 @@ does; the judge consistently prefers keeping content and bigger product art.
 | v25: same aspect ratio → return the source layout scaled exactly | **1–76, −0.93** | the judge prefers our larger text even to the designer's own sizing |
 | v28: preserve boosts 2.5× / 3× | 0 differing | never fit |
 | edge bands (full-width header/footer bars) | not built | they scale rigidly and get dropped in banners; needs a band concept — deferred, the official samples have none |
+
+## How far the judge can be trusted (`eval/vlm_sanity.py`)
+
+80 main-set tasks: the v33 output against a copy with a known defect, and
+against itself; both orders, same prompt as the A/B. Share of the 160 verdicts:
+
+| defect | clean wins | tie | damaged wins | verdict flips with order |
+|---|---|---|---|---|
+| identical copy | 10% | 79% | 11% | 21% |
+| all text 10% smaller | 54% | 22% | 24% | 48% |
+| all text 25% smaller | 84% | 1% | 15% | 22% |
+| all text 50% smaller | 100% | 0% | 0% | 0% |
+| headline moved onto the product | 99% | 0% | 1% | 3% |
+| headline half off the canvas | 99% | 0% | 1% | 1% |
+| headline deleted | 96% | 1% | 4% | 9% |
+| starter's naive stretch | 84% | 1% | 14% | 15% |
+| product squashed 1.6× wide | **42%** | 4% | **54%** | 39% |
+
+* Gross defects (collisions, cut-off, missing headline, halved text) are
+  caught almost always.
+* Subtle ones are near chance per pair: 10% smaller text is a 54/24 call that
+  flips with order half the time. Single close A/B results mean little; only
+  totals over many tasks count (a sign test on decisive pairs: 90–40 is
+  p ≈ 10⁻⁵, 16–13 is noise).
+* It does not see distortion and prefers the squashed (wider) product. The
+  engine never distorts (hard gate), but anything that just makes art bigger
+  will look like a win to this judge.
+* Slight position bias toward the second candidate (55%), cancelled by
+  judging both orders.
 
 ## Objective fits (`eval/collect_prefs.py` + `eval/fit_prefs.py`)
 
