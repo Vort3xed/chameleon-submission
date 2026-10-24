@@ -293,7 +293,7 @@ def arrangements(scope: Scope, ctx0: Ctx, items, allow_preserve: bool = True) ->
     for shrink in SHRINKS:  # the largest text that fits, and a calmer variant
         out += [lay for k in (0.7, 1.0, 1.4, 2.0) if (lay := stack(scope, ctx0, k, shrink))]
         if aspect > 0.9:
-            out += [lay for frac in (0.38, 0.5) for k in (1.0, 1.5)
+            out += [lay for frac in (0.38, 0.5, 0.62) for k in (1.0, 1.5)
                     if (lay := split(scope, ctx0, side, frac, k, shrink))]
         if aspect > 1.8:
             out += row(scope, ctx0, shrink)
