@@ -8,6 +8,7 @@ renderer accepts - whatever it is fed.
 import copy
 import json
 import math
+import os
 import random
 import subprocess
 import sys
@@ -79,6 +80,19 @@ def test_input_not_mutated_and_deterministic():
     assert src == task["source"]
     b = resize(copy.deepcopy(task["source"]), task["target_canvas"])
     assert a == b
+
+
+def test_deterministic_across_processes():
+    """Same input, same output in fresh interpreters with different hash seeds
+    (no dependence on set/dict ordering of strings, nor on machine speed)."""
+    code = ("import sys, json, glob, hashlib; sys.path.insert(0, %r); from engine.resize import resize; "
+            "h = hashlib.sha256(); "
+            "[h.update(json.dumps(resize(t['source'], t['target_canvas']), sort_keys=True).encode()) "
+            "for t in (json.load(open(p)) for p in sorted(glob.glob(%r)))]; print(h.hexdigest())"
+            % (str(ROOT), str(ROOT / "input" / "*.json")))
+    digests = {subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=300,
+                              env={**os.environ, "PYTHONHASHSEED": seed}).stdout.strip() for seed in ("0", "4242")}
+    assert len(digests) == 1 and "" not in digests
 
 
 # ---------------------------------------------------------------------------

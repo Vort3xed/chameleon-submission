@@ -524,16 +524,14 @@ def letterbox(scene: Scene, ctx0: Ctx) -> Layout:
     return lay
 
 
-TIME_BUDGET = 4.0  # seconds; past this no further drop levels are explored
+MAX_LAYOUTS = 400  # past this many candidates no further drop levels are explored (deterministic,
+                   # unlike a time budget: the same input gives the same output on any machine)
 
 
 def candidates(scene: Scene, ctx0: Ctx) -> Tuple[Scope, List[Layout]]:
     """All candidate layouts, plus the scope they should be judged in."""
-    import time
-
     from .objective import evaluate
 
-    start = time.monotonic()
     W, H = ctx0.W, ctx0.H
     m = margin(W, H)
     src = Rect(0, 0, scene.W, scene.H)
@@ -558,7 +556,7 @@ def candidates(scene: Scene, ctx0: Ctx) -> Tuple[Scope, List[Layout]]:
         out += lays
         if any(evaluate(lay, judge, scene.items)["legibility"] >= 0.97 for lay in lays):
             break  # everything left is legible: no need to drop more
-        if time.monotonic() - start > TIME_BUDGET:
+        if len(out) > MAX_LAYOUTS:
             break
     if not out:
         out.append(finish(scene, letterbox(scene, ctx0), []))
