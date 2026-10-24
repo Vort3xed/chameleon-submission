@@ -43,11 +43,13 @@ def letterbox(source, target_canvas) -> dict:
             x, y, w, h = 0.0, 0.0, float(W), float(H)
         else:
             x, y, w, h = ox + x * s, oy + y * s, max(0.0, w * s), max(0.0, h * s)
-        if el.get("type") == "text":
+        if el.get("type") == "image":  # images shrink uniformly to fit, other boxes per side
+            k = min(1.0, W / w if w else 1.0, H / h if h else 1.0)
+            w, h = w * k, h * k
+        w, h = min(w, W), min(h, H)
+        if el.get("type") == "text":  # the renderer rejects empty text boxes
             w, h = max(1.0, w), max(1.0, h)
             e["font_size"] = max(1, int(round(_num(el.get("font_size"), 16) * s)))
-        k = min(1.0, W / w if w else 1.0, H / h if h else 1.0)
-        w, h = w * k, h * k
         e["x"] = round(min(max(0.0, x), W - w), 2)
         e["y"] = round(min(max(0.0, y), H - h), 2)
         e["width"], e["height"] = round(w, 2), round(h, 2)

@@ -42,7 +42,7 @@ class Layout:
 
 
 def margin(W: float, H: float) -> float:
-    return max(2.0, 0.045 * min(W, H))
+    return min(max(2.0, 0.045 * min(W, H)), 0.25 * min(W, H))  # tiny canvases keep a positive region
 
 
 def bisect(fits: Callable[[float], bool], lo: float, hi: float, steps: int = 14) -> Optional[float]:

@@ -171,7 +171,8 @@ class Scene:
 def make_items(elements: List[dict]) -> List[Item]:
     items = []
     for idx, el in enumerate(elements):
-        t = el.get("type")
+        t = el.get("type") if isinstance(el.get("type"), str) else ""
+        g = el.get("group_id")
         box = Rect(num(el.get("x")), num(el.get("y")), max(0.0, num(el.get("width"))), max(0.0, num(el.get("height"))))
         op = max(0.0, min(1.0, num(el.get("opacity"), 1.0)))
         if t == "text":
@@ -181,7 +182,7 @@ def make_items(elements: List[dict]) -> List[Item]:
         else:
             alpha = op
         it = Item(idx, el, t, box, num(el.get("rotation")), alpha, num(el.get("z_index"), 0.0),
-                  el.get("group_id") or None)
+                  str(g) if isinstance(g, (str, int, float)) and g != "" else None)
         it.missing = t == "image" and assets.is_missing(el.get("asset_id"))
         it.font = max(1.0, num(el.get("font_size"), 16.0)) if t == "text" else 0.0
         items.append(it)

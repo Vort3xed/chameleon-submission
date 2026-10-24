@@ -137,6 +137,27 @@ def test_fuzz_never_crashes(idx):
     assert_valid(src, tc, out)
 
 
+@pytest.mark.parametrize("idx", range(0, 60, 3))
+def test_fuzz_main_pipeline_handles_junk(idx):
+    """Junk must be absorbed by the real layout engine, not just by the fallback."""
+    from engine.chameleon_layout.pipeline import retarget
+
+    src = _fuzz_sources()[idx]
+    tw, th = random.Random(idx).choice(TARGETS)
+    tc = {"width": tw, "height": th}
+    assert_valid(src, tc, retarget(copy.deepcopy(src), tc))
+
+
+@pytest.mark.parametrize("idx", range(0, 60, 3))
+def test_fallback_always_valid(idx):
+    from engine.chameleon_layout.fallback import letterbox
+
+    src = _fuzz_sources()[idx]
+    tw, th = random.Random(idx).choice(TARGETS)
+    tc = {"width": tw, "height": th}
+    assert_valid(src, tc, letterbox(copy.deepcopy(src), tc))
+
+
 @pytest.mark.parametrize("target", [None, {}, {"width": "100", "height": "50"}, {"width": 0, "height": 0},
                                     {"width": float("nan"), "height": 10}, {"width": 333.7, "height": 91.2}])
 def test_garbage_target_canvas(target):
