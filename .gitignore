@@ -20,3 +20,7 @@ venv/
 # Generated run artifacts
 output/*
 !output/.gitkeep
+
+# Generated evaluation artifacts (reproducible from eval/gen_testset.py seeds)
+eval/testsets/
+eval/runs/

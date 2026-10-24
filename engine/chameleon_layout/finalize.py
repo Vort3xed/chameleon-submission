@@ -1,0 +1,83 @@
+"""Turn placements into the output design while enforcing every hard rule:
+same elements in the same order, only geometry / font size / opacity
+changed, finite rounded numbers, images in proportion, text boxes strictly
+positive (the renderer crashes otherwise) and nothing outside the canvas."""
+
+from __future__ import annotations
+
+import copy
+import math
+from dataclasses import replace
+from typing import Dict
+
+from .blocks import Placement
+from .geometry import Rect
+from .scene import num
+
+
+def _fit_inside(p: Placement, W: float, H: float, rotation: float, keep_aspect: bool, is_text: bool) -> Placement:
+    w, h = max(0.0, p.w), max(0.0, p.h)
+    if is_text:
+        w, h = max(1.0, w), max(1.0, h)
+    if w > W or h > H:  # too big for the canvas: shrink (uniformly when aspect matters)
+        if keep_aspect:
+            s = min(W / max(w, 1e-9), H / max(h, 1e-9))
+            w, h = w * s, h * s
+        else:
+            w, h = min(w, W), min(h, H)
+    # shift so the box - and, if possible, its rotated footprint - stays on canvas
+    bx, by = Rect(0, 0, w, h).rotated_bounds(rotation).w, Rect(0, 0, w, h).rotated_bounds(rotation).h
+    cx = p.x + p.w / 2 if p.w else p.x
+    cy = p.y + p.h / 2 if p.h else p.y
+    half_w, half_h = max(w, min(bx, W)) / 2, max(h, min(by, H)) / 2
+    cx = min(max(cx, half_w), W - half_w)
+    cy = min(max(cy, half_h), H - half_h)
+    return replace(p, x=cx - w / 2, y=cy - h / 2, w=w, h=h)
+
+
+def _r(v: float) -> float:
+    v = round(float(v), 2)
+    return 0.0 if v == 0 else v
+
+
+def finalize(source: dict, W: int, H: int, placements: Dict[int, Placement], hide_z=None) -> dict:
+    out = []
+    for idx, el in enumerate(source.get("elements", [])):
+        if not isinstance(el, dict):
+            out.append(copy.deepcopy(el))
+            continue
+        new = copy.deepcopy(el)
+        p = placements.get(idx)
+        if p is None:
+            p = Placement(num(el.get("x")), num(el.get("y")), num(el.get("width")), num(el.get("height")))
+        t = el.get("type")
+        sw, sh = num(el.get("width")), num(el.get("height"))
+        keep_aspect = t == "image" and sw > 0 and sh > 0
+        if keep_aspect and el.get("fit") != "cover" and not (p.w >= W - 1 and p.h >= H - 1):
+            # snap to the exact source aspect around the same centre
+            cx, cy = p.x + p.w / 2, p.y + p.h / 2
+            ar = sw / sh
+            w = math.sqrt(max(p.w * p.h, 1e-6) * ar)
+            h = w / ar
+            p = replace(p, x=cx - w / 2, y=cy - h / 2, w=w, h=h)
+        if keep_aspect and (p.w >= W - 1 and p.h >= H - 1):
+            keep_aspect = False  # full-bleed backgrounds are exempt
+        p = _fit_inside(p, W, H, num(el.get("rotation")), keep_aspect, t == "text")
+        new["x"], new["y"] = _r(max(0.0, p.x)), _r(max(0.0, p.y))
+        new["width"], new["height"] = _r(min(p.w, W)), _r(min(p.h, H))
+        if t == "text":
+            new["width"], new["height"] = max(1.0, new["width"]), max(1.0, new["height"])
+            if p.font is not None:
+                new["font_size"] = int(max(1, round(p.font)))
+            elif "font_size" in new:
+                new["font_size"] = int(max(1, round(num(new.get("font_size"), 16))))
+        if p.opacity is not None:
+            new["opacity"] = float(max(0.0, min(1.0, p.opacity)))
+        if p.hidden:
+            new["opacity"] = 0.0
+            if t == "text" and hide_z is not None:
+                new["z_index"] = int(hide_z)  # the renderer ignores text opacity
+        if t == "text" and p.font is not None and num(el.get("letter_spacing"), 0.0):
+            new["letter_spacing"] = _r(num(el.get("letter_spacing")) * new["font_size"] / max(1.0, num(el.get("font_size"), 1.0)))
+        out.append(new)
+    return {"canvas": {"width": int(W), "height": int(H)}, "elements": out}
