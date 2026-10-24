@@ -1,99 +1,138 @@
-# CHAMELEON — starter repo
+# CHAMELEON — design retargeting engine
 
-This is the scaffolding for your engine. It handles input loading, output
-writing, rendering, and Docker packaging — so the only file you need to
-edit is **`engine/resize.py`**.
-
-```
-input:  a task JSON (source design + target canvas)
-              |
-              v
-        engine/resize.py   <-- YOU IMPLEMENT THIS
-              |
-              v
-output: <task>_output.json  (schema-valid resized design)
-        <task>_output.png   (rendered preview)
-```
-
-Both the JSON and the PNG are what get evaluated — see `RULES.md`.
-
-## Repo layout
+`engine/resize.py::resize(source, target_canvas)` re-lays-out a design for a new
+canvas instead of stretching it. It moves the furniture: it works out what
+each element *is* (no labels are given), picks a layout that suits the new
+shape, sizes text so it renders legibly with the real renderer, and checks
+every hard rule before it returns.
 
 ```
-engine/
-  resize.py        <- implement your approach here
-  main.py           <- orchestrator (input -> resize() -> output). Don't need to edit this.
-renderer/           <- the real renderer (transformer-convertor + cr-renderer), already vendored
-brand_kit/
-  assets/           <- image files referenced by asset_id in the sample designs
-  fonts/            <- font files matching the schema's font_family values
-input/               <- drop task JSON files here for local testing (3 samples included)
-output/              <- results land here
-chameleon_design_schema_v0.9.json   <- full field-by-field spec for the design format
-Dockerfile
-RULES.md
+source design + target canvas
+  └─ scene.py      structure inference  (backgrounds, decor, groups, containers, rows, roles)
+  └─ arrange.py    candidate layouts    (preserve / stack / split / row, per drop level)
+       └─ blocks.py   measure + place    (exact renderer text wrapping, aspect-locked images)
+  └─ objective.py  rank candidates      (legibility, headline & product size, coverage, overlap…)
+  └─ finalize.py   enforce hard rules   (ids, order, bounds, aspect, ints, finite numbers)
 ```
 
-## Quick start (no Docker needed for iterating on `resize()`)
+## Approach
+
+**1. Understand the design (`scene.py`).** Elements are classified without
+semantic labels:
+
+* *backgrounds* – images/shapes covering ≥90% of the canvas → re-fitted full-bleed;
+* *decor* – faint, tiny or off-canvas shapes holding no content → kept, re-anchored proportionally;
+* *hidden* – invisible elements and images whose asset is missing (the
+  intentional `holiday_watermark` case) → skipped gracefully (opacity 0);
+* *blocks* – the units that get laid out: single texts and images, **rigid
+  groups** (shared `group_id`, e.g. button shape + label, rotated ribbons,
+  product tiles), **panels** (a container shape such as a card or scrim whose
+  children are re-laid out *inside* it, recursively) and **rows**
+  (side-by-side runs like a badge strip);
+* *ornaments* – rotated or corner-pinned small blocks, placed last in free corner space.
+
+Roles come from cues a designer would use: largest type → headline, verbs like
+"Shop/Buy/Learn" or the biggest pill → CTA, wide image near an edge or an
+asset named *logo* → logo, the block carrying the most product imagery → hero,
+smallest long text near the bottom → legal. Each role has an importance used
+when space is tight.
+
+**2. Measure exactly what the renderer will draw (`text_metrics.py`).** The
+official converter wraps greedily at spaces using skia glyph advances and
+cr-renderer draws top-aligned at `int(font_size)`. We replicate that wrap
+verbatim (verified identical), so line counts, box heights and
+centring inside buttons are exact. Letter spacing is scaled with font size.
+Fallbacks: Pillow/FreeType advances, then a per-font heuristic — the engine
+still works with no fonts or assets present.
+
+**3. Generate candidate layouts (`arrange.py`).**
+
+* **preserve** – nearby aspect ratios: uniform scale, every block keeps its relative position;
+* **stack** – a single column in reading order (tall/square canvases);
+* **split** – product imagery in one column, everything else stacked beside it;
+* **row** – banners: logo | product | text columns | CTA, with text partitioned into 1–3 columns.
+
+Each arrangement binary-searches the largest text scale that fits (and a
+calmer 0.82× variant), for several image-to-text ratios. Text never drops
+below a legibility floor tuned to how a judge views the canvas (≈10.5 px at
+1024 px viewing size, less for legal/badges, never more than the source had).
+When even that cannot fit — e.g. a 17-element poster into 728×90 — whole
+low-importance blocks are dropped progressively (legal → badges/ribbons →
+body → secondary text → product), never the headline or CTA; the logo only
+as a last resort.
+
+**4. Rank them (`objective.py`).** Terms in [0, 1]: legibility, headline size,
+product size, visible coverage, fill, kept content, overlap beyond what the
+source layered, short phrases not shattered into one-word lines, faithfulness
+of position. The weighting follows a fit to an AI judge's rankings of the
+engine's own candidates (`eval/collect_prefs.py` + `eval/fit_prefs.py`),
+adjusted by hand where that data was thin.
+
+**5. Enforce the rules (`finalize.py`).** Same elements in the same order,
+only geometry / `font_size` / `opacity` (and, for hidden text, `z_index`) change;
+images keep their exact source aspect (full-bleed backgrounds excepted);
+every box lies on the canvas (rotated footprints too where possible); text
+boxes are strictly positive (cr-renderer rejects zero); font sizes are
+integers; NaN/inf anywhere is replaced. `resize()` never raises: on any
+internal error it falls back to a letterboxed copy of the design.
+
+**Hidden elements.** Dropped images/shapes get `opacity: 0`. cr-renderer
+ignores opacity on text, so dropped text gets `opacity: 0` *and* a `z_index`
+just below the opaque full-canvas background, which hides it in the
+reference renderer as well. Text is only ever dropped when such a background
+exists; otherwise all text stays visible.
+
+## Run it
+
+Python 3.10+ (developed on 3.11). With [uv](https://docs.astral.sh/uv/):
 
 ```bash
-pip install -r requirements.txt
-python -m engine.main
+uv venv --python 3.11 .venv
+uv pip install --python .venv/bin/python -r requirements.txt
+.venv/bin/python -m engine.main          # every input/*.json -> output/<task>_output.{json,png}
 ```
 
-This processes every `*.json` file in `input/` (the 3 sample designs are
-already there — one per difficulty level) and writes an `_output.json` and
-`_output.png` for each into `output/`.
+(or `python -m venv .venv && .venv/bin/pip install -r requirements.txt`).
 
-The included baseline is a **uniform stretch** — deliberately the wrong
-approach (see the main brief: "a naive program stretches the picture; a
-good one moves the furniture"). It's there so the pipeline runs on day
-one. Run it once, look at `output/*_output.png`, and you'll see exactly
-why it's not good enough — that's the point. Replace the body of
-`resize()` in `engine/resize.py`, not just its constants.
-
-## What the self-check does (and doesn't do)
-
-`main.py` runs a quick structural check after every task — same element
-`id`s as the source, required fields present, nothing off-canvas. **This
-is not the official scorer.** It exists to catch obvious mistakes before
-you waste a submission on them. See `RULES.md` for what's actually
-checked and graded.
-
-A self-check warning does not fail the run — your JSON and PNG are still
-written either way. Read the warning; decide whether it's a real problem
-or, like the Level 2 sample's intentionally corner-bleeding decorative
-circle, an expected one.
-
-## The renderer
-
-`main.py` calls `renderer/converter/convert.py`'s `render_design_to_png()`
-(a vendored copy of `transformer-convertor`, wrapping `cr-renderer`) to
-produce each task's PNG — already wired in, no setup needed. It reads
-fonts/assets from `brand_kit/` and writes a real rendered preview, not a
-placeholder. If you ever see plain labeled boxes instead of real text and
-images in `output/*.png`, that means the import in `main.py` failed (e.g.
-`cr-renderer` didn't install — check `requirements.txt` installed cleanly)
-and it silently fell back to the box-and-label placeholder; don't judge
-your layout quality by that fallback.
-
-## Docker (how you'll actually be run)
+Docker — exactly how stage one runs it:
 
 ```bash
 docker build --platform linux/amd64 -t my-chameleon-engine .
 docker run --rm --network none \
-  -v $(pwd)/input:/app/input \
-  -v $(pwd)/output:/app/output \
-  my-chameleon-engine
+  -v $(pwd)/input:/app/input -v $(pwd)/output:/app/output my-chameleon-engine
 ```
 
-`--network none` matches how stage-one scoring runs: everything your
-engine needs must be installed at **build** time (add it to
-`requirements.txt`), not fetched at run time. If you're using a locally
-hosted model, bake its weights into the image during the build step.
+Everything is installed at build time (versions pinned in `requirements.txt`);
+nothing is fetched at run time and no model is used. Typical latency is
+~0.05 s per design, worst case well under a second.
 
-## See also
+## Evaluation harness (`eval/`, `tests/`)
 
-- `chameleon_design_schema_v0.9.json` — full input/output field spec
-- `RULES.md` — what's checked, what's graded, and what disqualifies a submission
-- FAQ — for anything not covered above
+Development-only tooling, not copied into the image
+(`uv pip install -r requirements-dev.txt` for `jsonschema`/`pytest`).
+
+* `gen_testset.py` – procedural Solstice-brand designs from 12 archetypes
+  (posters, split heroes, banners, typographic flyers, cards with contained-but-
+  ungrouped content, scrims, product grids, event flyers, sale promos, minimal,
+  story stacks, adversarial messes with junk fields, rotation, missing assets,
+  off-canvas and zero-size elements), each paired with near / far / extreme
+  targets from a 42-format catalogue; `--formats` builds every design × every
+  format (1,638 tasks).
+* `score.py` – a hard structural gate (schema, ids, frozen content/fonts/assets,
+  bounds, aspect, renderability) plus 17 rubric metrics computed from real font
+  metrics and actual renders (collisions, cut-off, readability, contrast,
+  hierarchy, group integrity, margins, balance, completeness, …).
+* `run_eval.py` – parallel engine + scorer over a test set (`--vlm` adds AI-judge scores).
+* `vlm_judge.py`, `vlm_pairwise.py` – a local multimodal LLM as a stand-in for
+  the AI evaluator: absolute rubric scores, and A/B preference between engine versions.
+* `sheets.py`, `format_sheet.py` – contact sheets for eyeballing results.
+* `tests/test_robustness.py` – 98 tests: samples pass the gate at many sizes,
+  fuzzed/malformed inputs never crash or break invariants, outputs render,
+  determinism, no-fonts/no-assets operation, import from any cwd or as a
+  top-level module, and `python -m engine.main` end to end.
+
+```bash
+.venv/bin/python -m eval.gen_testset --out eval/testsets/main
+.venv/bin/python -m eval.run_eval --name mine
+.venv/bin/python -m pytest tests -q
+```

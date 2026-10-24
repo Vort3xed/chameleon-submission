@@ -8,7 +8,7 @@ Each term is in [0, 1] (higher is better):
   headline     the headline is big enough to lead
   hero         the product imagery keeps its share of the canvas
   balance      visual mass is centred
-  wrap         texts do not break into more lines than they had
+  wrap         short phrases are not shattered into one-word lines
   kept         important elements stay visible
   overlap      elements do not collide (beyond what the source layered)
   faithful     blocks stay roughly where they were (same composition)
@@ -28,8 +28,8 @@ from .scene import Block
 
 # Direction fitted to AI-judge rankings of candidates (eval/fit_prefs.py), kept
 # conservative where the data was thin (overlap/kept stay as safety terms).
-WEIGHTS = {"legibility": 0.24, "headline": 0.14, "hero": 0.14, "coverage": 0.10, "fill": 0.08, "kept": 0.12,
-           "overlap": 0.12, "faithful": 0.04, "size": 0.02, "wrap": 0.08, "is_row": 0.03, "is_stack": -0.03}
+WEIGHTS = {"legibility": 0.24, "headline": 0.14, "hero": 0.14, "coverage": 0.08, "fill": 0.06, "kept": 0.12,
+           "overlap": 0.12, "faithful": 0.04, "size": 0.02, "wrap": 0.12, "is_row": 0.03, "is_stack": -0.03}
 
 
 def leaf_blocks(blocks: List[Block]) -> List[Block]:
@@ -56,8 +56,10 @@ def evaluate(lay: Layout, scope: Scope, items) -> Dict[str, float]:
             if it.type == "text" and p.font:
                 need = min(7.0 if b.role in SMALL_ROLES else 10.5, it.font * ctx.src_view)
                 leg.append((min(1.0, p.font * ctx.view / max(need, 1e-6)) ** 2, b.importance))
-                extra = it.text_layout(p.font, p.w).n_lines - it.text_layout().n_lines
-                wraps.append((0.5 ** max(0, extra), b.importance))
+                words = max(1, len(it.content.split()))
+                per_line = words / max(1, it.text_layout(p.font, p.w).n_lines)
+                src_per_line = words / max(1, it.text_layout().n_lines)
+                wraps.append((min(1.0, per_line / min(src_per_line, 3.0)), b.importance))
                 r = (p.font / lin_out) / (it.font / lin_src)
             else:
                 share = it.box.area / src.area
@@ -80,7 +82,7 @@ def evaluate(lay: Layout, scope: Scope, items) -> Dict[str, float]:
     out_cov = sum(o.area for _, o, _ in content) / reg.area
     t["coverage"] = min(1.0, out_cov / src_cov) if src_cov > 0 else 1.0
     heads = [lay.out[it.idx].font for b, it, _, _ in vis if b.role == "headline" and lay.out[it.idx].font]
-    t["headline"] = min(1.0, max(heads) * ctx.view / 28.0) if heads else 1.0
+    t["headline"] = min(1.0, max(heads) * ctx.view / 44.0) if heads else 1.0
     hero = [(o.area / reg.area, s_.area / src.area) for b, it, o, s_ in vis if b.hero or b.role == "hero"]
     t["hero"] = min(1.0, math.sqrt(sum(h[0] for h in hero) / sum(h[1] for h in hero))) if hero and \
         sum(h[1] for h in hero) > 0 else (0.0 if any(b.hero for b in lay.hidden) else 1.0)
