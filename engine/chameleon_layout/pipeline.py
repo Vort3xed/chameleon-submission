@@ -6,7 +6,7 @@ import os
 import sys
 from typing import Tuple
 
-from .arrange import candidates
+from .arrange import candidates, settle_decor
 from .blocks import Ctx
 from .finalize import finalize
 from .objective import evaluate
@@ -51,6 +51,7 @@ def retarget(source: dict, target_canvas: dict) -> dict:
             print(f"  {terms['total']:.3f} {lay.name:24s} " + " ".join(f"{k}={v:.2f}" for k, v in terms.items()
                                                                        if k != "total" and not k.startswith("is_")),
                   file=sys.stderr)
+    settle_decor(scene, best)
     return finalize({"elements": elements}, W, H, best.out, scene.hide_z)
 
 
@@ -58,5 +59,7 @@ def candidate_outputs(source: dict, target_canvas: dict):
     """[(terms, layout name, finalized design)] for every candidate - used by
     the evaluation tooling to learn the objective weights."""
     elements, W, H, scene, scored = _candidates(source, target_canvas)
+    for _, lay in scored:
+        settle_decor(scene, lay)
     return [(terms, lay.name, finalize({"elements": elements}, W, H, lay.out, scene.hide_z))
             for terms, lay in scored]

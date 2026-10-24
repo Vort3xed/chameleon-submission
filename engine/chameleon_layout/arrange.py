@@ -407,6 +407,38 @@ def finish(scene: Scene, lay: Layout, ornaments: List[Block]) -> Layout:
     return lay
 
 
+def _overlap(a: Rect, b: Rect) -> float:
+    return a.intersection(b) / max(1.0, min(a.area, b.area))
+
+
+def settle_decor(scene: Scene, lay: Layout) -> None:
+    """Move decorative shapes to the nearest spot clear of content they did not
+    cover in the source (a dot landing on a button reads as a collision);
+    tiny ones with no clear spot are hidden.  Run on the chosen layout only."""
+    W, H = lay.ctx.W, lay.ctx.H
+    skip = {it.idx for it in scene.backgrounds + scene.decor + scene.hidden}
+    content = [(scene.items[i], scene.items[i].ink_at(p.rect, p.font)) for i, p in lay.out.items()
+               if i not in skip and not p.hidden]
+    steps = [i / 8 for i in range(9)]
+    for d in scene.decor:
+        p = lay.out.get(d.idx)
+        if p is None or p.hidden or _is_frame(d, scene):
+            continue
+
+        def cost(r: Rect) -> float:
+            return sum(max(0.0, _overlap(r, ink) - _overlap(d.bounds, it.ink) - 0.02) for it, ink in content)
+
+        here = p.rect
+        if cost(here) <= 0:
+            continue
+        spots = [Rect(fx * (W - p.w), fy * (H - p.h), p.w, p.h) for fx in steps for fy in steps]
+        best = min(spots, key=lambda r: (cost(r), math.hypot(r.cx - here.cx, r.cy - here.cy)))
+        if cost(best) <= 0:
+            p.x, p.y = best.x, best.y
+        elif p.w * p.h < 0.005 * W * H:
+            p.hidden = True
+
+
 DROP_STEPS = (0.25, 0.36, 0.45, 0.55, 0.65, 0.8, 0.9)  # the last step may drop the logo
 
 
