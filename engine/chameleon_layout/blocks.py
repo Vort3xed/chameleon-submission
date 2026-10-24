@@ -156,8 +156,17 @@ def place(b: Block, ctx: Ctx, x: float, y: float, max_w: float, max_h: float, ou
 def _text(b, ctx, max_w, max_h, out, x, y):
     it = b.items[0]
     font = text_font(it, b.role, ctx)
-    measure_w = max(it.box.w * MAX_MEASURE * font / it.font, 4.0 * font)
-    font, w, h = fit_text(it, font, min(max_w, measure_w))
+    fitted = None
+    if b.role in ("cta", "badge") and it.text_layout().n_lines == 1:  # a one-line label shrinks before it wraps
+        f, floor = font, ctx.font_floor(it, b.role)
+        f, w, h = fit_text(it, f, INF)
+        while w > max_w and f > max(1.0, floor):
+            f, w, h = fit_text(it, max(1, min(f - 1, int(f * max_w / w))), INF)
+        fitted = (f, w, h) if w <= max_w else None
+    if fitted is None:
+        measure_w = max(it.box.w * MAX_MEASURE * font / it.font, 4.0 * font)
+        fitted = fit_text(it, font, min(max_w, measure_w))
+    font, w, h = fitted
     if out is not None:
         out[it.idx] = Placement(x, y, w, h, font)
     return w, h
