@@ -86,18 +86,23 @@ def preserve(scope: Scope, ctx0: Ctx, boost: float, items) -> Optional[Layout]:
     ctx = ctx0.with_scale(s, s)
     ctx.floor_relax = 0.0
     lay = Layout(f"preserve{boost:.2f}", ctx)
+    m, s0 = margin(reg.w, reg.h), s / boost
     for b in scope.blocks:
         r = b.src
         w, h = r.w * s, r.h * s
         if w > reg.w + 0.5 or h > reg.h + 0.5:
             return None
-        x = min(max(reg.x, reg.x + (r.cx - src.x) / src.w * reg.w - w / 2), reg.x1 - w)
-        y = min(max(reg.y, reg.y + (r.cy - src.y) / src.h * reg.h - h / 2), reg.y1 - h)
+        # keep the usual margin from each edge, or the block's own (scaled) distance if it sat closer
+        l, t, rt, bt = (min(m, max(0.0, d) * s0) for d in (r.x - src.x, r.y - src.y, src.x1 - r.x1, src.y1 - r.y1))
+        x = max(reg.x, min(max(reg.x + l, reg.x + (r.cx - src.x) / src.w * reg.w - w / 2), reg.x1 - rt - w))
+        y = max(reg.y, min(max(reg.y + t, reg.y + (r.cy - src.y) / src.h * reg.h - h / 2), reg.y1 - bt - h))
         scale_block(b, s, x, y, lay.out)
         lay.placed.append((b, Rect(x, y, w, h)))
     from .objective import new_overlap, visible_inks
 
-    if new_overlap(visible_inks(lay.out, scope.blocks)) > 0.05:
+    g = 0.2 * m  # half the breathing room each side: elements that were apart must not touch
+    vis = [(b, it, o.inset(-g), si.inset(-g / s0)) for b, it, o, si in visible_inks(lay.out, scope.blocks)]
+    if new_overlap(vis) > 0.05:
         return None  # elements that were apart (or barely touching) now collide
     return lay
 
@@ -282,7 +287,7 @@ def arrangements(scope: Scope, ctx0: Ctx, items, allow_preserve: bool = True) ->
     out: List[Layout] = []
     reg = scope.region
     if allow_preserve:
-        for boost in (1.3, 1.2, 1.1, 1.0):
+        for boost in (2.0, 1.75, 1.5, 1.4, 1.3, 1.2, 1.1, 1.0):
             lay = preserve(scope, ctx0, boost, items)
             if lay is not None:
                 out.append(lay)
@@ -515,7 +520,7 @@ def candidates(scene: Scene, ctx0: Ctx) -> Tuple[Scope, List[Layout]]:
     B.panel_layout_hook = lambda kids, s, r, c: _panel_inner(kids, s, r, c, scene.items)
     out = []
     if abs(math.log((W / H) / (scene.W / scene.H))) < 0.45:
-        for boost in (1.3, 1.2, 1.1, 1.0):
+        for boost in (2.0, 1.75, 1.5, 1.4, 1.3, 1.2, 1.1, 1.0):
             lay = preserve(Scope(scene.blocks + scene.ornaments, src, Rect(0, 0, W, H)), ctx0, boost, scene.items)
             if lay is not None:  # preserve positions the ornaments itself
                 out.append(finish(scene, lay, []))
