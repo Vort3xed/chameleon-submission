@@ -110,6 +110,8 @@ does; the judge consistently prefers keeping content and bigger product art.
 | v36g: unreadable text (< 70% of legible size) no longer counts as kept in the objective | discriminator 17–17, 1 severe | badges and subheads got dropped but the headline did not grow: in 320×100 rows the text column is narrow because logo, product and button keep their width |
 | v36h: tight preserve again on the current engine (+ margins growing with the boost) | discriminator 94–134, 3 severe | the composition grows until the widest full-line paragraph reaches its margin; body copy then crowds an inset frame. Parked until human labels settle bigger vs faithful |
 | v36j: in a column, text other than the headline is capped 1.15× below it | 4–5 on 12 tasks | the inversions left are at the legibility floor (both 8 px in a 36 px column): the row itself is wrong for that much content at 320×100 |
+| v36m: headline emphasis again (stacks may grow the headline alone, up to 2.5×) | discriminator 31–72 (2 severe, within limit); **VLM 21–41** | both judges against: the bigger headline cost dropped content (a card lost its wordmark and subhead) and off-axis left-aligned titles |
+| v36n: a text whose id names the brand (logo / wordmark / brand) is the logo (never dropped) | discriminator 18–53 | in tiny typographic banners dropping the wordmark was the better trade |
 | v35l: banner rows also offered with a 0.75× button | discriminator 22–41 (p 0.02), engine 60% slower | the objective picked small buttons where they hurt; reverted |
 | edge bands (full-width header/footer bars) | not built | they scale rigidly and get dropped in banners; needs a band concept — deferred, the official samples have none |
 
