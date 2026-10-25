@@ -1,5 +1,5 @@
 """One step of the improvement loop: run the engine as it is now on the format
-set, the fresh holdout and the stress set, then judge it against a baseline
+set, the fresh holdout, the stress set and the extra presets, then judge it against a baseline
 run with the discriminator.  Accepted only if no set has gate failures or
 crashes and the discriminator accepts on both the format set and the holdout
 (sign test p < 0.05, positive mean, severe losses within limit).  Every step
@@ -27,7 +27,9 @@ SETS = {  # run-name prefix: test set
     "{}_allformats": "formats",
     "h2_{}": "holdout2",
     "c_{}": "crazy",
+    "x_{}": "formats_extra",
 }
+SAFETY_ONLY = ("crazy", "formats_extra")  # checked for gate failures and crashes, not judged for quality
 
 
 def run_set(name: str, tset: str, workers: int, note: str) -> dict:
@@ -56,7 +58,7 @@ def main():
         clean = s["gate_fail"] == 0 and s["crashes"] == 0
         ok &= clean
         entry = {"scorer": s["mean"], "gate_fail": s["gate_fail"], "crashes": s["crashes"]}
-        if tset != "crazy":  # the stress set is a safety net, not a quality benchmark
+        if tset not in SAFETY_ONLY:
             wins, losses, ties, mean, severe = compare(pattern.format(a.baseline), pattern.format(a.name),
                                                        str(ROOT / "eval" / "testsets" / tset))
             accepted = verdict(wins, losses, mean, severe, wins + losses + ties)
