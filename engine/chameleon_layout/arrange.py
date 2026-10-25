@@ -1,7 +1,8 @@
 """Candidate layouts for a set of blocks inside a region.
 
-  preserve  keep the source composition: uniform scale, every block keeps its
-            relative position (best for nearby aspect ratios)
+  preserve  keep the source composition: uniform scale; blocks that overlap
+            along an axis move together and only the space between them
+            stretches (best for nearby aspect ratios)
   stack     one column in reading order (tall / square regions)
   split     hero visual in one column, everything else stacked beside it
   row       banner: logo | visual | text columns | call to action
@@ -21,7 +22,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 from . import blocks as B
 from .blocks import INF, Ctx, Placement, fit_block, keep_lines, measure, place, stack_measure, stack_place
-from .geometry import Rect
+from .geometry import Rect, bounding
 from .scene import Block, Scene
 
 
@@ -43,6 +44,15 @@ class Layout:
 
 def margin(W: float, H: float) -> float:
     return min(max(2.0, 0.045 * min(W, H)), 0.25 * min(W, H))  # tiny canvases keep a positive region
+
+
+def outer_margins(W: float, H: float) -> Tuple[float, float]:
+    """(x, y) margins of the content region: the usual margin, growing at the
+    ends of a strip (a 320x50 banner needs ~8 px there, not 2) up to ~15% of
+    its short side."""
+    m = margin(W, H)
+    grow = lambda r: min(3.3, max(1.0, r / 1.5))  # noqa: E731
+    return min(m * grow(W / H), 0.25 * W), min(m * grow(H / W), 0.25 * H)
 
 
 def bisect(fits: Callable[[float], bool], lo: float, hi: float, steps: int = 14) -> Optional[float]:
@@ -80,6 +90,43 @@ def _base(ctx0: Ctx, relax: float) -> Ctx:
 # arrangements
 
 
+def _band_starts(spans: List[Tuple[float, float]], lo: float, hi: float, s: float, out_lo: float,
+                 out_len: float) -> List[float]:
+    """New start of each source span [a, b] (inside [lo, hi]) along one axis.
+
+    Spans whose drawn content overlaps form a band and keep their relative
+    layout, scaled by s.  The gaps between bands (and the outer margins)
+    scale by s too, and any space left over is shared equally among them:
+    tight pairs stay tighter than loose ones while spacing evens out."""
+    order = sorted(range(len(spans)), key=lambda i: spans[i][0])
+    bands: List[List[float]] = []  # [start, end, members...]
+    for i in order:
+        a, b = max(lo, spans[i][0]), min(hi, spans[i][1])
+        if bands and a < bands[-1][1]:
+            bands[-1][1] = max(bands[-1][1], b)
+            bands[-1].append(i)
+        else:
+            bands.append([a, max(a, b), i])
+    gaps = [bands[0][0] - lo] + [n[0] - p[1] for p, n in zip(bands, bands[1:])] + [hi - bands[-1][1]]
+    gaps = [max(0.0, g) * s for g in gaps]
+    slack = out_len - s * sum(b[1] - b[0] for b in bands) - sum(gaps)
+    if slack >= 0:
+        gaps = [g + slack / len(gaps) for g in gaps]
+    elif sum(gaps) > 0:  # tighter than the source: gaps shrink in proportion
+        gaps = [g * max(0.0, 1 + slack / sum(gaps)) for g in gaps]
+    pos = out_lo + gaps[0]
+    starts = [0.0] * len(spans)
+    for band, gap in zip(bands, gaps[1:]):
+        for i in band[2:]:
+            starts[i] = pos + (spans[i][0] - band[0]) * s
+        pos += (band[1] - band[0]) * s + gap
+    return starts
+
+
+def _drawn(b: Block) -> Rect:
+    return bounding([i.ink for i in b.items])
+
+
 def preserve(scope: Scope, ctx0: Ctx, boost: float, items) -> Optional[Layout]:
     src, reg = scope.src, scope.region
     s = min(reg.w / src.w, reg.h / src.h) * boost
@@ -87,15 +134,19 @@ def preserve(scope: Scope, ctx0: Ctx, boost: float, items) -> Optional[Layout]:
     ctx.floor_relax = 0.0
     lay = Layout(f"preserve{boost:.2f}", ctx)
     m, s0 = margin(reg.w, reg.h), s / boost
-    for b in scope.blocks:
+    inks = [_drawn(b) for b in scope.blocks]
+    xs = _band_starts([(i.x, i.x1) for i in inks], src.x, src.x1, s, reg.x, reg.w)
+    ys = _band_starts([(i.y, i.y1) for i in inks], src.y, src.y1, s, reg.y, reg.h)
+    for b, ink, x0, y0 in zip(scope.blocks, inks, xs, ys):
         r = b.src
+        x0, y0 = x0 - (ink.x - r.x) * s, y0 - (ink.y - r.y) * s  # band positions are of the drawn content
         w, h = r.w * s, r.h * s
         if w > reg.w + 0.5 or h > reg.h + 0.5:
             return None
         # keep the usual margin from each edge, or the block's own (scaled) distance if it sat closer
         l, t, rt, bt = (min(m, max(0.0, d) * s0) for d in (r.x - src.x, r.y - src.y, src.x1 - r.x1, src.y1 - r.y1))
-        x = max(reg.x, min(max(reg.x + l, reg.x + (r.cx - src.x) / src.w * reg.w - w / 2), reg.x1 - rt - w))
-        y = max(reg.y, min(max(reg.y + t, reg.y + (r.cy - src.y) / src.h * reg.h - h / 2), reg.y1 - bt - h))
+        x = max(reg.x, min(max(reg.x + l, x0), reg.x1 - rt - w))
+        y = max(reg.y, min(max(reg.y + t, y0), reg.y1 - bt - h))
         scale_block(b, s, x, y, lay.out)
         lay.placed.append((b, Rect(x, y, w, h)))
     if any(it.rotation and (p.x < -0.5 or p.y < -0.5 or p.x + p.w > ctx0.W + 0.5 or p.y + p.h > ctx0.H + 0.5)
@@ -213,13 +264,17 @@ def row(scope: Scope, ctx0: Ctx, shrink: float = 1.0) -> List[Layout]:
     middle = [b for b in blocks if b not in logo + cta and b is not vis]
     lead = logo + ([vis] if vis is not None else [])
     gap = max(4.0, 0.6 * margin(reg.w, reg.h))
-    lo, hi = scale_bounds(scope)
+    lo, hi0 = scale_bounds(scope)
+    heads = [i.font for b in blocks if b.role == "headline" for i in b.texts]
+    # the text may grow until a headline fills two lines of the row's height; logo and button keep the usual cap
+    hi = max(hi0, reg.h / 2.6 / max(heads)) if heads else hi0
     layouts = []
     for parts in (_partitions(middle, 3) if middle else [[]]):
         def columns(ts, relax):
             c = Ctx(ctx0.W, ctx0.H, ctx0.src_W, ctx0.src_H, ts, ts, relax)
-            fixed = [(b, _slot_size(b, c, reg)) for b in lead]
-            tail = [(b, _slot_size(b, c, reg)) for b in cta]
+            cf = Ctx(ctx0.W, ctx0.H, ctx0.src_W, ctx0.src_H, min(ts, hi0), min(ts, hi0), relax)
+            fixed = [(b, _slot_size(b, cf, reg)) for b in lead]
+            tail = [(b, _slot_size(b, cf, reg)) for b in cta]
             inset = (_edge_inset(fixed[0], 0, reg.x) if fixed else 0.0,
                      _edge_inset(tail[-1], 2, c.W - reg.x1) if tail else 0.0)
             used = sum(inset) + sum(w for _, (w, _) in fixed + tail) + gap * (len(fixed) + len(tail) + len(parts) - 1)
@@ -245,6 +300,7 @@ def row(scope: Scope, ctx0: Ctx, shrink: float = 1.0) -> List[Layout]:
         if ts is None:
             continue
         c, fixed, tail, widths, inset = columns(ts * shrink, relax)
+        cf = c.with_scale(min(c.ts, hi0), min(c.ts, hi0))
         lay = Layout(f"row {len(parts)}col s={shrink}", c)
         seq = [(b, wh[0]) for b, wh in fixed] + [(p, w) for p, w in zip(parts, widths)] + [(b, wh[0]) for b, wh in tail]
         free = reg.w - sum(inset) - sum(w for _, w in seq) - gap * (len(seq) - 1)
@@ -252,14 +308,62 @@ def row(scope: Scope, ctx0: Ctx, shrink: float = 1.0) -> List[Layout]:
         x = reg.x + inset[0]
         for obj, w in seq:
             if isinstance(obj, Block):
-                bc = _slot_ctx(obj, c, reg)
+                bc = _slot_ctx(obj, cf, reg)
                 bw, bh = measure(obj, bc, reg.w / 3)
                 lay.placed.append((obj, place(obj, bc, x, reg.y + (reg.h - bh) / 2, reg.w / 3, INF, lay.out)))
             else:
                 lay.placed += stack_place(obj, c, Rect(x, reg.y, w, reg.h), lay.out, valign="center")
             x += w + gap + extra
+        if cta:
+            _cta_below_headline(lay, cta[0], cf, reg)
+        _center_ink(lay, blocks, reg)
         layouts.append(lay)
     return layouts
+
+
+def _font_lead(b: Block, out: Dict[int, Placement]) -> Tuple[float, float]:
+    """(largest placed font, its source font) among b's text items."""
+    best = max(((out[i.idx].font or 0.0, i.font) for i in b.texts if i.idx in out and not out[i.idx].hidden),
+               default=(0.0, 0.0))
+    return best
+
+
+def _cta_below_headline(lay: Layout, cta: Block, c: Ctx, reg: Rect):
+    """A banner's button must not outshine its headline: its label stays under
+    85% of the headline's size (or under their source ratio, if smaller).
+    The button shrinks about its right edge, so its end margin is kept."""
+    heads = [b for b, _ in lay.placed if b is not cta and b.role == "headline"]
+    if not heads or not cta.texts:
+        return
+    head, head_src = _font_lead(heads[0], lay.out)
+    label, label_src = _font_lead(cta, lay.out)
+    if not head or not label or not head_src:
+        return
+    cap = head * min(0.85, label_src / head_src)
+    if label <= cap + 0.5:
+        return
+    old = next(r for b, r in lay.placed if b is cta)
+    bc = _slot_ctx(cta, c, reg).scaled(cap / label)
+    bw, bh = measure(cta, bc, reg.w / 3)
+    r = place(cta, bc, old.x1 - bw, reg.y + (reg.h - bh) / 2, reg.w / 3, INF, lay.out)
+    lay.placed = [(b, r if b is cta else q) for b, q in lay.placed]
+
+
+def _center_ink(lay: Layout, blocks: List[Block], reg: Rect):
+    """Shift the row so its outer margins match as drawn: transparent padding
+    in product art must not make one side look wider than the other."""
+    from .objective import leaf_blocks, visible_inks
+
+    inks = [o for _, _, o, _ in visible_inks(lay.out, blocks)]
+    idxs = [it.idx for b in leaf_blocks(blocks) for it in b.items if it.idx in lay.out]
+    if not inks or not idxs:
+        return
+    dx = (reg.x - min(r.x for r in inks) + reg.x1 - max(r.x1 for r in inks)) / 2
+    boxes = [lay.out[i] for i in idxs]
+    dx = max(-min(p.x for p in boxes), min(dx, lay.ctx.W - max(p.x + p.w for p in boxes)))  # boxes stay on canvas
+    for i in idxs:
+        lay.out[i] = replace(lay.out[i], x=lay.out[i].x + dx)
+    lay.placed = [(b, Rect(r.x + dx, r.y, r.w, r.h)) for b, r in lay.placed]
 
 
 def _slot_ctx(b: Block, c: Ctx, reg: Rect) -> Ctx:
@@ -372,41 +476,70 @@ def _corner_positions(corner: str, W, H, w, h, m, steps=6):
             yield x0, (y0 + dy if c[0] == "t" else y0 - dy)
 
 
+CORNER_SHRINKS = (1.0, 0.85, 0.7)  # an ornament shrinks this far to stay in its own corner before it moves
+
+
+def _spot(c: Ctx, x: float, y: float, foot: Rect, w: float, h: float, taken):
+    """(overlap with placed content, ctx, footprint rect, w, h) with the footprint's corner at (x, y);
+    the unrotated box must stay on the canvas too, so its centre is clamped."""
+    cx = min(max(x + foot.w / 2, w / 2), c.W - w / 2)
+    cy = min(max(y + foot.h / 2, h / 2), c.H - h / 2)
+    r = Rect(cx - foot.w / 2, cy - foot.h / 2, foot.w, foot.h)
+    return sum(r.intersection(t) for t in taken), c, r, w, h
+
+
+def _measure_ornament(b: Block, c: Ctx, rot: float, m: float):
+    w, h = measure(b, c, c.W - 2 * m, c.H - 2 * m)
+    foot = Rect(0, 0, w, h).rotated_bounds(rot)
+    fit = min(1.0, (c.W - 2 * m) / max(foot.w, 1e-6), (c.H - 2 * m) / max(foot.h, 1e-6), c.W / max(w, 1e-6),
+              c.H / max(h, 1e-6))
+    return w, h, foot, fit
+
+
+def _in_corner(b: Block, ctx: Ctx, rot: float, m: float, taken):
+    """The ornament in its own corner, shrunk a little if that is what it takes to stay clear."""
+    for shrink in CORNER_SHRINKS:
+        c = ctx.with_scale(ctx.ts * shrink, ctx.img * shrink)
+        w, h, foot, fit = _measure_ornament(b, c, rot, m)
+        if fit < 1.0:
+            continue
+        x, y = next(_corner_positions(b.corner, c.W, c.H, foot.w, foot.h, m))
+        spot = _spot(c, x, y, foot, w, h, taken)
+        if spot[0] <= 0:
+            return spot
+    return None
+
+
+def _anywhere(b: Block, ctx: Ctx, rot: float, m: float, taken):
+    """Slide along the edges and try the other corners, shrinking further; least overlap wins."""
+    best, fit = None, 1.0
+    for shrink in (1.0, 0.85, 0.7, 0.55, 0.4, 0.3, None):
+        if shrink is None:  # nothing fitted: scale exactly to fit, legibility floors off
+            if best is not None:
+                break
+            c = Ctx(ctx.W, ctx.H, ctx.src_W, ctx.src_H, ctx.ts * 0.3 * fit, ctx.img * 0.3 * fit, 0.0)
+        else:
+            c = ctx.with_scale(ctx.ts * shrink, ctx.img * shrink)
+        w, h, foot, fit = _measure_ornament(b, c, rot, m)
+        if fit < 1.0 and shrink is not None:
+            continue  # the rotated footprint (or the box itself) does not fit the canvas yet
+        for x, y in _corner_positions(b.corner, c.W, c.H, foot.w, foot.h, m):
+            spot = _spot(c, x, y, foot, w, h, taken)
+            if best is None or spot[0] < best[0] - 1e-6:
+                best = spot
+            if spot[0] <= 0:
+                return best
+    return best
+
+
 def place_ornaments(ornaments: List[Block], lay: Layout):
     ctx = lay.ctx
-    W, H = ctx.W, ctx.H
-    m = margin(W, H) * 0.6
+    m = margin(ctx.W, ctx.H) * 0.6
     taken = [r for _, r in lay.placed]
     for b in ornaments:
         # a single rotated element measures unrotated; groups already measure rotated bounds
         rot = b.items[0].rotation if b.kind in ("text", "image", "shape") else 0.0
-        best, fit = None, 1.0
-        for shrink in (1.0, 0.85, 0.7, 0.55, 0.4, 0.3, None):
-            if shrink is None:  # nothing fitted: scale exactly to fit, legibility floors off
-                if best is not None:
-                    break
-                c = Ctx(W, H, ctx.src_W, ctx.src_H, ctx.ts * 0.3 * fit, ctx.img * 0.3 * fit, 0.0)
-            else:
-                c = ctx.with_scale(ctx.ts * shrink, ctx.img * shrink)
-            w, h = measure(b, c, W - 2 * m, H - 2 * m)
-            foot = Rect(0, 0, w, h).rotated_bounds(rot)
-            fit = min(1.0, (W - 2 * m) / max(foot.w, 1e-6), (H - 2 * m) / max(foot.h, 1e-6), W / max(w, 1e-6),
-                      H / max(h, 1e-6))
-            if fit < 1.0 and shrink is not None:
-                continue  # the rotated footprint (or the box itself) does not fit the canvas yet
-            for x, y in _corner_positions(b.corner, W, H, foot.w, foot.h, m):
-                # the unrotated box must stay on the canvas too: clamp its centre
-                cx = min(max(x + foot.w / 2, w / 2), W - w / 2)
-                cy = min(max(y + foot.h / 2, h / 2), H - h / 2)
-                r = Rect(cx - foot.w / 2, cy - foot.h / 2, foot.w, foot.h)
-                hit = sum(r.intersection(t) for t in taken)
-                if best is None or hit < best[0] - 1e-6:
-                    best = (hit, c, r, w, h)
-                if hit <= 0:
-                    break
-            if best and best[0] <= 0:
-                break
-        _, c, r, w, h = best
+        _, c, r, w, h = _in_corner(b, ctx, rot, m, taken) or _anywhere(b, ctx, rot, m, taken)
         place(b, c, r.cx - w / 2, r.cy - h / 2, w + 0.01, h + 0.01, lay.out)
         lay.placed.append((b, r))
         taken.append(r)
@@ -467,11 +600,76 @@ def settle_decor(scene: Scene, lay: Layout) -> None:
             p.hidden = True
 
 
-DROP_STEPS = (0.25, 0.36, 0.45, 0.55, 0.65, 0.8, 0.9)  # the last step may drop the logo
+SNAP = 0.015  # a block this close (fraction of the canvas) to a shared line is moved onto it
+
+
+def snap_alignment(scene: Scene, lay: Layout) -> None:
+    """Final beautification: a flow block whose edge or centre sits within
+    1.5% of the same line of another block (or, for its centre, of the canvas
+    centre) is moved onto that line exactly - near-misses read as mistakes,
+    exact alignment as intent - unless that creates an overlap, crams a
+    neighbour, unbalances the margins or leaves the canvas.  Run on the
+    chosen layout only."""
+    from .objective import new_overlap, visible_inks
+
+    W, H = lay.ctx.W, lay.ctx.H
+    every = [b for b, _ in lay.placed]
+    flow = [b for b in every if b not in scene.ornaments]
+
+    def ink(b: Block) -> Optional[Rect]:
+        return bounding([scene.items[it.idx].ink_at(lay.out[it.idx].rect, lay.out[it.idx].font)
+                         for it in b.items if it.idx in lay.out and not lay.out[it.idx].hidden])
+
+    def moved(b: Block, dx: float, dy: float) -> Dict[int, Placement]:
+        return {it.idx: replace(lay.out[it.idx], x=lay.out[it.idx].x + dx, y=lay.out[it.idx].y + dy)
+                for it in b.items if it.idx in lay.out}
+
+    def overlap() -> float:
+        return new_overlap(visible_inks(lay.out, every))
+
+    def clearance(b: Block) -> float:
+        """Distance from b to its nearest neighbour along the axis that separates them."""
+        r = ink(b)
+        gaps = [max(o.x - r.x1, r.x - o.x1, o.y - r.y1, r.y - o.y1)
+                for o in (ink(o) for o in flow if o is not b) if o is not None]
+        return min(gaps, default=INF)
+
+    def lopsided() -> float:
+        c = bounding([r for r in (ink(o) for o in flow) if r is not None])
+        return abs(c.x - (W - c.x1))
+
+    room = 0.6 * margin(W, H)  # a gap this wide is comfortable whatever happens to it
+
+    for b in sorted(flow, key=lambda b: -b.importance):
+        r = ink(b)
+        if r is None:
+            continue
+        others = [o for o in (ink(o) for o in flow if o is not b) if o is not None]
+        for axis, size in (("x", W), ("y", H)):
+            lines = (lambda q: (q.x, q.cx, q.x1)) if axis == "x" else (lambda q: (q.y, q.cy, q.y1))
+            offers = [ref - mine for o in others for mine, ref in zip(lines(r), lines(o))]
+            if axis == "x":
+                offers.append(W / 2 - r.cx)
+            offers = [d for d in offers if 0.5 < abs(d) < SNAP * size]
+            if not offers:
+                continue
+            d = min(offers, key=abs)
+            new = moved(b, d if axis == "x" else 0.0, d if axis == "y" else 0.0)
+            if any(p.x < -0.5 or p.y < -0.5 or p.x + p.w > W + 0.5 or p.y + p.h > H + 0.5 for p in new.values()):
+                continue
+            before, gap, side, old = overlap(), clearance(b), lopsided(), {i: lay.out[i] for i in new}
+            lay.out.update(new)
+            if overlap() > before + 1e-6 or clearance(b) < min(0.75 * gap, room) or lopsided() > side + 0.005 * W:
+                lay.out.update(old)  # no new collision, no crammed neighbour, no lopsided margins
+            else:
+                r = ink(b)
+
+
+DROP_STEPS = (0.25, 0.36, 0.45, 0.55, 0.65, 0.8, 0.9)
 
 
 def _never_dropped(b: Block) -> bool:
-    return b.importance >= DROP_STEPS[-1] or b.role in ("headline", "cta") or b.kind == "panel"
+    return b.importance >= DROP_STEPS[-1] or b.role in ("headline", "cta", "logo") or b.kind == "panel"
 
 
 def _drop_pool(blocks: List[Block]) -> List[Block]:
@@ -534,9 +732,9 @@ def candidates(scene: Scene, ctx0: Ctx) -> Tuple[Scope, List[Layout]]:
     from .objective import evaluate
 
     W, H = ctx0.W, ctx0.H
-    m = margin(W, H)
+    mx, my = outer_margins(W, H)
     src = Rect(0, 0, scene.W, scene.H)
-    region = Rect(m, m, W - 2 * m, H - 2 * m)
+    region = Rect(mx, my, W - 2 * mx, H - 2 * my)
     judge = Scope(scene.blocks + scene.ornaments, src, region)
     B.panel_layout_hook = lambda kids, s, r, c: _panel_inner(kids, s, r, c, scene.items)
     out = []

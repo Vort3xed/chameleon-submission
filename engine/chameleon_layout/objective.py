@@ -33,7 +33,7 @@ from .scene import Block
 # ever saw candidates these already screened (narrow shattered columns, tiny
 # text, overlaps), so the data cannot price them.
 WEIGHTS = {"hero": 0.16, "fill": 0.14, "coverage": 0.12, "headline": 0.12, "kept": 0.12, "legibility": 0.16,
-           "balance": 0.07, "faithful": 0.06, "wrap": 0.12, "overlap": 0.12,
+           "balance": 0.07, "faithful": 0.06, "wrap": 0.12, "overlap": 0.12, "hierarchy": 0.08,
            "is_preserve_near": 0.06, "is_stack_near": 0.05, "is_split_near": -0.05,
            "is_preserve_mid": 0.10, "is_split_mid": 0.13, "is_stack_mid": -0.09, "is_row_mid": -0.14,
            "is_split_wide": 0.04, "is_stack_wide": -0.24, "is_row_wide": 0.20}
@@ -90,6 +90,7 @@ def evaluate(lay: Layout, scope: Scope, items) -> Dict[str, float]:
     t["coverage"] = min(1.0, out_cov / src_cov) if src_cov > 0 else 1.0
     heads = [lay.out[it.idx].font for b, it, _, _ in vis if b.role == "headline" and lay.out[it.idx].font]
     t["headline"] = min(1.0, max(heads) * ctx.view / 44.0) if heads else 1.0
+    t["hierarchy"] = _hierarchy(lay, vis)
     hero = [(o.area / reg.area, s_.area / src.area) for b, it, o, s_ in vis if b.hero or b.role == "hero"]
     t["hero"] = min(1.0, math.sqrt(sum(h[0] for h in hero) / sum(h[1] for h in hero))) if hero and \
         sum(h[1] for h in hero) > 0 else (0.0 if any(b.hero for b in lay.hidden) else 1.0)
@@ -116,6 +117,22 @@ def evaluate(lay: Layout, scope: Scope, items) -> Dict[str, float]:
             t[f"is_{f}_{b}"] = 1.0 if (f, b) == (family, band) else 0.0
     t["total"] = sum(WEIGHTS.get(k, 0.0) * v for k, v in t.items())
     return t
+
+
+def _hierarchy(lay: Layout, vis) -> float:
+    """The headline must still lead: every other visible text stays smaller by
+    its source ratio (capped at 1.15x); 0 when one is as large or larger."""
+    texts = [(b, it, lay.out[it.idx].font) for b, it, _, _ in vis if it.type == "text" and lay.out[it.idx].font]
+    heads = [(it, f) for b, it, f in texts if b.role == "headline"]
+    if not heads:
+        return 1.0
+    head, hf = max(heads, key=lambda h: h[1])
+    worst = 1.0
+    for b, it, f in texts:
+        want = min(head.font / max(it.font, 1e-6), 1.15)
+        if b.role != "headline" and want > 1.0:
+            worst = min(worst, max(0.0, (hf / f - 1.0) / (want - 1.0)))
+    return worst
 
 
 FAMILIES = ("preserve", "stack", "split", "row")

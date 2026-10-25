@@ -18,7 +18,8 @@ pairwise logs); `eval/runs/history.jsonl` has every scorer run.
 
 ## Current best
 
-**v34**: formats 98.23 · holdout 97.76 · crazy 96.19 · 0 gate failures · 0.06 s/design.
+**v35k**: formats 98.34 · holdout 97.96 · crazy 96.34 · 0 gate failures · 0.06 s/design.
+Discriminator (below) vs v34: formats 907–398 (p 10⁻⁴⁶), holdout 218–70 (p 10⁻¹⁹).
 Holdout (never tuned on): v31-era engine beats v12 (start of day 2) 55–19 (+0.29);
 v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 
@@ -50,6 +51,13 @@ v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 | v31 | stacked rows of like tiles form one grid; wrapped lines are evened out (9 tiles: 3×3 or 5+4) | – | 98.31² | 7–1 +0.60 (formats); 4–1 +0.38 (holdout) | |
 | v33 | regression fix: grouped labels keep the font the full box allowed, *then* the box tightens around the measured lines (v29 had sized tight boxes from scaled glyph widths, which run short at small sizes, so labels lost a pixel: holdout 11–27 vs v23b) | – | – | holdout: 12–10 vs v23b; 18–17 (198 ties) vs v27 on all differing tasks | |
 | v34 | logo floor 18 → 28 px visible height (the wordmark was ~5 px in 300×250 / 250×250) | – | 98.23 | **90–40, +0.16** (formats, 310 tasks); 16–13 +0.03 (holdout) | |
+| v35a | corner badges stay in their corner (shrink to 0.7 before sliding away) | – | 98.22 | 11–7 (VLM) | |
+| v35c | one alignment per stacked column; mixed columns centre | – | 98.24 | 27–3 (VLM, 44 of 208 judged before the server died) | |
+| v35f | preserve: blocks whose drawn content overlaps move as a band, gaps scale and share the slack equally; stacked columns stretch gaps in proportion; banner rows centred by visible ink | – | 98.24 | (v1 of the band rule lost 72–93 on VLM: it kept text and button "cramped") | |
+| v35g | alignment snapping: near-misses (< 1.5%) moved onto the shared line unless that collides, crams a neighbour or unbalances margins | – | 98.24 | discriminator 309–203 (p 3·10⁻⁶) | |
+| v35h | strip ends get wider margins (up to ~15% of the short side; a 320×50 button sat 2 px from the edge) | – | 98.24 | discriminator 568–290 | |
+| v35j | banner text may grow until the headline fills two lines of the row (logo and button keep the old cap) | – | 98.30 | discriminator 200–145 | |
+| v35k | objective: the headline must lead (1.15× any other text, weight 0.08); the logo is never dropped (brand) | – | 98.34 | discriminator 36–19 | |
 
 **Lesson (v29–v31):** a chain of small A/B wins (+0.06, +0.06, +0.38 on 8
 tasks) hid a real regression. Every few versions, compare against a fixed
@@ -78,6 +86,33 @@ does; the judge consistently prefers keeping content and bigger product art.
 | v25: same aspect ratio → return the source layout scaled exactly | **1–76, −0.93** | the judge prefers our larger text even to the designer's own sizing |
 | v28: preserve boosts 2.5× / 3× | 0 differing | never fit |
 | edge bands (full-width header/footer bars) | not built | they scale rigidly and get dropped in banners; needs a band concept — deferred, the official samples have none |
+
+## The discriminator (`eval/judge_bench.py`, `eval/judge_fit.py`, `eval/discriminator.py`)
+
+A benchmark of 590 known-answer pairs (40 tasks): a real output against a
+copy with one design defect at graded severity (block off its alignment,
+neighbours crammed, lopsided margins, element on the edge, product shrunk,
+headline no longer leading, jitter, smaller text, collision), plus controls
+that must tie (identical, and a block moved 1 px / 0.15%).
+
+| judge | accuracy on defects | on ties |
+|---|---|---|
+| VLM, JSON answer (`vlm_pairwise` prompt) | 65% | flips with order 67% |
+| VLM, one question per rubric item | 62% | flips 100% |
+| VLM, answer token probabilities | 54% | flips 80% |
+| VLM, both candidates in one image | 54% | flips 84% |
+| VLM, thinking | – | ~4 min per call; dropped |
+| design rules alone (`eval/design_rules.py`) | 78% | – |
+| structural scorer alone | 72% | – |
+| **fitted discriminator** (non-negative logistic on rules + scorer metrics) | **82% held-out tasks** | invisible-change sensitivity 0.02 |
+
+Anti-overfitting audit: held-out tasks 82.3% vs 82.7% train; on defect types
+never seen in fitting 68–100%; adding the VLM vote does not help (81.9 → 81.2%).
+Rules are relative to the source (a designer's original scores 1.0 against
+itself), and alignment is perceptual (aligned within max(0.3%, 1.5 px),
+0 at 1.5%), so pixel nudges cannot move the verdict.  Speed: ~1 ms per design;
+a whole 1,638-task run compares in ~6 s.  Human labels (`eval/label_app.py`)
+are the remaining check that it agrees with taste.
 
 ## How far the judge can be trusted (`eval/vlm_sanity.py`)
 

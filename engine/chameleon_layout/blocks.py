@@ -306,16 +306,16 @@ def stack_place(blocks: List[Block], ctx: Ctx, region: Rect, out: Dict[int, Plac
     w, h, sizes, gaps = stack_measure(blocks, ctx, region.w, region.h)
     free = max(0.0, region.h - h)
     n = len(blocks)
-    mixed = {"left", "right"} <= {b.align for b in blocks}  # a column cannot hug both sides
+    aligns = {b.align for b in blocks}
+    axis = aligns.pop() if len(aligns) == 1 else "center"  # one alignment per column; mixed ones centre
     if valign == "center" or n == 1:
-        y, extra = region.y + free / 2, 0.0
-    else:  # half the slack to the outer margins, half spread between blocks
-        y, extra = region.y + free / 4, free / 2 / (n - 1)
+        y, stretch = region.y + free / 2, 1.0
+    else:  # half the slack to the outer margins, half to the gaps in proportion: what was close stays close
+        y, stretch = region.y + free / 4, 1.0 + free / 2 / max(1e-6, sum(gaps))
     placed = []
     for b, (bw, bh), g in zip(blocks, sizes, gaps):
-        y += g + (extra if placed else 0.0)
-        align = "center" if mixed else b.align
-        x = {"left": region.x, "right": region.x1 - bw}.get(align, region.x + (region.w - bw) / 2)
+        y += g * stretch
+        x = {"left": region.x, "right": region.x1 - bw}.get(axis, region.x + (region.w - bw) / 2)
         r = place(b, ctx, x, y, region.w, INF, out)
         placed.append((b, r))
         y += bh
