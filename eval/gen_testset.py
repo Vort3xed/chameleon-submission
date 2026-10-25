@@ -853,7 +853,7 @@ def generate(out_dir: Path, per_arch: int, seed: int):
     return manifest
 
 
-def generate_formats(out_dir: Path, per_arch: int, seed: int):
+def generate_formats(out_dir: Path, per_arch: int, seed: int, formats=None):
     """Exhaustive format coverage: every catalogue format for the official
     samples and for `per_arch` designs of every archetype."""
     out_dir = Path(out_dir)
@@ -873,7 +873,7 @@ def generate_formats(out_dir: Path, per_arch: int, seed: int):
     manifest = []
     for sid, arch, cx, src in sources:
         sw, sh = src["canvas"]["width"], src["canvas"]["height"]
-        for name, tw, th in FORMATS:
+        for name, tw, th in formats or FORMATS:
             dist = ratio_distance(sw, sh, tw, th)
             lvl = 3 if (min(tw, th) <= 100 or max(tw, th) <= 340 or dist > 1.55) else (2 if dist > 0.55 else 1)
             slug = name.lower().replace(" ", "_").replace(":", "x")
@@ -894,8 +894,14 @@ def main():
     ap.add_argument("--designs-per-archetype", type=int, default=10)
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--formats", action="store_true", help="every catalogue format per design (coverage set)")
+    ap.add_argument("--extra-formats", action="store_true", help="the same designs in the extra presets")
     a = ap.parse_args()
-    (generate_formats if a.formats else generate)(Path(a.out), a.designs_per_archetype, a.seed)
+    if a.extra_formats:
+        from eval.catalogue import EXTRA_FORMATS
+
+        generate_formats(Path(a.out), a.designs_per_archetype, a.seed, EXTRA_FORMATS)
+    else:
+        (generate_formats if a.formats else generate)(Path(a.out), a.designs_per_archetype, a.seed)
 
 
 if __name__ == "__main__":

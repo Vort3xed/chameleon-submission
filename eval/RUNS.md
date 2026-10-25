@@ -178,6 +178,10 @@ collision from the subhead the example leaves out.  Its taste is clear
 though: a far bigger headline (150 px vs our 85) and a smaller product than
 ours - more evidence for the bigger-headline side of the open question.
 
+**Extra presets** (`eval/testsets/formats_extra`, 546 tasks: 14 real presets
+not in the main catalogue, incl. 120×600, 300×1050, 468×60, 234×60,
+1128×191): v36l 0 gate failures, 0 crashes, scorer 97.54, max 1.3 s.
+
 **Selection audit:** among the engine's top-6 candidates, the discriminator
 would pick differently in 10 of 80 fresh-holdout tasks; by eye the engine's
 objective was right in about 3 of the top 5 (bigger legible text, dropped

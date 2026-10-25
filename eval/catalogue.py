@@ -55,3 +55,22 @@ def ratio_distance(w1, h1, w2, h2):
     import math
 
     return abs(math.log((w1 / h1) / (w2 / h2)))
+
+# More real presets, kept apart so the main format set stays comparable across
+# runs: extra ad sizes, covers and print shapes, including new aspect extremes.
+EXTRA_FORMATS = [
+    ("Skyscraper", 120, 600),
+    ("Portrait Ad", 300, 1050),
+    ("Banner Ad", 468, 60),
+    ("Half Banner", 234, 60),
+    ("Small Square Ad", 200, 200),
+    ("Vertical Rectangle", 240, 400),
+    ("LinkedIn Company Cover", 1128, 191),
+    ("SoundCloud Banner", 2480, 520),
+    ("Podcast Cover", 3000, 3000),
+    ("Logo", 500, 500),
+    ("Invitation 5x7", 1500, 2100),
+    ("Infographic", 800, 2000),
+    ("Book Cover", 1600, 2560),
+    ("Menu 8.5x11", 2550, 3300),
+]

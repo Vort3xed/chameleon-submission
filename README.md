@@ -140,7 +140,10 @@ Development-only tooling, not copied into the image
   story stacks, adversarial messes with junk fields, rotation, missing assets,
   off-canvas and zero-size elements), each paired with near / far / extreme
   targets from a 42-format catalogue; `--formats` builds every design × every
-  format (1,638 tasks); `--seed 2026` gives a holdout set never used for tuning.
+  format (1,638 tasks); `--extra-formats` the same idea over 14 more presets
+  kept apart (120×600, 300×1050, 468×60, 234×60, 1128×191, 3000×3000, menus,
+  invitations, book covers…); `--seed 2026` and `--seed 4242` give holdout sets
+  never used for tuning.
 * `gen_crazy.py` – 20 stress designs (walls of text, 3×3 grids, giant type,
   two CTAs, photo + scrim, no background, vertical and rotated type, collages,
   CJK/Arabic/emoji, unbreakable words, hard line breaks, nested cards, one
