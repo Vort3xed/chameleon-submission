@@ -212,6 +212,16 @@ def presence(src_blocks, out_blocks, ssc, src_area: float, out_area: float) -> f
     return num / den if den else 1.0
 
 
+def _framed(sc, ink, W: float, H: float) -> List[Rect]:
+    """Flow blocks whose outer margins matter: a panel touching the canvas edge is background-like."""
+    out = []
+    for b in sc.blocks:
+        r = ink[id(b)]
+        if r is not None and not (b.kind == "panel" and min(r.x, r.y, W - r.x1, H - r.y1) <= 1.0):
+            out.append(r)
+    return out
+
+
 def _not_bleeding(sc, ink) -> List[Rect]:
     """Flow blocks that are meant to sit inside the margins (panels and frames may bleed)."""
     return [ink[id(b)] for b in sc.blocks if ink[id(b)] is not None and b.kind != "panel"]
@@ -229,7 +239,8 @@ def evaluate(source: dict, output: dict) -> Dict[str, float]:
     m = {}
     m["alignment"] = _clamp(1 - max(0.0, alignment(sW, sH, _groups(sW, ssc, sink)) - alignment(W, H, _groups(W, sc, ink))) / 0.6)
     m["edge"] = _clamp(1 - max(0, crowded(W, H, _not_bleeding(sc, ink)) - crowded(sW, sH, _not_bleeding(ssc, sink))) / 2)
-    (sx, sy), (ox, oy) = lopsided(sW, sH, sflow), lopsided(W, H, flow)  # corner ornaments excluded
+    # corner ornaments, and panels bleeding off an edge (they act as background), are left out
+    (sx, sy), (ox, oy) = lopsided(sW, sH, _framed(ssc, sink, sW, sH)), lopsided(W, H, _framed(sc, ink, W, H))
     m["margins"] = _clamp(1 - max(0.0, ox - sx) / 0.08) * _clamp(1 - max(0.0, oy - sy) / 0.2) ** 0.5
     m["spacing"] = cramming(_ids_inks(ssc, sink), _ids_inks(sc, ink), sW, sH, W, H)
     m["hierarchy"] = hierarchy(source, output, ssc)
