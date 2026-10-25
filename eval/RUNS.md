@@ -67,6 +67,7 @@ v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 | v35t | alignment snapping also inside cards (against the card's centre) | – | – | ties (offsets were below the visible threshold) | |
 | v35v | an inset border frame is the canvas the content lives in (preserve maps into the frame's new box; reflowed layouts use its inside) | – | – | neutral (34–39, 0 severe) | |
 | v35w | side-by-side and banner columns share one drawn centre line (boxes include line spacing and padding, so centred boxes left visible centres a few px apart) | – | 98.48 | discriminator 255–100, 0 severe; holdout2 45–8 | |
+| v35y | wrapped centred headlines/subheads get balanced lines (narrowest box with the same line count, like CSS text-wrap: balance) - no lone word on the last line | – | – | discriminator 34–33, 0 severe (neutral: it has no widow rule); kept: typography | |
 
 **Lesson (v29–v31):** a chain of small A/B wins (+0.06, +0.06, +0.38 on 8
 tasks) hid a real regression. Every few versions, compare against a fixed

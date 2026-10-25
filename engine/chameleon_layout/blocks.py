@@ -167,9 +167,30 @@ def _text(b, ctx, max_w, max_h, out, x, y):
         measure_w = max(it.box.w * MAX_MEASURE * font / it.font, 4.0 * font)
         fitted = fit_text(it, font, min(max_w, measure_w))
     font, w, h = fitted
+    if b.role in BALANCED and it.el.get("text_align") == "center":  # a narrower centred box stays centred
+        w = balance(it, font, w)
     if out is not None:
         out[it.idx] = Placement(x, y, w, h, font)
     return w, h
+
+
+BALANCED = ("headline", "subhead")  # wrapped titles get even lines instead of a lone last word
+
+
+def balance(it: Item, font: int, w: float) -> float:
+    """The narrowest box that keeps the same number of lines (like CSS
+    `text-wrap: balance`): the renderer wraps greedily, which can leave a
+    widow - one short word alone on the last line."""
+    lay = it.text_layout(font, w)
+    n = lay.n_lines
+    if n < 2:
+        return w
+    lo, hi = _word_width(it, font), w
+    for _ in range(12):
+        mid = (lo + hi) / 2
+        lo, hi = (lo, mid) if it.text_layout(font, mid).n_lines == n else (mid, hi)
+    tight = it.text_layout(font, hi).max_line_width + 0.1 * font + 2
+    return tight if tight < w and it.text_layout(font, tight).n_lines == n else w
 
 
 def _uniform_fit(src: Rect, scale: float, max_w: float, max_h: float) -> float:
