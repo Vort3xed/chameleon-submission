@@ -49,7 +49,10 @@ still works with no fonts or assets present.
 
 **3. Generate candidate layouts (`arrange.py`).**
 
-* **preserve** – nearby aspect ratios: uniform scale, every block keeps its relative position;
+* **preserve** – nearby aspect ratios: uniform scale; blocks whose drawn content
+  overlaps move together and only the space between them stretches (corner
+  pieces stay by their corner; an inset border frame is the canvas the content
+  lives in). The same shape (aspect within 8%) always keeps the composition;
 * **stack** – a single column in reading order (tall/square canvases);
 * **split** – product imagery in one column, everything else stacked beside it;
 * **row** – banners: logo | product | text columns | CTA, with text partitioned into 1–3 columns.
@@ -61,14 +64,28 @@ below a legibility floor tuned to how a judge views the canvas (≈10.5 px at
 When even that cannot fit — e.g. a 17-element poster into 728×90 — whole
 low-importance blocks (also inside cards) are dropped progressively (legal →
 badges/ribbons → body → secondary text → product), never the headline or CTA;
-the logo only as a last resort.  In banner rows, images fill the height while
-their transparent padding stays on the canvas, and the logo never outgrows
-the text by more than 1.5× its original proportion.
+never the logo.  In banner rows, images fill the height while their
+transparent padding stays on the canvas, the logo never outgrows the text by
+more than 1.5× its original proportion, the text may grow until a headline
+fills two lines of the row, and the button never outshines the headline.
+Strips get wider end margins (a 320×50 button no longer sits 2 px from the
+edge); sparse designs may scale up to 2× more into a bigger canvas.
+
+**3b. Finish like a designer.** One alignment per column (mixed columns
+centre); spare height in a column goes to the gaps in proportion to the
+original spacing (what was close stays close); side-by-side columns and
+banner rows share one *drawn* centre line and equal drawn outer margins
+(transparent padding in product art or a logo does not count); near-misses
+within 1.5% are snapped onto the shared line (also inside cards) unless that
+collides, crams a neighbour or unbalances the margins; a corner badge keeps
+its corner (product art there shrinks a little to make way, text never);
+decoration on a card moves with the card; wrapped centred titles get
+balanced lines instead of a lone last word.
 
 **4. Rank them (`objective.py`).** Terms in [0, 1]: legibility, headline size,
 product size, visible coverage, fill, kept content, overlap beyond what the
 source layered, short phrases not shattered into one-word lines, faithfulness
-of position — plus which arrangement family suits how stretched the canvas is
+of position, the headline still leading the other text — plus which arrangement family suits how stretched the canvas is
 (near-square → keep the composition, wide → product beside text, very wide →
 banner row). The weights are a logistic fit to an AI judge's rankings of the
 engine's own candidates on ~320 tasks (`eval/collect_prefs.py` +
