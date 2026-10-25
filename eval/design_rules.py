@@ -21,6 +21,8 @@ if it did before; a deliberately bottom-heavy poster may stay bottom-heavy).
   presence   every block keeps about its share of the canvas (capped there: growing past
              it earns nothing, so an oversized button gains nothing); a resize that leaves
              small elements floating in a bigger canvas fails
+  wrap       a one-line label (button, badge, price) stays one line, and a short phrase is
+             not broken one word per line when the source kept its words together
   corners    corner badges / ribbons stay in their source corner
 
 Blocks come from the engine's own scene analysis (a button's label and shape
@@ -41,7 +43,8 @@ if str(ROOT) not in sys.path:
 from engine.chameleon_layout.geometry import Rect, bounding  # noqa: E402
 from engine.chameleon_layout.scene import analyze  # noqa: E402
 
-RULES = ("alignment", "edge", "margins", "spacing", "hierarchy", "hero", "logo", "fill", "presence", "corners")
+RULES = ("alignment", "edge", "margins", "spacing", "hierarchy", "hero", "logo", "fill", "presence", "wrap",
+         "corners")
 
 
 def _clamp(v: float) -> float:
@@ -252,8 +255,35 @@ def evaluate(source: dict, output: dict) -> Dict[str, float]:
     out_fill = bounding(allr).area / (W * H) if allr else 0.0
     m["fill"] = 1.0 if src_fill <= 0 else _clamp(out_fill / (0.8 * src_fill))
     m["presence"] = presence(_ids_inks(ssc, sink), _ids_inks(sc, ink), ssc, sW * sH, W * H)
+    m["wrap"] = wrapping(ssc, sc)
     m["corners"] = _corners(ssc, sc, sW, sH, W, H)
     return m
+
+
+def _lines(it, font, width):
+    return it.text_layout(font, width).lines
+
+
+def wrapping(ssc, sc) -> float:
+    """Share of texts wrapped acceptably, judged with the renderer's exact wrap."""
+    src = {i.el.get("id"): i for i in ssc.items if i.type == "text"}
+    labels = {i.el.get("id") for b in ssc.blocks + ssc.ornaments if b.kind == "rigid" or b.role in ("cta", "badge", "price")
+              for i in b.items if i.type == "text"}
+    ok = n = 0
+    for it in sc.items:
+        s = src.get(it.el.get("id"))
+        if it.type != "text" or s is None or not it.content.strip():
+            continue
+        out_lines, src_lines = _lines(it, it.font, it.box.w), _lines(s, s.font, s.box.w)
+        words = len(it.content.split())
+        n += 1
+        if it.el.get("id") in labels and len(src_lines) == 1:
+            ok += len(out_lines) == 1
+        elif 2 <= words <= 5 and len(out_lines) >= words and len(src_lines) < words:
+            ok += 0  # one word per line, though the source kept words together
+        else:
+            ok += 1
+    return ok / n if n else 1.0
 
 
 def _corners(ssc, sc, sW, sH, W, H) -> float:

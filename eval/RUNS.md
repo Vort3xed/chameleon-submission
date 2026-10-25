@@ -149,6 +149,17 @@ itself), and alignment is perceptual (aligned within max(0.3%, 1.5 px),
 a whole 1,638-task run compares in ~6 s.  Human labels (`eval/label_app.py`)
 are the remaining check that it agrees with taste.
 
+**Attack (`eval/attack.py`):** hill-climbing engine outputs on the
+discriminator's score found one hole - it bought margin balance by breaking
+button labels onto two lines ("Learn / More"), because text re-wrapping
+weighed 0.09.  A `wrap` rule (one-line labels stay one line; short phrases
+are not broken one word per line) closed it: refit weight 1.50, held-out
+85.1%, unseen sets 90.8% / 98.2%.  What the climb can still buy is tidiness
+at the cost of size (a slightly smaller product for exact alignment): the
+discriminator penalises falling below an element's source share but never
+rewards more - the bigger-vs-faithful axis only human labels can calibrate.
+Two of six engine outputs were already local optima for it.
+
 **Selection audit:** among the engine's top-6 candidates, the discriminator
 would pick differently in 10 of 80 fresh-holdout tasks; by eye the engine's
 objective was right in about 3 of the top 5 (bigger legible text, dropped

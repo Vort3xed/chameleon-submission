@@ -166,6 +166,8 @@ Development-only tooling, not copied into the image
   logistic on rules + scorer metrics, a floor on every rule) with an
   overfitting audit (held-out tasks, unseen defect kinds, invisible-change
   sensitivity), and run-vs-run comparison: sign test, mean, severe losses.
+* `attack.py` – hill-climbs outputs on the discriminator's score to expose
+  what it over-rewards (found the label-wrapping hole).
 * `judges.py` – VLM judge variants measured on the bench; `label_app.py` – a
   local page for human A/B labels, the yardstick for every judge.
 * `sheets.py`, `format_sheet.py` – contact sheets for eyeballing results.
