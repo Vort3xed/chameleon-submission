@@ -345,20 +345,22 @@ def row(scope: Scope, ctx0: Ctx, shrink: float = 1.0) -> List[Layout]:
     hi = max(hi0, reg.h / 2.6 / max(heads)) if heads else hi0
     layouts = []
     for parts in (_partitions(middle, 3) if middle else [[]]):
-        def columns(ts, relax):
+        def columns(ts, relax, even):
             c = Ctx(ctx0.W, ctx0.H, ctx0.src_W, ctx0.src_H, ts, ts, relax)
             cf = Ctx(ctx0.W, ctx0.H, ctx0.src_W, ctx0.src_H, min(ts, hi0), min(ts, hi0), relax)
             fixed = [(b, _slot_size(b, cf, reg)) for b in lead]
             tail = [(b, _slot_size(b, cf, reg)) for b in cta]
             inset = (_edge_inset(fixed[0], 0, reg.x) if fixed else 0.0,
                      _edge_inset(tail[-1], 2, c.W - reg.x1) if tail else 0.0)
+            if even:  # a padded end sets the drawn margin on both ends
+                inset = (max(inset),) * 2
             used = sum(inset) + sum(w for _, (w, _) in fixed + tail) + gap * (len(fixed) + len(tail) + len(parts) - 1)
             weights = [_text_weight(p) for p in parts]
             widths = [(reg.w - used) * w / sum(weights) for w in weights] if parts else []
             return c, fixed, tail, widths, inset
 
-        def fits(ts, relax):
-            c, fixed, tail, widths, _ = columns(ts, relax)
+        def fits(ts, relax, even):
+            c, fixed, tail, widths, _ = columns(ts, relax, even)
             if any(w <= 4 for w in widths) or any(h > reg.h for _, (_, h) in fixed + tail):
                 return False
             if parts and sum(widths) < TEXT_SHARE * reg.w:
@@ -369,34 +371,56 @@ def row(scope: Scope, ctx0: Ctx, shrink: float = 1.0) -> List[Layout]:
                     return False
             return True
 
-        ts = relax = None
-        for relax in (1.0, 0.8, 0.6):
-            ts = bisect(lambda t: fits(t, relax), lo, hi, steps=10)
-            if ts is not None:
+        made = []  # (scale, layout) for the row as fitted, then with even ends
+        for even in (False, True):
+            ts = relax = None
+            for relax in (1.0, 0.8, 0.6):
+                ts = bisect(lambda t: fits(t, relax, even), lo, hi, steps=10)
+                if ts is not None:
+                    break
+            if ts is None:
                 break
-        if ts is None:
-            continue
-        c, fixed, tail, widths, inset = columns(ts * shrink, relax)
-        cf = c.with_scale(min(c.ts, hi0), min(c.ts, hi0))
-        lay = Layout(f"row {len(parts)}col s={shrink}", c)
-        seq = [(b, wh[0]) for b, wh in fixed] + [(p, w) for p, w in zip(parts, widths)] + [(b, wh[0]) for b, wh in tail]
-        free = reg.w - sum(inset) - sum(w for _, w in seq) - gap * (len(seq) - 1)
-        extra = max(0.0, free) / max(1, len(seq) - 1)
-        x = reg.x + inset[0]
-        for obj, w in seq:
-            if isinstance(obj, Block):
-                bc = _slot_ctx(obj, cf, reg)
-                bw, bh = measure(obj, bc, reg.w / 3)
-                lay.placed.append((obj, place(obj, bc, x, reg.y + (reg.h - bh) / 2, reg.w / 3, INF, lay.out)))
-            else:
-                lay.placed += stack_place(obj, c, Rect(x, reg.y, w, reg.h), lay.out, valign="center")
-            x += w + gap + extra
-        if cta:
-            _cta_below_headline(lay, cta[0], cf, reg)
-        _centre_columns(lay, [obj if isinstance(obj, list) else [obj] for obj, _ in seq], reg.cy)
-        _center_ink(lay, blocks, reg, gap)
-        layouts.append(lay)
+            c, fixed, tail, widths, inset = columns(ts * shrink, relax, even)
+            made.append((ts, _row_layout(c, fixed, tail, parts, widths, inset, reg, gap, cta, blocks, hi0,
+                                         f"row {len(parts)}col s={shrink}")))
+            if inset[0] == inset[1]:
+                break  # the ends are already even
+        if len(made) == 2 and made[1][0] >= EVEN_COST * made[0][0] and _lines(made[1][1]) == _lines(made[0][1]):
+            made.pop(0)
+        layouts += [lay for _, lay in made[:1]]
     return layouts
+
+
+EVEN_COST = 0.9  # even end margins may cost a banner's type up to 10%, never a line break
+
+
+def _lines(lay: Layout) -> Dict[int, int]:
+    """Line count of every visible text in a layout."""
+    return {it.idx: it.text_layout(p.font, p.w).n_lines for b, _ in lay.placed for it in b.texts
+            if (p := lay.out.get(it.idx)) is not None and not p.hidden and p.font}
+
+
+def _row_layout(c: Ctx, fixed, tail, parts, widths, inset, reg: Rect, gap: float, cta, blocks, hi0: float,
+                name: str) -> Layout:
+    cf = c.with_scale(min(c.ts, hi0), min(c.ts, hi0))
+    lay = Layout(name, c)
+    seq = [(b, wh[0]) for b, wh in fixed] + [(p, w) for p, w in zip(parts, widths)] + [(b, wh[0]) for b, wh in tail]
+    free = reg.w - sum(inset) - sum(w for _, w in seq) - gap * (len(seq) - 1)
+    extra = max(0.0, free) / max(1, len(seq) - 1)
+    x = reg.x + inset[0]
+    for obj, w in seq:
+        if isinstance(obj, Block):
+            bc = _slot_ctx(obj, cf, reg)
+            bw, bh = measure(obj, bc, reg.w / 3)
+            lay.placed.append((obj, place(obj, bc, x, reg.y + (reg.h - bh) / 2, reg.w / 3, INF, lay.out)))
+        else:
+            lay.placed += stack_place(obj, c, Rect(x, reg.y, w, reg.h), lay.out, valign="center")
+        x += w + gap + extra
+    if cta:
+        _cta_below_headline(lay, cta[0], cf, reg)
+    _centre_columns(lay, [obj if isinstance(obj, list) else [obj] for obj, _ in seq], reg.cy)
+    _center_ink(lay, blocks, reg, gap)
+    return lay
 
 
 def _font_lead(b: Block, out: Dict[int, Placement]) -> Tuple[float, float]:
