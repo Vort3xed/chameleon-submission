@@ -247,6 +247,7 @@ def split(scope: Scope, ctx0: Ctx, side: str, frac: float, k: float, shrink: flo
         r = place(vis, big, vcol.x + (vcol.w - w) / 2, vcol.y + (vcol.h - h) / 2, vcol.w, INF, lay.out)
         lay.placed = [(vis, r)] + stack_place(rest, lay.ctx, tcol, lay.out, valign="center")
         _centre_columns(lay, [[vis], rest], reg.cy)
+        _center_ink(lay, scope.blocks, reg, gutter)  # equal outer margins as drawn
         return lay
 
     return _fit_scale(build)
