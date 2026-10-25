@@ -857,6 +857,7 @@ def letterbox(scene: Scene, ctx0: Ctx) -> Layout:
     return lay
 
 
+SAME_SHAPE = 0.08  # aspect ratios this close (log ratio) count as the same shape
 MAX_LAYOUTS = 400  # past this many candidates no further drop levels are explored (deterministic,
                    # unlike a time budget: the same input gives the same output on any machine)
 
@@ -877,12 +878,15 @@ def candidates(scene: Scene, ctx0: Ctx) -> Tuple[Scope, List[Layout]]:
     judge = Scope(scene.blocks + scene.ornaments, src, region)
     B.panel_layout_hook = lambda kids, s, r, c: _panel_inner(kids, s, r, c, scene.items)
     out = []
-    if abs(math.log((W / H) / (scene.W / scene.H))) < 0.45:
+    stretch = abs(math.log((W / H) / (scene.W / scene.H)))
+    if stretch < 0.45:
         for boost in (2.0, 1.75, 1.5, 1.4, 1.3, 1.2, 1.1, 1.0):
             lay = preserve(Scope(scene.blocks + scene.ornaments, src, canvas), ctx0, boost, scene.items)
             if lay is not None:  # preserve positions the ornaments itself
                 out.append(finish(scene, lay, []))
                 break
+        if out and stretch < SAME_SHAPE and evaluate(out[0], judge, scene.items)["legibility"] >= 0.9:
+            return judge, out  # the same shape keeps the designer's composition
     for drop in drop_levels(scene):
         flow = [prune(b, drop) for b in scene.blocks if b not in drop]
         if not flow:
