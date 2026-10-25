@@ -192,16 +192,23 @@ def balance(it: Item, font: int, w: float) -> float:
     """The narrowest box that keeps the same number of lines (like CSS
     `text-wrap: balance`): the renderer wraps greedily, which can leave a
     widow - one short word alone on the last line."""
-    lay = it.text_layout(font, w)
-    n = lay.n_lines
-    if n < 2:
-        return w
+    n = it.text_layout(font, w).n_lines
+    return w if n < 2 else _narrowest(it, font, w, lambda lay: lay.n_lines == n)
+
+
+def snug(it: Item, font: int, w: float) -> float:
+    """The narrowest box that wraps into exactly the same lines."""
+    lines = it.text_layout(font, w).lines
+    return _narrowest(it, font, w, lambda lay: lay.lines == lines)
+
+
+def _narrowest(it: Item, font: int, w: float, same) -> float:
     lo, hi = _word_width(it, font), w
     for _ in range(12):
         mid = (lo + hi) / 2
-        lo, hi = (lo, mid) if it.text_layout(font, mid).n_lines == n else (mid, hi)
-    tight = hi + 0.05 * font + 1  # the narrowest width that wraps the same, plus rounding room
-    return tight if tight < w and it.text_layout(font, tight).n_lines == n else w
+        lo, hi = (lo, mid) if same(it.text_layout(font, mid)) else (mid, hi)
+    tight = hi + 0.05 * font + 1  # the narrowest width that still qualifies, plus rounding room
+    return tight if tight < w and same(it.text_layout(font, tight)) else w
 
 
 def _uniform_fit(src: Rect, scale: float, max_w: float, max_h: float) -> float:
@@ -349,9 +356,23 @@ def stack_place(blocks: List[Block], ctx: Ctx, region: Rect, out: Dict[int, Plac
         y += g * stretch
         x = {"left": region.x, "right": region.x1 - bw}.get(axis, region.x + (region.w - bw) / 2)
         r = place(b, ctx, x, y, region.w, INF, out)
+        if axis == "center" and b.kind == "text":
+            r = _centre_snug(b, r, out)
         placed.append((b, r))
         y += bh
     return placed
+
+
+def _centre_snug(b: Block, r: Rect, out: Dict[int, Placement]) -> Rect:
+    """Left- or right-aligned text in a centred column: the box shrinks to its
+    lines and stays centred, so its slack cannot pull the words to one side."""
+    it = b.items[0]
+    p = out.get(it.idx)
+    if p is None or p.hidden or not p.font or it.el.get("text_align", "left") == "center":
+        return r
+    w = snug(it, p.font, p.w)
+    out[it.idx] = replace(p, x=r.cx - w / 2, w=w)
+    return Rect(r.cx - w / 2, r.y, w, r.h)
 
 
 def panel_pads(b: Block) -> Tuple[float, float, float, float]:
