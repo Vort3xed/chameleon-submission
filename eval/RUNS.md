@@ -165,6 +165,16 @@ stretched to the canvas edges unpenalised (the edge rule exempted every panel;
 now only panels that already bled in the source), and two genuine
 improvements (slightly bigger text) the engine leaves on the table.
 
+**The brief's own example** (1080×1920: logo 320×120, product 432×720
+"kept in proportion", headline 150 px on two lines, button 600×120) as an
+organiser-made calibration point: literally it fails our gate (box aspect of
+logo and product changed - so the official check probably judges rendered
+proportions of contain-fit images, not box aspect; ours is the safe side).
+Made valid, it scores 12.7 against our 14.4 - mostly logo/presence and a
+collision from the subhead the example leaves out.  Its taste is clear
+though: a far bigger headline (150 px vs our 85) and a smaller product than
+ours - more evidence for the bigger-headline side of the open question.
+
 **Selection audit:** among the engine's top-6 candidates, the discriminator
 would pick differently in 10 of 80 fresh-holdout tasks; by eye the engine's
 objective was right in about 3 of the top 5 (bigger legible text, dropped
