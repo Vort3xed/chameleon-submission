@@ -327,9 +327,29 @@ def source_gaps(blocks: List[Block]) -> List[float]:
     return gaps
 
 
+def group_breaks(blocks: List[Block]) -> List[bool]:
+    """Which gaps separate groups: the widest ones of the source (within 15%
+    of the widest, as the layout tree cuts first); the rest lie inside a group."""
+    src = source_gaps(blocks)
+    widest = max(src[1:], default=0.0)
+    return [False] + [g >= 0.85 * widest for g in src[1:]]
+
+
+GROUP_EM = (0.5, 1.2)  # a gap inside a group: between half and 1.2 em of the larger text beside it
+
+
 def stack_gaps(blocks: List[Block], ctx: Ctx, region_h: float) -> List[float]:
     lo, hi = 0.012 * region_h + 2, 0.09 * region_h + 4
-    return [0.0] + [min(hi, max(lo, g * ctx.ts)) for g in source_gaps(blocks)[1:]]
+    gaps = [0.0] + [min(hi, max(lo, g * ctx.ts)) for g in source_gaps(blocks)[1:]]
+    for k, brk in enumerate(group_breaks(blocks)):
+        em = max(_lead_font(blocks[k - 1], ctx), _lead_font(blocks[k], ctx)) if k else 0.0
+        if em and not brk:  # what belongs together stays together, with air enough to read as two lines
+            gaps[k] = min(max(gaps[k], GROUP_EM[0] * em), GROUP_EM[1] * em)
+    return gaps
+
+
+def _lead_font(b: Block, ctx: Ctx) -> float:
+    return max((text_font(it, b.role, ctx) for it in b.texts), default=0.0)
 
 
 def stack_measure(blocks: List[Block], ctx: Ctx, width: float, region_h: float):
@@ -347,13 +367,15 @@ def stack_place(blocks: List[Block], ctx: Ctx, region: Rect, out: Dict[int, Plac
     n = len(blocks)
     aligns = {b.align for b in blocks}
     axis = aligns.pop() if len(aligns) == 1 else "center"  # one alignment per column; mixed ones centre
-    if valign == "center" or n == 1:
+    breaks = group_breaks(blocks)
+    between = sum(g for g, brk in zip(gaps, breaks) if brk)
+    if valign == "center" or n == 1 or between <= 0:
         y, stretch = region.y + free / 2, 1.0
-    else:  # half the slack to the outer margins, half to the gaps in proportion: what was close stays close
-        y, stretch = region.y + free / 4, 1.0 + free / 2 / max(1e-6, sum(gaps))
+    else:  # half the slack to the outer margins, half to the gaps between groups in proportion; groups stay compact
+        y, stretch = region.y + free / 4, 1.0 + free / 2 / between
     placed = []
-    for b, (bw, bh), g in zip(blocks, sizes, gaps):
-        y += g * stretch
+    for b, (bw, bh), g, brk in zip(blocks, sizes, gaps, breaks):
+        y += g * (stretch if brk else 1.0)
         x = {"left": region.x, "right": region.x1 - bw}.get(axis, region.x + (region.w - bw) / 2)
         r = place(b, ctx, x, y, region.w, INF, out)
         if axis == "center" and b.kind == "text":

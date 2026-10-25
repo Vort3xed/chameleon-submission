@@ -75,8 +75,9 @@ Strips get wider end margins (a 320×50 button no longer sits 2 px from the
 edge); sparse designs may scale up to 2× more into a bigger canvas.
 
 **3b. Finish like a designer.** One alignment per column (mixed columns
-centre); spare height in a column goes to the gaps in proportion to the
-original spacing (what was close stays close); side-by-side columns and
+centre); a column keeps its groups compact - the widest gaps of the original
+separate groups, a gap inside a group stays between half and 1.2 em of the
+text beside it, and spare height goes only between groups and to the margins; side-by-side columns and
 banner rows share one *drawn* centre line and equal drawn outer margins
 (transparent padding in product art or a logo does not count); near-misses
 within 1.5% are snapped onto the shared line (also inside cards) unless that
