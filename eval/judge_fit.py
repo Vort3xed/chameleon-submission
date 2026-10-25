@@ -177,12 +177,39 @@ def audit(vlm: str = "", l2: float = 0.01):
     return w
 
 
+def bootstrap(n: int, l2: float = 0.01, seed: int = 0):
+    """Refit on n resamples of whole tasks: the spread of out-of-sample accuracy
+    and of each weight.  A model that fits noise swings; this one should not."""
+    rng = np.random.default_rng(seed)
+    syn = [p for p in load("synthetic") if p["kind"] not in ("same", "invisible")]
+    syn, X = design_matrix(syn)
+    save_cache()
+    tasks = sorted({p["task_id"] for p in syn})
+    t_of = np.array([p["task_id"] for p in syn])
+    accs, ws = [], []
+    for _ in range(n):
+        pick = set(rng.choice(tasks, size=len(tasks), replace=True))
+        inside = np.array([t in pick for t in t_of])
+        w = fit(X[inside], l2)
+        accs.append(accuracy(X[~inside], w))
+        ws.append(w / max(np.abs(w).sum(), 1e-12))  # compare shapes, not overall scale
+    ws = np.array(ws)
+    print(f"bootstrap x{n}: out-of-sample accuracy {np.mean(accs):.1%} ± {np.std(accs):.1%} "
+          f"(min {np.min(accs):.1%})")
+    order = np.argsort(-ws.mean(axis=0))
+    print("  weight share (mean ± sd):", ", ".join(f"{FEATURES[i]}={ws[:, i].mean():.3f}±{ws[:, i].std():.3f}"
+                                                 for i in order if ws[:, i].mean() > 0.01))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--vlm", default="")
     ap.add_argument("--l2", type=float, default=0.01)
+    ap.add_argument("--bootstrap", type=int, default=0, help="also refit on this many task resamples")
     a = ap.parse_args()
     audit(a.vlm, a.l2)
+    if a.bootstrap:
+        bootstrap(a.bootstrap, a.l2)
 
 
 if __name__ == "__main__":

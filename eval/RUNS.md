@@ -148,7 +148,9 @@ Anti-overfitting audit (current): held-out tasks 85.2% vs 85.3% train; seven
 defect kinds never used in fitting, on other tasks and a newer engine: 90.4%;
 a second unseen set built after the rules were last changed (widow, stranded
 button, drifting logo, badge on headline, tilted headline, squeezed layout):
-97.2%;
+97.2%; bootstrap over 20 task resamples (`--bootstrap 20`): out-of-sample
+85.0% ± 1.5% (worst 81.3%), weight shares stable (top three ±0.01; spacing
+and edge ±0.02 are the least pinned down);
 adding the VLM vote does not help (81.9 → 81.2%).  Fixes found by auditing it:
 hidden (opacity 0) elements were counted; a design failing the hard gate got
 perfect scorer features (the starter's stretch went undetected); the spacing
