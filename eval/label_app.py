@@ -33,9 +33,64 @@ def _family(name: str) -> str:
     return next((f for f in FAMILIES if name.startswith(f)), name.split()[0])
 
 
+def build_questions(n: int, seed: int):
+    """Pairs that settle what the judges disagree on: the engine's objective vs
+    the discriminator's pick among the top candidates, and bigger vs more
+    faithful (the tight-preserve and headline-emphasis experiments)."""
+    from engine.chameleon_layout.pipeline import candidate_outputs
+    from eval.discriminator import _weights, quality
+    from eval.vlm_pairwise import differs
+
+    rng, w, pairs = random.Random(seed), _weights(), []
+    for tset in ("holdout2", "formats"):
+        tdir = ROOT / "eval" / "testsets" / tset / "tasks"
+        paths = sorted(tdir.glob("*.json"))
+        rng.shuffle(paths)
+        for p in paths:
+            if sum(q["origin"] == "judges disagree" for q in pairs) >= n // 2:
+                break
+            task = json.loads(p.read_text())
+            cands = sorted(candidate_outputs(task["source"], task["target_canvas"]), key=lambda c: -c[0]["total"])[:6]
+            qs = [quality(task["source"], task["target_canvas"], c[2], w) for c in cands]
+            k = max(range(len(qs)), key=lambda i: qs[i])
+            if k and qs[k] - qs[0] > 0.3:
+                pairs.append({"id": f"{p.stem}|objective|discriminator", "task_id": p.stem, "tset": tset,
+                              "origin": "judges disagree", "a": cands[0][2], "b": cands[k][2]})
+    for a, b, origin in (("v35v_allformats", "v35u_allformats", "bigger: tight text"),
+                         ("v35w_allformats", "v35x_allformats", "bigger: headline emphasis")):
+        ra, rb = ROOT / "eval" / "runs" / a / "outputs", ROOT / "eval" / "runs" / b / "outputs"
+        ids = sorted(q.stem for q in ra.glob("*.json") if (rb / q.name).exists())
+        rng.shuffle(ids)
+        got = 0
+        for tid in ids:
+            da, db = json.loads((ra / f"{tid}.json").read_text()), json.loads((rb / f"{tid}.json").read_text())
+            if differs(da, db):
+                pairs.append({"id": f"{tid}|{a}|{b}", "task_id": tid, "tset": "formats", "origin": origin, "a": da, "b": db})
+                got += 1
+                if got >= n // 4:
+                    break
+    _finish(pairs, rng)
+
+
+def _finish(pairs, rng):
+    from eval.render import render
+
+    rng.shuffle(pairs)
+    (LABELS / "img").mkdir(parents=True, exist_ok=True)
+    for k, p in enumerate(pairs):
+        p["key"] = f"p{k:03d}"
+        task = json.loads((ROOT / "eval" / "testsets" / p.get("tset", "formats") / "tasks" / f"{p['task_id']}.json").read_text())
+        p["source"], p["target"] = task["source"], task["target_canvas"]
+        if rng.random() < 0.5:  # which one shows on the left is random
+            p["a"], p["b"] = p["b"], p["a"]
+        for side in ("source", "a", "b"):
+            render(p[side], max_size=900)[0].convert("RGB").save(LABELS / "img" / f"{p['key']}_{side}.png")
+    (LABELS / "pairs.jsonl").write_text("\n".join(json.dumps(p) for p in pairs))
+    print(f"{len(pairs)} pairs -> {LABELS / 'pairs.jsonl'}")
+
+
 def build(n: int, seed: int, versions):
     from engine.chameleon_layout.pipeline import candidate_outputs
-    from eval.render import render
     from eval.vlm_pairwise import differs
 
     tasks = ROOT / "eval" / "testsets" / "formats" / "tasks"
@@ -67,18 +122,7 @@ def build(n: int, seed: int, versions):
         if other is not None:
             pairs.append({"id": f"{tid}|{best[1]}|{other[1]}", "task_id": tid, "origin": "families",
                           "a": best[2], "b": other[2]})
-    rng.shuffle(pairs)
-    (LABELS / "img").mkdir(parents=True, exist_ok=True)
-    for k, p in enumerate(pairs):
-        p["key"] = f"p{k:03d}"
-        task = json.loads((tasks / f"{p['task_id']}.json").read_text())
-        p["source"], p["target"] = task["source"], task["target_canvas"]
-        if rng.random() < 0.5:  # which one shows on the left is random
-            p["a"], p["b"] = p["b"], p["a"]
-        for side in ("source", "a", "b"):
-            render(p[side], max_size=900)[0].convert("RGB").save(LABELS / "img" / f"{p['key']}_{side}.png")
-    (LABELS / "pairs.jsonl").write_text("\n".join(json.dumps(p) for p in pairs))
-    print(f"{len(pairs)} pairs -> {LABELS / 'pairs.jsonl'}")
+    _finish(pairs, rng)
 
 
 PAGE = """<!doctype html><meta charset=utf-8><title>Which resize is better?</title>
@@ -167,12 +211,17 @@ def main():
     b.add_argument("--n", type=int, default=80)
     b.add_argument("--seed", type=int, default=0)
     b.add_argument("--versions", default="v12_allformats:v35f_allformats,v27b_allformats:v35f_allformats")
+    q = sub.add_parser("questions", help="pairs that settle what the judges disagree on")
+    q.add_argument("--n", type=int, default=80)
+    q.add_argument("--seed", type=int, default=0)
     s = sub.add_parser("serve")
     s.add_argument("--port", type=int, default=8790)
     sub.add_parser("export")
     a = ap.parse_args()
     if a.cmd == "build":
         build(a.n, a.seed, [tuple(v.split(":")) for v in a.versions.split(",")])
+    elif a.cmd == "questions":
+        build_questions(a.n, a.seed)
     elif a.cmd == "serve":
         serve(a.port)
     else:

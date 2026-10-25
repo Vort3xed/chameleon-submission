@@ -143,6 +143,15 @@ itself), and alignment is perceptual (aligned within max(0.3%, 1.5 px),
 a whole 1,638-task run compares in ~6 s.  Human labels (`eval/label_app.py`)
 are the remaining check that it agrees with taste.
 
+**Selection audit:** among the engine's top-6 candidates, the discriminator
+would pick differently in 10 of 80 fresh-holdout tasks; by eye the engine's
+objective was right in about 3 of the top 5 (bigger legible text, dropped
+clutter), the discriminator in 1 (a title broken one word per line).  So the
+discriminator referees changes but does not choose layouts: it leans toward
+completeness and the source's proportions.  `python -m eval.label_app
+questions` builds human-label pairs for exactly these disagreements and for
+the two bigger-vs-faithful experiments.
+
 ## How far the judge can be trusted (`eval/vlm_sanity.py`)
 
 80 main-set tasks: the v33 output against a copy with a known defect, and
