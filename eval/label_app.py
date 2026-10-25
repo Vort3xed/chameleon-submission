@@ -134,12 +134,14 @@ border-radius:3px;padding:0 5px}.bar{margin-bottom:10px}button{font:inherit;padd
 <div class=bar><b>{done}/{total}</b> labelled &nbsp; {target} &nbsp;&nbsp;
 <button onclick="send('A')"><kbd>A</kbd> left better</button> <button onclick="send('B')"><kbd>B</kbd> right better</button>
 <button onclick="send('=')"><kbd>=</kbd> can't tell</button> <button onclick="send('X')"><kbd>X</kbd> both bad</button>
-<button onclick="send('S')"><kbd>S</kbd> skip</button></div>
+<button onclick="send('S')"><kbd>S</kbd> skip</button>
+&nbsp; <input id=note size=40 placeholder="note, e.g. why both are bad (optional)"></div>
 <div class=row><div class="col src" style="flex:.6"><h2>Original</h2><img src="/img/{key}_source.png"></div>
 <div class=col><h2>A</h2><img src="/img/{key}_a.png"></div><div class=col><h2>B</h2><img src="/img/{key}_b.png"></div></div>
-<script>function send(k){const note=k==='X'?(prompt('Both bad - what is wrong? (optional)')||''):'';
+<script>function send(k){const note=document.getElementById('note').value;
 fetch('/label',{method:'POST',body:JSON.stringify({key:'{key}',choice:k,note})}).then(()=>location.reload())}
-document.onkeydown=e=>{const k={a:'A',b:'B','=':'=',s:'S',x:'X'}[e.key.toLowerCase()];if(k){e.preventDefault();send(k)}}</script>"""
+document.onkeydown=e=>{if(e.target.id==='note')return;const k={a:'A',b:'B','=':'=',s:'S',x:'X'}[e.key.toLowerCase()];
+if(k){e.preventDefault();send(k)}}</script>"""
 
 DONE = "<!doctype html><meta charset=utf-8><body style='font:16px system-ui;margin:40px'>All {total} pairs labelled. Thanks!"
 
