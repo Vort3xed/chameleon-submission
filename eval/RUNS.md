@@ -136,6 +136,7 @@ does; the judge consistently prefers keeping content and bigger product art.
 | v36v: v36u offered as an extra candidate, plus a margins term (0.07) in the objective | loop: formats 369–73 | the term reshaped choices inside cards and between families (cramped button rows in scrim cards, smaller posters) |
 | v36x / v36y: banner groups at least 0.5 / 0.35 em of the largest text apart (the warmup sample's wordmark sat 6 px from its 61 px headline) | loop: v36x formats 207–104, 3 severe; v36y 191–82, 4 severe (over the limit), holdout2 22–16 | the air comes out of the type: buttons drift back to the edge (even ends no longer fit) and extra copy returns tiny; the first human labels prefer bigger type, so the cramming is left to a fix that does not shrink text |
 | v37a: every left/right-aligned text box snug | loop: formats 76–27, holdout2 16–7 | in banner rows a column takes the block's source anchor (often 'right'), so snug headlines slid against the button; narrowed to centred columns (v37b) |
+| v37f: layout-tree family - each design parsed by recursive XY-cut (widest whitespace first, so what sits close ends up in the same subtree: the advanced sample parses as [[logo, product], [[headline, subhead, badges], button]], legal), re-solved with up to two stacks flipped the way the canvas went | loop: formats 57–140, 25 severe | the parse is right and role-free, the naive solver is not: rows share width by source width (tiny logos and buttons), no image-fills-height or button caps, and it sometimes wins the ranking because it has no family prior; next use of the parse: group-aware spacing inside the existing families. Code kept outside the repo |
 | v36z: banner logo never outgrows the text relative to the source (1.0x, was 1.5x) | loop: formats 230–88, holdout2 35–16, 0 severe; **VLM 12–39** | the wordmark becomes illegible on 728x90 / 320x50 (VLM: 'logo larger and more readable' x20) |
 | v36z2: banner logo at most 40% of the row height (was 50%) | loop: formats 65–13, holdout2 13–3; VLM 14–21 (62 ties) | parked (patch kept): the headline also loses ~10% when even ends become affordable - waiting on human labels for logo size and balance-vs-size (pairs p080–p109) |
 | v35l: banner rows also offered with a 0.75× button | discriminator 22–41 (p 0.02), engine 60% slower | the objective picked small buttons where they hurt; reverted |
@@ -179,6 +180,19 @@ itself), and alignment is perceptual (aligned within max(0.3%, 1.5 px),
 0 at 1.5%), so pixel nudges cannot move the verdict.  Speed: ~1 ms per design;
 a whole 1,638-task run compares in ~6 s.  Human labels (`eval/label_app.py`)
 are the remaining check that it agrees with taste.
+
+**Taste features (human labels, 51 decided pairs):** the discriminator agreed with
+people on only 43% of them; the one thing they consistently reward is size - the
+headline relative to the canvas (24 right / 8 wrong as a lone feature) and the
+product's share (16 / 7); padding, by contrast, loses to size when they compete
+(11 / 17), although the notes ask for it.  Two absolute features (`taste()` in
+design_rules.py: headline at 12% of the short side, product at 25% of the area,
+both saturating) plus human pairs weighted x5: held-out synthetic 84.7 -> 90.1%,
+held-out human 42.7 -> 71.4%, unseen defect sets 92.2% / 96.8%, invisible-change
+sensitivity unchanged (0.01).  Gradient-boosted trees (xgboost, depth 2-4, also
+with monotone constraints) on the same features fit the familiar defects a little
+better (91.5%) but generalise worse (unseen 89-90%, human 63-73%): with ~600
+pairs the linear model stays.
 
 **Attack (`eval/attack.py`):** hill-climbing engine outputs on the
 discriminator's score found one hole - it bought margin balance by breaking

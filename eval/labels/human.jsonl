@@ -1,0 +1,84 @@
+{"key": "p000", "choice": "B"}
+{"key": "p001", "choice": "B"}
+{"key": "p002", "choice": "B"}
+{"key": "p003", "choice": "B"}
+{"key": "p004", "choice": "="}
+{"key": "p005", "choice": "="}
+{"key": "p006", "choice": "="}
+{"key": "p007", "choice": "="}
+{"key": "p008", "choice": "A"}
+{"key": "p009", "choice": "B"}
+{"key": "p010", "choice": "A"}
+{"key": "p011", "choice": "A"}
+{"key": "p012", "choice": "A"}
+{"key": "p013", "choice": "X"}
+{"key": "p014", "choice": "="}
+{"key": "p015", "choice": "B", "note": "B is better, but the text at the top should be centered in the middle. "}
+{"key": "p016", "choice": "A"}
+{"key": "p017", "choice": "A"}
+{"key": "p018", "choice": "X"}
+{"key": "p019", "choice": "X"}
+{"key": "p020", "choice": "B", "note": "spacing between taste the sunset, naturally bright, and buy tickets should be smaller. "}
+{"key": "p021", "choice": "A", "note": "sip slowly should be center aligned. "}
+{"key": "p022", "choice": "B", "note": "the drink on the left should be brought a bit closer to the text, where the entire component encompassing the drink, text, buttons etc is centered horizontally and vertically."}
+{"key": "p023", "choice": "B", "note": "horizontal center alignment for the elements that need this please!"}
+{"key": "p024", "choice": "A"}
+{"key": "p025", "choice": "A"}
+{"key": "p026", "choice": "="}
+{"key": "p027", "choice": "A"}
+{"key": "p028", "choice": "B"}
+{"key": "p029", "choice": "A", "note": "need better margins for the top and bottom. "}
+{"key": "p030", "choice": "X"}
+{"key": "p031", "choice": "A", "note": "need spacing between description text and the button. "}
+{"key": "p032", "choice": "X"}
+{"key": "p033", "choice": "="}
+{"key": "p034", "choice": "B", "note": "solstice logo needs spacing between the yellow parent component. "}
+{"key": "p035", "choice": "="}
+{"key": "p036", "choice": "X"}
+{"key": "p037", "choice": "A", "note": "button placement is bad. "}
+{"key": "p038", "choice": "="}
+{"key": "p039", "choice": "B", "note": "need to utilize space better"}
+{"key": "p040", "choice": "B", "note": "orange background for an orange product is a terrible idea"}
+{"key": "p041", "choice": "B", "note": "better arrangement on b, but theres only 2 flavors (not 4) "}
+{"key": "p042", "choice": "="}
+{"key": "p043", "choice": "X"}
+{"key": "p044", "choice": "B", "note": "give more space for top and bottom padding. "}
+{"key": "p045", "choice": "X"}
+{"key": "p046", "choice": "B"}
+{"key": "p047", "choice": "A", "note": "improve density of content across the vertical access. add more padding for bottom and top. "}
+{"key": "p048", "choice": "B", "note": "reduce font size a bit "}
+{"key": "p049", "choice": "B", "note": "both are pretty good though. "}
+{"key": "p050", "choice": "="}
+{"key": "p051", "choice": "B", "note": "imrpove spacing between components vertically"}
+{"key": "p052", "choice": "X"}
+{"key": "p053", "choice": "B"}
+{"key": "p054", "choice": "B"}
+{"key": "p055", "choice": "X"}
+{"key": "p056", "choice": "A"}
+{"key": "p057", "choice": "X"}
+{"key": "p058", "choice": "X"}
+{"key": "p059", "choice": "A", "note": "improve vertical spacing between elements. "}
+{"key": "p060", "choice": "B"}
+{"key": "p061", "choice": "X"}
+{"key": "p062", "choice": "A"}
+{"key": "p063", "choice": "B", "note": "better utilization of space "}
+{"key": "p064", "choice": "="}
+{"key": "p065", "choice": "B"}
+{"key": "p066", "choice": "B", "note": "both are okay though"}
+{"key": "p067", "choice": "B"}
+{"key": "p068", "choice": "B"}
+{"key": "p069", "choice": "X"}
+{"key": "p070", "choice": "="}
+{"key": "p071", "choice": "A"}
+{"key": "p072", "choice": "B", "note": "B just is missing a 4th flavor. "}
+{"key": "p073", "choice": "X", "note": "need better padding for top and bottom. "}
+{"key": "p074", "choice": "X"}
+{"key": "p075", "choice": "X"}
+{"key": "p076", "choice": "B"}
+{"key": "p077", "choice": "B"}
+{"key": "p078", "choice": "B"}
+{"key": "p079", "choice": "B", "note": "pure glow doesnt seem to be center aligned (horizontally) with naturally bright. "}
+{"key": "p080", "choice": "X"}
+{"key": "p081", "choice": "X"}
+{"key": "p082", "choice": "X"}
+{"key": "p083", "choice": "B"}
