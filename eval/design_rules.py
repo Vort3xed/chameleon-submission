@@ -18,6 +18,9 @@ if it did before; a deliberately bottom-heavy poster may stay bottom-heavy).
   hero       the product art keeps its share of the canvas
   logo       the logo keeps a legible share of the canvas (the brief: the logo survives intact)
   fill       the content's outer box spans the canvas about as much as the source's did
+  presence   every block keeps about its share of the canvas (capped there: growing past
+             it earns nothing, so an oversized button gains nothing); a resize that leaves
+             small elements floating in a bigger canvas fails
   corners    corner badges / ribbons stay in their source corner
 
 Blocks come from the engine's own scene analysis (a button's label and shape
@@ -38,7 +41,7 @@ if str(ROOT) not in sys.path:
 from engine.chameleon_layout.geometry import Rect, bounding  # noqa: E402
 from engine.chameleon_layout.scene import analyze  # noqa: E402
 
-RULES = ("alignment", "edge", "margins", "spacing", "hierarchy", "hero", "logo", "fill", "corners")
+RULES = ("alignment", "edge", "margins", "spacing", "hierarchy", "hero", "logo", "fill", "presence", "corners")
 
 
 def _clamp(v: float) -> float:
@@ -190,6 +193,25 @@ def _ids_inks(sc, ink):
     return [(tuple(i.el.get("id") for i in b.items), ink[id(b)]) for b in sc.blocks if ink[id(b)] is not None]
 
 
+IMPORTANCE = {"headline": 1.0, "cta": 0.85, "logo": 0.85, "hero": 0.75, "subhead": 0.6, "price": 0.6}
+
+
+def presence(src_blocks, out_blocks, ssc, src_area: float, out_area: float) -> float:
+    """Importance-weighted share of blocks that keep at least 80% of their source share of
+    the canvas (each capped at its share); a block that disappeared keeps nothing."""
+    out = {frozenset(ids): r for ids, r in out_blocks}
+    role = {frozenset(i.el.get("id") for i in b.items): b.role for b in ssc.blocks}
+    num = den = 0.0
+    for ids, r in src_blocks:
+        key = frozenset(ids)
+        w = IMPORTANCE.get(role.get(key, ""), 0.4)
+        o = out.get(key)
+        share = (o.area / out_area) / max(1e-9, r.area / src_area) if o is not None else 0.0
+        num += w * _clamp(share / 0.8)
+        den += w
+    return num / den if den else 1.0
+
+
 def _not_bleeding(sc, ink) -> List[Rect]:
     """Flow blocks that are meant to sit inside the margins (panels and frames may bleed)."""
     return [ink[id(b)] for b in sc.blocks if ink[id(b)] is not None and b.kind != "panel"]
@@ -218,6 +240,7 @@ def evaluate(source: dict, output: dict) -> Dict[str, float]:
     src_fill = bounding(sall).area / (sW * sH) if sall else 0.0
     out_fill = bounding(allr).area / (W * H) if allr else 0.0
     m["fill"] = 1.0 if src_fill <= 0 else _clamp(out_fill / (0.8 * src_fill))
+    m["presence"] = presence(_ids_inks(ssc, sink), _ids_inks(sc, ink), ssc, sW * sH, W * H)
     m["corners"] = _corners(ssc, sc, sW, sH, W, H)
     return m
 
