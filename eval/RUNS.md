@@ -129,6 +129,7 @@ does; the judge consistently prefers keeping content and bigger product art.
 | v36o: tight preserve + every element keeps ≥ 60% of its scaled edge distance | discriminator 39–219, 96 severe | the proportional floor can exceed the room there is and pushes blocks into impossible positions; tightening stays parked for human labels (VLM was 173–31 for it) |
 | v36p: a minor ornament with no spot clear of content is hidden instead of overlapping | loop: formats 2–7, holdout 1–1 | rare; dropping the badge costs more presence than the overlap |
 | v36q: preserve also offers the next calmer boost | loop: formats 50–50, holdout 5–0 | no gain for the extra candidates |
+| v36s: 9:16 stories keep content inside the platform-safe band (12% top, 18% bottom clear; 78/117 story CTAs sat in the bottom 20%) | loop: formats 11–132, 4 severe (veto) | the narrower band shrinks everything; the AI evaluator judges the image, not a phone UI over it - noted for the finale (a 'safe zones' toggle) |
 | v35l: banner rows also offered with a 0.75× button | discriminator 22–41 (p 0.02), engine 60% slower | the objective picked small buttons where they hurt; reverted |
 | edge bands (full-width header/footer bars) | not built | they scale rigidly and get dropped in banners; needs a band concept — deferred, the official samples have none |
 
