@@ -245,6 +245,96 @@ def c_single_text(rng, W, H):
     return d
 
 
+def c_flat_type(rng, W, H):
+    """No headline: four lines of copy at one size (what leads?)."""
+    d, u = _base(rng, W, H), min(W, H) / 1080
+    for i, line in enumerate(rng.sample(SUBHEADS, 4)):
+        d.text("line", line, SANS, 34 * u, rgba(*WHITE), 80 * u, H * 0.2 + i * 110 * u, W - 160 * u)
+    _cta(d, rng.choice(CTAS), W / 2, H * 0.75, 26 * u)
+    return d
+
+
+def c_three_ctas(rng, W, H):
+    d, u = _base(rng, W, H), min(W, H) / 1080
+    d.logo(W / 2, 60 * u, 280 * u)
+    d.text("headline", rng.choice(HEAD_SHORT), SERIF, 96 * u, rgba(*WHITE), 60 * u, H * 0.3, W - 120 * u, weight="bold")
+    labels = ["Shop Now", "Find a Store", "Learn More"]
+    widths = [d.pill_size(lab, 24 * u)[0] for lab in labels]
+    x = W / 2 - (sum(widths) + 40 * u) / 2
+    for lab, w, fill in zip(labels, widths, (ORANGE, INK, GOLD)):
+        d.pill("cta", lab, x, H * 0.62, 24 * u, fill)
+        x += w + 20 * u
+    return d
+
+
+def c_corner_cluster(rng, W, H):
+    """Everything packed into the top-left quarter; the rest is empty."""
+    d, u = _base(rng, W, H), min(W, H) / 1080
+    d.logo(60 * u + 110 * u, 50 * u, 220 * u)
+    d.text("headline", rng.choice(HEAD_SHORT), SERIF, 60 * u, rgba(*WHITE), 60 * u, 140 * u, W * 0.45, weight="bold",
+           align="left")
+    d.text("subhead", rng.choice(SUBHEADS), SANS, 22 * u, rgba(*WHITE), 60 * u, 300 * u, W * 0.4, align="left")
+    d.pill("cta", rng.choice(CTAS), 60 * u, 400 * u, 22 * u, ORANGE)
+    return d
+
+
+def c_two_logos(rng, W, H):
+    """Co-branding: two logos in opposite top corners."""
+    d, u = _base(rng, W, H), min(W, H) / 1080
+    d.logo(60 * u + 120 * u, 50 * u, 240 * u)
+    d.logo(W - 60 * u - 120 * u, 50 * u, 240 * u)
+    d.image("product", BOTTLE, W * 0.3, H * 0.2, W * 0.4, W * 0.4)
+    d.text("headline", rng.choice(HEAD_SHORT), SERIF, 80 * u, rgba(*WHITE), 60 * u, H * 0.65, W - 120 * u, weight="bold")
+    _cta(d, rng.choice(CTAS), W / 2, H * 0.83, 26 * u)
+    return d
+
+
+def c_dense_decor(rng, W, H):
+    """Forty decorative dots scattered over and around the content."""
+    d, u = _base(rng, W, H), min(W, H) / 1080
+    for _ in range(40):
+        s = rng.uniform(8, 60) * u
+        d.shape("dot", rng.uniform(0, W - s), rng.uniform(0, H - s), s, s, WHITE, alpha=rng.uniform(0.08, 0.3),
+                kind="ellipse")
+    d.image("product", BOTTLE, W * 0.32, H * 0.15, W * 0.36, W * 0.36)
+    d.text("headline", rng.choice(HEAD_SHORT), SERIF, 84 * u, rgba(*WHITE), 60 * u, H * 0.6, W - 120 * u, weight="bold")
+    _cta(d, rng.choice(CTAS), W / 2, H * 0.8, 26 * u)
+    return d
+
+
+def c_bullets(rng, W, H):
+    """A left-aligned list of six short lines."""
+    d, u = _base(rng, W, H), min(W, H) / 1080
+    d.text("headline", "Why Solstice", SERIF, 76 * u, rgba(*WHITE), 80 * u, 90 * u, W - 160 * u, weight="bold",
+           align="left")
+    items = ["Real fruit", "No added sugar", "Small batches", "Sparkling botanicals", "Recyclable cans", "Made locally"]
+    for i, it in enumerate(items):
+        d.text("bullet", f"• {it}", SANS, 30 * u, rgba(*WHITE), 90 * u, 240 * u + i * 62 * u, W - 180 * u, align="left")
+    d.pill("cta", rng.choice(CTAS), 80 * u, 240 * u + 6 * 62 * u + 40 * u, 24 * u, ORANGE)
+    return d
+
+
+def c_text_over_product(rng, W, H):
+    """The headline deliberately laid over the lower half of the product art."""
+    d, u = _base(rng, W, H), min(W, H) / 1080
+    d.image("product", BOTTLE, W * 0.2, H * 0.08, W * 0.6, W * 0.6)
+    d.text("headline", rng.choice(HEAD_SHORT), SERIF, 110 * u, rgba(*WHITE), 40 * u, H * 0.42, W - 80 * u, weight="bold")
+    _cta(d, rng.choice(CTAS), W / 2, H * 0.82, 26 * u)
+    return d
+
+
+def c_right_aligned(rng, W, H):
+    """Copy right-aligned against the right margin, product on the left."""
+    d, u = _base(rng, W, H), min(W, H) / 1080
+    d.image("product", BOTTLE, 40 * u, H * 0.25, W * 0.42, W * 0.42)
+    d.text("headline", rng.choice(HEAD_SHORT), SERIF, 72 * u, rgba(*WHITE), W * 0.45, H * 0.3, W * 0.5, weight="bold",
+           align="right")
+    d.text("subhead", rng.choice(SUBHEADS), SANS, 26 * u, rgba(*WHITE), W * 0.45, H * 0.5, W * 0.5, align="right")
+    w, _ = d.pill_size("Shop Now", 24 * u)
+    d.pill("cta", "Shop Now", W * 0.95 - w, H * 0.62, 24 * u, ORANGE)
+    return d
+
+
 CRAZY = {name[2:]: fn for name, fn in globals().items() if name.startswith("c_") and callable(fn)}
 SOURCES = [(1080, 1080), (1080, 1350), (1920, 1080), (1080, 1920)]
 

@@ -140,7 +140,7 @@ Development-only tooling, not copied into the image
   with known defects (smaller text, collisions, squashed product, text cut off,
   dropped headline, naive stretch) and against itself, in both orders.
 * `sheets.py`, `format_sheet.py` – contact sheets for eyeballing results.
-* `tests/test_robustness.py` – 259 tests: samples pass the gate at many sizes,
+* `tests/test_robustness.py` – 307 tests: samples pass the gate at many sizes,
   fuzzed/malformed inputs never crash or break invariants (and are absorbed
   by the main engine, not just the fallback), outputs render,
   determinism, no-fonts/no-assets operation, import from any cwd or as a

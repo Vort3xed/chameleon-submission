@@ -61,7 +61,7 @@ def save_cache():
 
 
 def load(which: str):
-    path = BENCH / {"synthetic": "pairs.jsonl", "human": "human_pairs.jsonl"}[which]
+    path = BENCH / {"synthetic": "pairs.jsonl", "human": "human_pairs.jsonl", "unseen": "unseen_pairs.jsonl"}[which]
     return [json.loads(l) for l in path.read_text().splitlines()] if path.exists() else []
 
 
@@ -89,18 +89,25 @@ def design_matrix(pairs, vlm: str = ""):
     return pairs, np.array(rows, dtype=float).reshape(len(rows), len(FEATURES) + bool(vlm))
 
 
+RULE_PRIOR = 0.5  # every design rule keeps at least this weight (in units of its typical range)
+
+
 def fit(X: np.ndarray, l2: float = 0.01, steps: int = 3000, lr: float = 0.5) -> np.ndarray:
-    """Non-negative logistic regression on differences, mirrored so it is symmetric."""
+    """Non-negative logistic regression on differences, mirrored so it is symmetric.
+    Design rules have a floor (a prior that each principle matters, so one the
+    benchmark happens not to exercise is not silently switched off)."""
     if len(X) == 0:
         return np.zeros(X.shape[1])
     Xs = np.vstack([X, -X])
     y = np.concatenate([np.ones(len(X)), np.zeros(len(X))])
-    w = np.zeros(X.shape[1])
-    scale = np.maximum(np.abs(Xs).max(axis=0), 1e-6)
+    scale = np.abs(Xs).max(axis=0)
+    scale = np.where(scale < 1e-3, 1.0, scale)  # a feature the data never moves keeps its natural 0-1 range
+    floor = np.array([RULE_PRIOR if n.startswith("rule_") else 0.0 for n in FEATURES] + [0.0] * (X.shape[1] - len(FEATURES)))
+    w = floor.copy()
     Z = Xs / scale
     for _ in range(steps):
         p = 1 / (1 + np.exp(-Z @ w))
-        w = np.maximum(0.0, w - lr * (Z.T @ (p - y) / len(y) + l2 * w))
+        w = np.maximum(floor, w - lr * (Z.T @ (p - y) / len(y) + l2 * w))
     return w / scale
 
 
@@ -147,6 +154,14 @@ def audit(vlm: str = "", l2: float = 0.01):
         accs = [accuracy(Xh[hfo == k], fit(np.vstack([Xs, Xh[hfo != k]]), l2)) for k in range(5) if (hfo == k).any()]
         print(f"  fit synthetic + other human -> held-out human: {np.mean(accs):.1%}")
     w = fit(np.vstack([Xs, Xh]) if len(hum) else Xs, l2)
+    unseen, Xu = design_matrix(load("unseen"), vlm)
+    if len(unseen):
+        print("  defect kinds never used in fitting (other tasks, newer engine):")
+        u_of = np.array([p["kind"] for p in unseen])
+        for k in sorted(set(u_of)):
+            print(f"    {k:<16}{accuracy(Xu[u_of == k], w):>7.1%}  (n={int((u_of == k).sum())})")
+        print(f"    {'all':<16}{accuracy(Xu, w):>7.1%}")
+    save_cache()
     # invisible changes must not move the verdict: |score| on them vs a typical real defect
     typical = float(np.median(np.abs(Xs @ w))) if len(Xs) else 1.0
     if len(Xt):

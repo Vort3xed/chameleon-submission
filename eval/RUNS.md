@@ -18,7 +18,7 @@ pairwise logs); `eval/runs/history.jsonl` has every scorer run.
 
 ## Current best
 
-**v35k**: formats 98.34 · holdout 97.96 · crazy 96.34 · 0 gate failures · 0.06 s/design.
+**v35o**: formats 98.43 · holdout 98.09 · crazy 96.85 (28 designs) · 0 gate failures · 0.07 s/design.
 Discriminator (below) vs v34: formats 907–398 (p 10⁻⁴⁶), holdout 218–70 (p 10⁻¹⁹).
 Holdout (never tuned on): v31-era engine beats v12 (start of day 2) 55–19 (+0.29);
 v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
@@ -58,6 +58,8 @@ v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 | v35h | strip ends get wider margins (up to ~15% of the short side; a 320×50 button sat 2 px from the edge) | – | 98.24 | discriminator 568–290 | |
 | v35j | banner text may grow until the headline fills two lines of the row (logo and button keep the old cap) | – | 98.30 | discriminator 200–145 | |
 | v35k | objective: the headline must lead (1.15× any other text, weight 0.08); the logo is never dropped (brand) | – | 98.34 | discriminator 36–19 | |
+| v35m | sparse designs (little drawn on their canvas) may scale up to 2× more | – | 98.41 | discriminator 152–159 (neutral); kept on visual review: sparse stories and squares stop looking empty | |
+| v35o | preserve: margins measured on drawn content, not boxes (a wide box around short text pushed it to x = 0); corner ornaments no longer shape the bands (a corner ribbon put all the slack on one side) | – | 98.43 | discriminator 225–30, 0 severe (formats); 84–55 (holdout) | |
 
 **Lesson (v29–v31):** a chain of small A/B wins (+0.06, +0.06, +0.38 on 8
 tasks) hid a real regression. Every few versions, compare against a fixed
@@ -85,6 +87,8 @@ does; the judge consistently prefers keeping content and bigger product art.
 | v24: button padding compresses in tight slots | 13–7, +0.08 | tiny labels went *up* (43 → 46); reverted |
 | v25: same aspect ratio → return the source layout scaled exactly | **1–76, −0.93** | the judge prefers our larger text even to the designer's own sizing |
 | v28: preserve boosts 2.5× / 3× | 0 differing | never fit |
+| v35n: banner rows mirror the logo's padding inset on the button side | discriminator 277–47 but 4 severe losses | the mirrored inset starved the headline (Twitch banner headline shrank to a few px); a case of the generator gaming the margin rule - comparisons now also require a positive mean and no severe losses |
+| v35l: banner rows also offered with a 0.75× button | discriminator 22–41 (p 0.02), engine 60% slower | the objective picked small buttons where they hurt; reverted |
 | edge bands (full-width header/footer bars) | not built | they scale rigidly and get dropped in banners; needs a band concept — deferred, the official samples have none |
 
 ## The discriminator (`eval/judge_bench.py`, `eval/judge_fit.py`, `eval/discriminator.py`)

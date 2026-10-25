@@ -70,7 +70,10 @@ def bisect(fits: Callable[[float], bool], lo: float, hi: float, steps: int = 14)
 def scale_bounds(scope: Scope) -> Tuple[float, float]:
     sx, sy = scope.region.w / scope.src.w, scope.region.h / scope.src.h
     m, M = min(sx, sy), max(sx, sy)
-    return 0.02, m ** 0.3 * M ** 0.7 * 1.15  # leans to the long side: banners keep short text large
+    # a sparse design (little drawn on its canvas) may grow up to 2x more into the new space
+    drawn = sum(b.visible.area for b in scope.blocks) / max(1.0, scope.src.area)
+    sparse = min(2.0, max(1.0, math.sqrt(0.3 / max(drawn, 1e-6))))
+    return 0.02, m ** 0.3 * M ** 0.7 * 1.15 * sparse  # leans to the long side: banners keep short text large
 
 
 def _fit_scale(build):
@@ -135,18 +138,26 @@ def preserve(scope: Scope, ctx0: Ctx, boost: float, items) -> Optional[Layout]:
     lay = Layout(f"preserve{boost:.2f}", ctx)
     m, s0 = margin(reg.w, reg.h), s / boost
     inks = [_drawn(b) for b in scope.blocks]
-    xs = _band_starts([(i.x, i.x1) for i in inks], src.x, src.x1, s, reg.x, reg.w)
-    ys = _band_starts([(i.y, i.y1) for i in inks], src.y, src.y1, s, reg.y, reg.h)
-    for b, ink, x0, y0 in zip(scope.blocks, inks, xs, ys):
+    flow = [k for k, b in enumerate(scope.blocks) if not b.ornament]  # corner pieces do not shape the bands
+    xs = _band_starts([(inks[k].x, inks[k].x1) for k in flow], src.x, src.x1, s, reg.x, reg.w)
+    ys = _band_starts([(inks[k].y, inks[k].y1) for k in flow], src.y, src.y1, s, reg.y, reg.h)
+    starts = {k: (x, y) for k, x, y in zip(flow, xs, ys)}
+    for k, (b, ink) in enumerate(zip(scope.blocks, inks)):
         r = b.src
-        x0, y0 = x0 - (ink.x - r.x) * s, y0 - (ink.y - r.y) * s  # band positions are of the drawn content
+        if k in starts:  # band positions are of the drawn content
+            x0, y0 = starts[k][0] - (ink.x - r.x) * s, starts[k][1] - (ink.y - r.y) * s
+        else:  # an ornament keeps its relative place, i.e. stays by its corner
+            x0 = reg.x + (r.cx - src.x) / src.w * reg.w - r.w * s / 2
+            y0 = reg.y + (r.cy - src.y) / src.h * reg.h - r.h * s / 2
         w, h = r.w * s, r.h * s
         if w > reg.w + 0.5 or h > reg.h + 0.5:
             return None
-        # keep the usual margin from each edge, or the block's own (scaled) distance if it sat closer
-        l, t, rt, bt = (min(m, max(0.0, d) * s0) for d in (r.x - src.x, r.y - src.y, src.x1 - r.x1, src.y1 - r.y1))
-        x = max(reg.x, min(max(reg.x + l, x0), reg.x1 - rt - w))
-        y = max(reg.y, min(max(reg.y + t, y0), reg.y1 - bt - h))
+        # what is drawn keeps the usual margin from each edge (or its own scaled distance if it sat
+        # closer); the box only has to stay on the canvas - a wide box around short text may not push it
+        l, t, rt, bt = (min(m, max(0.0, d) * s0) for d in (ink.x - src.x, ink.y - src.y, src.x1 - ink.x1, src.y1 - ink.y1))
+        il, it_, ir, ib = (ink.x - r.x) * s, (ink.y - r.y) * s, (r.x1 - ink.x1) * s, (r.y1 - ink.y1) * s
+        x = max(reg.x, reg.x + l - il, min(x0, reg.x1 - w, reg.x1 - rt - w + ir))
+        y = max(reg.y, reg.y + t - it_, min(y0, reg.y1 - h, reg.y1 - bt - h + ib))
         scale_block(b, s, x, y, lay.out)
         lay.placed.append((b, Rect(x, y, w, h)))
     if any(it.rotation and (p.x < -0.5 or p.y < -0.5 or p.x + p.w > ctx0.W + 0.5 or p.y + p.h > ctx0.H + 0.5)

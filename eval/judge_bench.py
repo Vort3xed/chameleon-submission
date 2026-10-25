@@ -183,6 +183,98 @@ def invisible(d, sev, rng):
     return d if dx else None
 
 
+def _scale_block(d, b, f):
+    """Scale a block's elements (and fonts) by f about the block's centre."""
+    r = b.src
+    for i in _idxs(b):
+        e = d["elements"][i]
+        e["x"], e["y"] = r.cx + (e["x"] - r.cx) * f, r.cy + (e["y"] - r.cy) * f
+        e["width"], e["height"] = e["width"] * f, e["height"] * f
+        if e.get("type") == "text":
+            e["font_size"] = max(1, int(round(e["font_size"] * f)))
+    W, H = d["canvas"]["width"], d["canvas"]["height"]
+    _move(d, _idxs(b), 0, 0)  # clamp back on canvas
+    els = [d["elements"][i] for i in _idxs(b)]
+    if min(e["x"] for e in els) < 0 or max(e["x"] + e["width"] for e in els) > W:
+        return None
+    return d
+
+
+def swap_order(d, sev, rng):
+    """Reading order broken: the headline and the button trade places."""
+    W, H, sc = _blocks(d)
+    h, c = _pick(sc.blocks, ("headline",), rng), _pick(sc.blocks, ("cta",), rng)
+    if h is None or c is None or abs(h.src.cy - c.src.cy) < 0.1 * H:
+        return None
+    _move(d, _idxs(h), c.src.cx - h.src.cx, c.src.cy - h.src.cy)
+    _move(d, _idxs(c), h.src.cx - c.src.cx, h.src.cy - c.src.cy)
+    return d
+
+
+def text_on_art(d, sev, rng):
+    """A text block slid part-way over the product art."""
+    W, H, sc = _blocks(d)
+    t, p = _pick(sc.blocks, ("headline", "subhead", "body", "text"), rng), _pick(sc.blocks, ("hero",), rng)
+    if t is None or p is None:
+        return None
+    _move(d, _idxs(t), sev * (p.src.cx - t.src.cx), sev * (p.src.cy - t.src.cy))
+    return d
+
+
+def tiny_logo(d, sev, rng):
+    W, H, sc = _blocks(d)
+    b = _pick(sc.blocks + sc.ornaments, ("logo",), rng)
+    return None if b is None else _scale_block(d, b, sev)
+
+
+def huge_cta(d, sev, rng):
+    W, H, sc = _blocks(d)
+    b = _pick(sc.blocks, ("cta",), rng)
+    return None if b is None else _scale_block(d, b, sev)
+
+
+def shrink_all(d, sev, rng):
+    """Everything scaled toward the canvas centre: wasted space all round."""
+    W, H = d["canvas"]["width"], d["canvas"]["height"]
+    W_, H_, sc = _blocks(d)
+    for b in sc.blocks + sc.ornaments:
+        for i in _idxs(b):
+            e = d["elements"][i]
+            e["x"], e["y"] = W / 2 + (e["x"] - W / 2) * sev, H / 2 + (e["y"] - H / 2) * sev
+            e["width"], e["height"] = e["width"] * sev, e["height"] * sev
+            if e.get("type") == "text":
+                e["font_size"] = max(1, int(round(e["font_size"] * sev)))
+    return d
+
+
+def drift(d, sev, rng):
+    """All content shifted down: bottom-heavy, empty top."""
+    W, H, sc = _blocks(d)
+    idxs = [i for b in sc.blocks + sc.ornaments for i in _idxs(b)]
+    dx, dy = _move(d, idxs, 0, sev * H)
+    return d if dy > 0.5 * sev * H else None
+
+
+def halve_gaps(d, sev, rng):
+    """Every vertical gap between stacked blocks halved toward the middle block."""
+    W, H, sc = _blocks(d)
+    bs = sorted(sc.blocks, key=lambda b: b.src.cy)
+    if len(bs) < 3:
+        return None
+    mid = bs[len(bs) // 2].src.cy
+    for b in bs:
+        _move(d, _idxs(b), 0, (mid - b.src.cy) * (1 - sev))
+    return d
+
+
+UNSEEN = {  # kinds never used to fit the discriminator: a check of how it generalises
+    "swap_order": (1,), "text_on_art": (0.5,), "tiny_logo": (0.5,), "huge_cta": (1.6,), "shrink_all": (0.75,),
+    "drift": (0.08,), "halve_gaps": (0.5,),
+}
+UNSEEN_FNS = {"swap_order": swap_order, "text_on_art": text_on_art, "tiny_logo": tiny_logo, "huge_cta": huge_cta,
+              "shrink_all": shrink_all, "drift": drift, "halve_gaps": halve_gaps}
+
+
 DEFECTS = {  # kind: severities
     "same": (0,), "invisible": (1, 0.0015), "nudge": (0.03, 0.08), "cramp": (0.6, 0.95), "lopsided": (0.04, 0.08), "edge": (1,),
     "shrink_hero": (0.8, 0.6), "flat_hierarchy": (0.8, 0.6), "jitter": (0.02, 0.04), "text_small": (0.85,),
@@ -193,7 +285,7 @@ FNS = {"same": same, "invisible": invisible, "nudge": nudge, "cramp": cramp, "lo
        "flat_hierarchy": flat_hierarchy, "jitter": jitter, "text_small": text_small, "collide": collide}
 
 
-def build(run: str, tasks: str, n: int, seed: int):
+def build(run: str, tasks: str, n: int, seed: int, unseen: bool = False):
     outs = ROOT / "eval" / "runs" / run / "outputs"
     ids = sorted(p.stem for p in outs.glob("*.json"))
     rng = random.Random(seed)
@@ -202,14 +294,15 @@ def build(run: str, tasks: str, n: int, seed: int):
     for tid in ids[:n]:
         task = json.loads((Path(tasks) / "tasks" / f"{tid}.json").read_text())
         good = json.loads((outs / f"{tid}.json").read_text())
-        for kind, sevs in DEFECTS.items():
+        for kind, sevs in (UNSEEN if unseen else DEFECTS).items():
             for sev in sevs:
-                bad = FNS[kind](copy.deepcopy(good), sev, random.Random(f"{tid}:{kind}:{sev}"))
+                fn = (UNSEEN_FNS if unseen else FNS)[kind]
+                bad = fn(copy.deepcopy(good), sev, random.Random(f"{tid}:{kind}:{sev}"))
                 if bad is not None and (kind in TIES or bad != good):
                     pairs.append({"id": f"{tid}|{kind}|{sev}", "task_id": tid, "kind": kind, "sev": sev,
                                   "source": task["source"], "target": task["target_canvas"], "good": good, "bad": bad})
     BENCH.mkdir(parents=True, exist_ok=True)
-    (BENCH / "pairs.jsonl").write_text("\n".join(json.dumps(p) for p in pairs))
+    (BENCH / ("unseen_pairs.jsonl" if unseen else "pairs.jsonl")).write_text("\n".join(json.dumps(p) for p in pairs))
     counts = defaultdict(int)
     for p in pairs:
         counts[(p["kind"], p["sev"])] += 1
@@ -240,7 +333,7 @@ def prerender(designs, procs: int = 6):
             pool.map(_render_one, todo, chunksize=4)
 
 
-SETS = {"synthetic": "pairs.jsonl", "human": "human_pairs.jsonl"}
+SETS = {"synthetic": "pairs.jsonl", "human": "human_pairs.jsonl", "unseen": "unseen_pairs.jsonl"}
 
 
 def run(judge_name: str, workers: int, limit: int, which: str = "synthetic"):
@@ -311,6 +404,7 @@ def main():
     b.add_argument("--tasks", default=str(ROOT / "eval" / "testsets" / "formats"))
     b.add_argument("--n", type=int, default=40)
     b.add_argument("--seed", type=int, default=0)
+    b.add_argument("--unseen", action="store_true", help="build the held-out defect kinds instead")
     r = sub.add_parser("run")
     r.add_argument("--judge", required=True)
     r.add_argument("--workers", type=int, default=8)
@@ -320,7 +414,7 @@ def main():
     rep.add_argument("names", nargs="*")
     a = ap.parse_args()
     if a.cmd == "build":
-        build(a.run, a.tasks, a.n, a.seed)
+        build(a.run, a.tasks, a.n, a.seed, a.unseen)
     elif a.cmd == "run":
         run(a.judge, a.workers, a.limit, a.set)
     else:

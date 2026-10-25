@@ -16,6 +16,7 @@ is worse than the designer's original (a full-bleed band may touch the edge
 if it did before; a deliberately bottom-heavy poster may stay bottom-heavy).
   hierarchy  the source's headline is still the largest text, by its old margin
   hero       the product art keeps its share of the canvas
+  logo       the logo keeps a legible share of the canvas (the brief: the logo survives intact)
   fill       the content uses the canvas about as much as the source did
   corners    corner badges / ribbons stay in their source corner
 
@@ -37,7 +38,7 @@ if str(ROOT) not in sys.path:
 from engine.chameleon_layout.geometry import Rect, bounding  # noqa: E402
 from engine.chameleon_layout.scene import analyze  # noqa: E402
 
-RULES = ("alignment", "edge", "margins", "spacing", "hierarchy", "hero", "fill", "corners")
+RULES = ("alignment", "edge", "margins", "spacing", "hierarchy", "hero", "logo", "fill", "corners")
 
 
 def _clamp(v: float) -> float:
@@ -54,18 +55,20 @@ def _scene(d: dict):
 def alignment(W, H, rects: List[Rect]) -> float:
     """Share of blocks that line up (an edge or centre within max(0.3%, 1.5 px)
     of the same line of another block, or the centre with the canvas centre),
-    falling off linearly to 0 at 1.5%: a pixel never matters, a near-miss does."""
+    falling off linearly to 0 at 1.5%: a pixel never matters, a near-miss does.
+    Distances are in units of the long side, as the canvas is seen scaled to it."""
     if len(rects) < 2:
         return 1.0
+    L = max(W, H)
+    ok = max(0.003, 1.5 / L)
+    far = max(0.015, 3 * ok)
     total = 0.0
     for i, r in enumerate(rects):
-        best = abs(r.cx - W / 2) / W
+        best = abs(r.cx - W / 2) / L
         for j, o in enumerate(rects):
             if i != j:
-                best = min(best, *(abs(a - b) / W for a, b in zip((r.x, r.cx, r.x1), (o.x, o.cx, o.x1))),
-                           *(abs(a - b) / H for a, b in zip((r.y, r.cy, r.y1), (o.y, o.cy, o.y1))))
-        ok = max(0.003, 1.5 / min(W, H))
-        far = max(0.015, 3 * ok)
+                best = min(best, *(abs(a - b) / L for a, b in zip((r.x, r.cx, r.x1, r.y, r.cy, r.y1),
+                                                                   (o.x, o.cx, o.x1, o.y, o.cy, o.y1))))
         total += _clamp((far - best) / (far - ok)) if best > ok else 1.0
     return total / len(rects)
 
@@ -134,10 +137,11 @@ def hierarchy(src: dict, out: dict, src_scene) -> float:
     return 1.0 if want <= 1.0 else _clamp((r_out - 1.0) / (want - 1.0))
 
 
-def _hero_frac(d: dict, scene, ink) -> float:
+def _role_frac(d: dict, scene, ink, role: str) -> float:
+    """Share of the canvas drawn by blocks of `role` (product art, logo)."""
     W, H = float(d["canvas"]["width"]), float(d["canvas"]["height"])
-    heroes = [b for b in scene.blocks if b.role == "hero"]
-    return sum(ink[id(b)].area for b in heroes) / (W * H) if heroes else 0.0
+    blocks = [b for b in scene.blocks + scene.ornaments if b.role == role and ink[id(b)] is not None]
+    return sum(ink[id(b)].area for b in blocks) / (W * H)
 
 
 def _not_bleeding(sc, ink) -> List[Rect]:
@@ -161,8 +165,10 @@ def evaluate(source: dict, output: dict) -> Dict[str, float]:
     m["margins"] = _clamp(1 - max(0.0, ox - sx) / 0.08) * _clamp(1 - max(0.0, oy - sy) / 0.2) ** 0.5
     m["spacing"] = _clamp(1 - max(0.0, cramming(sW, sH, sflow) - cramming(W, H, flow)) / 0.7)
     m["hierarchy"] = hierarchy(source, output, ssc)
-    hs, ho = _hero_frac(source, ssc, sink), _hero_frac(output, sc, ink)
+    hs, ho = _role_frac(source, ssc, sink, "hero"), _role_frac(output, sc, ink, "hero")
     m["hero"] = 1.0 if hs <= 0 else _clamp(ho / (0.85 * hs))
+    ls, lo = _role_frac(source, ssc, sink, "logo"), _role_frac(output, sc, ink, "logo")
+    m["logo"] = 1.0 if ls <= 0 else _clamp(math.sqrt(lo / ls) / 0.8)  # linear size, 20% grace
     src_fill = bounding(sall).area / (sW * sH) if sall else 0.0
     out_fill = bounding(allr).area / (W * H) if allr else 0.0
     m["fill"] = 1.0 if src_fill <= 0 else _clamp(out_fill / (0.8 * src_fill))

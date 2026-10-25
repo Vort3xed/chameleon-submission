@@ -31,6 +31,9 @@ def quality(source: dict, target: dict, design: dict, w=None) -> float:
     return sum(f[k] * v for k, v in w.items())
 
 
+SEVERE = 1.0  # a quality drop this large is a visible regression, whatever the tally says
+
+
 def sign_test(wins: int, losses: int) -> float:
     """Two-sided p-value that wins and losses are a fair coin."""
     n = wins + losses
@@ -63,13 +66,17 @@ def compare(a: str, b: str, tasks: str, eps: float = 1e-4):
         ties += abs(d) <= eps
     save_cache()
     deltas.sort()
+    mean = sum(d for d, _ in deltas) / max(1, len(deltas))
+    severe = sum(d < -SEVERE for d, _ in deltas)
+    p = sign_test(wins, losses)
+    verdict = "ACCEPT" if p < 0.05 and wins > losses and mean > 0 and severe <= max(2, len(deltas) // 100) else "reject"
     print(f"{b} vs {a}: {len(deltas)} differing tasks -> B better {wins}, A better {losses}, ties {ties}; "
-          f"sign test p={sign_test(wins, losses):.3g}")
+          f"sign test p={p:.3g}; mean {mean:+.3f}; severe losses {severe} -> {verdict}")
     for d, t in deltas[:5]:
         print(f"  A better {d:+.3f} {t}")
     for d, t in deltas[-5:][::-1]:
         print(f"  B better {d:+.3f} {t}")
-    return wins, losses, ties
+    return wins, losses, ties, mean, severe
 
 
 def main():
