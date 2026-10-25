@@ -595,17 +595,57 @@ def _anywhere(b: Block, ctx: Ctx, rot: float, m: float, taken):
     return best
 
 
+GIVE_WAY = (0.95, 0.9, 0.85)  # how far product art may shrink to leave a corner badge its corner
+
+
+def _make_way(b: Block, lay: Layout, rot: float, m: float) -> bool:
+    """If only image art (a product, a photo) sits in the ornament's corner,
+    shrink that art about its far corner until the corner is free."""
+    ctx = lay.ctx
+    c = ctx.with_scale(ctx.ts * CORNER_SHRINKS[-1], ctx.img * CORNER_SHRINKS[-1])
+    w, h, foot, fit = _measure_ornament(b, c, rot, m)
+    if fit < 1.0:
+        return False
+    x, y = next(_corner_positions(b.corner, c.W, c.H, foot.w, foot.h, m))
+    spot = Rect(x, y, foot.w, foot.h).inset(-0.3 * m)
+    blockers = [(k, o, r) for k, (o, r) in enumerate(lay.placed) if r.intersection(spot) > 0]
+    if not blockers or any(o.kind not in ("image", "rigid") or o.texts for _, o, _ in blockers):
+        return False  # text is never pushed aside for a badge
+    def anchor(r: Rect) -> Tuple[float, float]:  # the art's corner away from the badge stays put
+        return (r.x1 if b.corner[1] == "l" else r.x), (r.y1 if b.corner[0] == "t" else r.y)
+
+    def shrunk(r: Rect, f: float) -> Rect:
+        ax, ay = anchor(r)
+        return Rect(ax + (r.x - ax) * f, ay + (r.y - ay) * f, r.w * f, r.h * f)
+
+    for f in GIVE_WAY:
+        if all(shrunk(r, f).intersection(spot) <= 0 for _, _, r in blockers):
+            for k, o, r in blockers:
+                ax, ay = anchor(r)
+                for it in o.items:
+                    p = lay.out.get(it.idx)
+                    if p is not None:
+                        lay.out[it.idx] = replace(p, x=ax + (p.x - ax) * f, y=ay + (p.y - ay) * f, w=p.w * f, h=p.h * f,
+                                                  font=None if p.font is None else max(1, int(round(p.font * f))))
+                lay.placed[k] = (o, shrunk(r, f))
+            return True
+    return False
+
+
 def place_ornaments(ornaments: List[Block], lay: Layout):
     ctx = lay.ctx
     m = margin(ctx.W, ctx.H) * 0.6
-    taken = [r for _, r in lay.placed]
     for b in ornaments:
+        taken = [r for _, r in lay.placed]
         # a single rotated element measures unrotated; groups already measure rotated bounds
         rot = b.items[0].rotation if b.kind in ("text", "image", "shape") else 0.0
-        _, c, r, w, h = _in_corner(b, ctx, rot, m, taken) or _anywhere(b, ctx, rot, m, taken)
+        spot = _in_corner(b, ctx, rot, m, taken)
+        if spot is None and _make_way(b, lay, rot, m):
+            taken = [r for _, r in lay.placed]
+            spot = _in_corner(b, ctx, rot, m, taken)
+        _, c, r, w, h = spot or _anywhere(b, ctx, rot, m, taken)
         place(b, c, r.cx - w / 2, r.cy - h / 2, w + 0.01, h + 0.01, lay.out)
         lay.placed.append((b, r))
-        taken.append(r)
 
 
 def _panels(blocks: List[Block]) -> List[Block]:
