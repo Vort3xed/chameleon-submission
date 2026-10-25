@@ -317,6 +317,21 @@ def _corners(ssc, sc, sW, sH, W, H) -> float:
     return kept / len(src)
 
 
+TASTE = ("headline", "product")
+
+
+def taste(design: dict) -> Dict[str, float]:
+    """What people reward beyond the source-relative rules (found in the human
+    labels): a headline that is large for its canvas - full credit at 12% of the
+    short side, the brief's own example is ~14% - and product art that fills it,
+    full at 25% of the area.  Absolute, so an original does not score 1 here."""
+    W, H, sc, ink = _scene(design)
+    head = max((float(e.get("font_size") or 0) for e in design["elements"]
+                if e.get("type") == "text" and _opacity(e) > 0.01), default=0.0)
+    hero = sum(ink[id(b)].area for b in sc.blocks if ink[id(b)] is not None and (b.hero or b.role == "hero"))
+    return {"headline": _clamp(head / min(W, H) / 0.12), "product": _clamp(hero / (W * H) / 0.25)}
+
+
 def score(m: Dict[str, float], weights: Dict[str, float] | None = None) -> float:
     w = weights or {k: 1.0 for k in RULES}
     return sum(m[k] * w.get(k, 0.0) for k in RULES) / max(1e-9, sum(w.values()))

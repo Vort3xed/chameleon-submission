@@ -1,5 +1,7 @@
 """Fit and audit the discriminator: a logistic model on per-design features
-(design rules + the structural scorer's metrics), optionally plus VLM votes.
+(design rules, two absolute taste measures found in the human labels, and the
+structural scorer's metrics), optionally plus VLM votes.  Human labels count
+HUMAN_WEIGHT times a synthetic pair.
 
 Weights are non-negative (every feature is "higher = better"), there is no
 intercept (the model compares two designs symmetrically) and L2 keeps them
@@ -27,14 +29,15 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from eval.design_rules import RULES, evaluate  # noqa: E402
+from eval.design_rules import RULES, TASTE, evaluate, taste  # noqa: E402
 
 BENCH = ROOT / "eval" / "judge_bench"
 WEIGHTS = ROOT / "eval" / "judge_weights.json"
 SCORER = ("overlap", "cutoff", "text_fit", "readability", "hierarchy", "prominence", "groups", "distortion",
           "margins", "space", "balance", "alignment", "completeness", "reading_order", "bg_coverage",
           "missing_visible")
-FEATURES = tuple(f"rule_{k}" for k in RULES) + tuple(f"score_{k}" for k in SCORER)
+FEATURES = tuple(f"rule_{k}" for k in RULES) + tuple(f"taste_{k}" for k in TASTE) + tuple(f"score_{k}" for k in SCORER)
+HUMAN_WEIGHT = 5  # a human label counts as much as five synthetic pairs: they are few, and they are the yardstick
 
 # cache keyed by the metric code too: editing the rules or the scorer invalidates it
 _CODE = hashlib.sha1(b"".join((ROOT / "eval" / f).read_bytes() for f in ("design_rules.py", "score.py", "judge_fit.py"))).hexdigest()[:12]
@@ -49,6 +52,7 @@ def features(source: dict, target: dict, design: dict) -> dict:
     key = hashlib.sha1((json.dumps(source, sort_keys=True) + json.dumps(design, sort_keys=True)).encode()).hexdigest()
     if key not in _cache:
         f = {f"rule_{k}": v for k, v in evaluate(source, design).items()}
+        f.update({f"taste_{k}": v for k, v in taste(design).items()})
         r = score_task(source, target, design, do_render=False)
         failed = bool(r.get("gate"))  # a design that breaks the hard rules scores nothing
         f.update({f"score_{k}": 0.0 if failed else float(r["metrics"].get(k, 1.0)) for k in SCORER})
@@ -152,9 +156,10 @@ def audit(vlm: str = "", l2: float = 0.01):
         h_tasks = sorted({p["task_id"] for p in hum})
         hf = {t: i % 5 for i, t in enumerate(h_tasks)}
         hfo = np.array([hf[p["task_id"]] for p in hum])
-        accs = [accuracy(Xh[hfo == k], fit(np.vstack([Xs, Xh[hfo != k]]), l2)) for k in range(5) if (hfo == k).any()]
+        accs = [accuracy(Xh[hfo == k], fit(np.vstack([Xs] + [Xh[hfo != k]] * HUMAN_WEIGHT), l2))
+                for k in range(5) if (hfo == k).any()]
         print(f"  fit synthetic + other human -> held-out human: {np.mean(accs):.1%}")
-    w = fit(np.vstack([Xs, Xh]) if len(hum) else Xs, l2)
+    w = fit(np.vstack([Xs] + [Xh] * HUMAN_WEIGHT) if len(hum) else Xs, l2)
     for name, title in (("unseen", "defect kinds never used in fitting (other tasks, newer engine)"),
                         ("unseen2", "a second unseen set, built after the rules were last changed")):
         unseen, Xu = design_matrix(load(name), vlm)
