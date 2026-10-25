@@ -295,6 +295,9 @@ def _text_weight(blocks: List[Block]) -> float:
     return sum(sum(len(t.content) * t.font for t in b.texts) or b.src.w for b in blocks) or 1.0
 
 
+TEXT_SHARE = 0.25  # a banner row gives its copy at least this share of the width
+
+
 def row(scope: Scope, ctx0: Ctx, shrink: float = 1.0) -> List[Layout]:
     reg, blocks = scope.region, scope.blocks
     logo = [b for b in blocks if b.role == "logo"][:1]
@@ -325,6 +328,8 @@ def row(scope: Scope, ctx0: Ctx, shrink: float = 1.0) -> List[Layout]:
             c, fixed, tail, widths, _ = columns(ts, relax)
             if any(w <= 4 for w in widths) or any(h > reg.h for _, (_, h) in fixed + tail):
                 return False
+            if parts and sum(widths) < TEXT_SHARE * reg.w:
+                return False  # the copy is squeezed into a sliver: drop something or use another layout
             for p, w in zip(parts, widths):
                 cw, ch, _, _ = stack_measure(p, c, w, reg.h)
                 if ch > reg.h or cw > w + 0.5:
