@@ -8,7 +8,10 @@ covers what it never produces: walls of text, a dozen badges, 3x3 product
 grids, one giant word, two CTAs, photo backgrounds with a scrim, no
 background at all, vertical and rotated type, collages, non-Latin scripts and
 emoji, unbreakable words, hard line breaks, nested cards, one group holding
-everything, edge-to-edge bars, price lists, and lone elements.
+everything, edge-to-edge bars, price lists, and lone elements - plus a huge
+faint word used as texture, imagery with no text, a full-height sidebar,
+product art bleeding off an edge, three feature cards, the full eyebrow-to-
+legal stack with two buttons, and copy straight on a photo.
 """
 
 from __future__ import annotations
@@ -334,6 +337,85 @@ def c_right_aligned(rng, W, H):
     d.pill("cta", "Shop Now", W * 0.95 - w, H * 0.62, 24 * u, ORANGE)
     return d
 
+
+
+def c_watermark_text(rng, W, H):
+    """A huge faint word as texture behind everything: the largest type is not the headline."""
+    d, u = _base(rng, W, H), min(W, H) / 1080
+    d.text("watermark", "SUMMER", SERIF, 300 * u, rgba(*WHITE, 0.08), 0, H * 0.3, W, weight="bold")
+    d.image("product", BOTTLE, W * 0.3, H * 0.12, W * 0.4, W * 0.4)
+    d.text("headline", rng.choice(HEAD_SHORT), SERIF, 72 * u, rgba(*WHITE), 60 * u, H * 0.6, W - 120 * u, weight="bold")
+    _cta(d, rng.choice(CTAS), W / 2, H * 0.8, 26 * u)
+    return d
+
+
+def c_products_only(rng, W, H):
+    """Imagery and a logo, no text at all."""
+    d, u = _base(rng, W, H), min(W, H) / 1080
+    d.logo(W / 2, 40 * u, 240 * u)
+    for fx, fy, fs in ((0.08, 0.3, 0.3), (0.35, 0.22, 0.3), (0.62, 0.3, 0.3)):
+        d.image("product", BOTTLE, W * fx, H * fy, W * fs, W * fs)
+    return d
+
+
+def c_sidebar(rng, W, H):
+    """A full-height colour column on the left holding the logo and copy; the product on the right."""
+    d, u = _base(rng, W, H), min(W, H) / 1080
+    d.shape("sidebar", 0, 0, W * 0.38, H, INK)
+    d.logo(W * 0.19, 60 * u, 220 * u)
+    d.text("headline", rng.choice(HEAD_SHORT), SERIF, 64 * u, rgba(*WHITE), 40 * u, H * 0.35, W * 0.38 - 80 * u,
+           weight="bold")
+    _cta(d, rng.choice(CTAS), W * 0.19, H * 0.75, 24 * u)
+    d.image("product", BOTTLE, W * 0.48, H * 0.15, W * 0.45, W * 0.45)
+    return d
+
+
+def c_half_bleed(rng, W, H):
+    """Product art bleeding off the left edge, copy on the right."""
+    d, u = _base(rng, W, H), min(W, H) / 1080
+    d.image("product", BOTTLE, -W * 0.15, H * 0.05, W * 0.65, W * 0.65)
+    d.text("headline", rng.choice(HEAD_SHORT), SERIF, 70 * u, rgba(*WHITE), W * 0.52, H * 0.3, W * 0.42, weight="bold",
+           align="left")
+    d.text("subhead", rng.choice(SUBHEADS), SANS, 26 * u, rgba(*WHITE), W * 0.52, H * 0.55, W * 0.42, align="left")
+    _cta(d, rng.choice(CTAS), W * 0.66, H * 0.7, 24 * u)
+    return d
+
+
+def c_feature_cards(rng, W, H):
+    """Three cards side by side, each with its own title and text, under one headline."""
+    d, u = _base(rng, W, H), min(W, H) / 1080
+    d.text("headline", "Why Solstice", SERIF, 64 * u, rgba(*WHITE), 60 * u, 80 * u, W - 120 * u, weight="bold")
+    cw = (W - 160 * u) / 3
+    for i, (title, body) in enumerate((("Real fruit", "Pressed, never from concentrate."),
+                                       ("Low sugar", "Five grams a can, no sweeteners."),
+                                       ("Small batch", "Brewed by hand in Portland."))):
+        x = 40 * u + i * (cw + 40 * u)
+        d.shape("card", x, H * 0.3, cw, H * 0.4, CREAM, radius=24 * u)
+        d.text("card_title", title, SERIF, 34 * u, rgba(*INK), x + 20 * u, H * 0.34, cw - 40 * u, weight="bold")
+        d.text("card_body", body, SANS, 20 * u, rgba(*INK), x + 20 * u, H * 0.46, cw - 40 * u)
+    _cta(d, rng.choice(CTAS), W / 2, H * 0.8, 26 * u)
+    return d
+
+
+def c_eyebrow(rng, W, H):
+    """Eyebrow label, headline, subhead, two buttons side by side and legal: the full ad stack."""
+    d, u = _base(rng, W, H), min(W, H) / 1080
+    d.text("eyebrow", "LIMITED EDITION", SANS, 20 * u, rgba(*GOLD), 60 * u, H * 0.25, W - 120 * u, weight="bold",
+           ls=6 * u)
+    d.text("headline", rng.choice(HEAD_SHORT), SERIF, 88 * u, rgba(*WHITE), 60 * u, H * 0.3, W - 120 * u, weight="bold")
+    d.text("subhead", rng.choice(SUBHEADS), SANS, 28 * u, rgba(*WHITE), 60 * u, H * 0.48, W - 120 * u)
+    _cta(d, "Shop Now", W * 0.38, H * 0.6, 26 * u)
+    _cta(d, "Find a Store", W * 0.62, H * 0.6, 26 * u, fill=INK)
+    d.text("legal", rng.choice(LEGAL), SANS, 14 * u, rgba(*WHITE, 0.7), 60 * u, H - 50 * u, W - 120 * u)
+    return d
+
+
+def c_text_on_photo(rng, W, H):
+    """Copy straight on the full-bleed background image, nothing else: no product, no scrim."""
+    d, u = _base(rng, W, H), min(W, H) / 1080
+    d.text("headline", rng.choice(HEAD_SHORT), SERIF, 96 * u, rgba(*WHITE), 60 * u, H * 0.08, W - 120 * u, weight="bold")
+    _cta(d, rng.choice(CTAS), W / 2, H * 0.86, 26 * u, fill=INK)
+    return d
 
 CRAZY = {name[2:]: fn for name, fn in globals().items() if name.startswith("c_") and callable(fn)}
 SOURCES = [(1080, 1080), (1080, 1350), (1920, 1080), (1080, 1920)]

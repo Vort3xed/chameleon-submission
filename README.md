@@ -147,10 +147,12 @@ Development-only tooling, not copied into the image
   kept apart (120×600, 300×1050, 468×60, 234×60, 1128×191, 3000×3000, menus,
   invitations, book covers…); `--seed 2026` and `--seed 4242` give holdout sets
   never used for tuning.
-* `gen_crazy.py` – 20 stress designs (walls of text, 3×3 grids, giant type,
+* `gen_crazy.py` – 35 stress designs (walls of text, 3×3 grids, giant type,
   two CTAs, photo + scrim, no background, vertical and rotated type, collages,
   CJK/Arabic/emoji, unbreakable words, hard line breaks, nested cards, one
-  group holding everything, edge bars, price lists, lone elements) × 10
+  group holding everything, edge bars, price lists, lone elements, a faint
+  watermark word, imagery with no text, a sidebar, art bleeding off an edge,
+  feature cards, the eyebrow-to-legal stack, copy on a bare background) × 10
   targets including 10:1 strips, 64 px squares and 4K.
 * `score.py` – a hard structural gate (schema, ids, frozen content/fonts/assets,
   bounds, aspect, renderability) plus 17 rubric metrics computed from real font
@@ -189,7 +191,8 @@ Development-only tooling, not copied into the image
   top-level module, `python -m engine.main` end to end, and every stress
   design at five targets.
 * `tests/test_structure.py` – structure survives any canvas: header and footer
-  bars stay full-width on their edges with their content inside.
+  bars stay full-width on their edges with their content inside; faint
+  texture type stays decoration, never the headline.
 * `tests/test_discriminator.py` – the discriminator's invariants: a designer's
   original scores 1.0 on every rule against itself, a 1 px move is a tie,
   collisions / shrunk headlines / edge-crowding score lower, and the naive

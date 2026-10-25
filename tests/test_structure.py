@@ -39,3 +39,28 @@ def test_edge_bars_stay_on_their_edges(target):
     assert footer["x"] == 0 and footer["width"] == W and footer["y"] + footer["height"] == H
     for bar, kid in ((header, out["brand"]), (footer, out["legal"])):  # the content stays inside its bar
         assert bar["y"] <= kid["y"] and kid["y"] + kid["height"] <= bar["y"] + bar["height"] + 1
+
+
+WATERMARK = {
+    "canvas": {"width": 1080, "height": 1080},
+    "elements": [
+        {"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 1080, "fill": "#2a1a2e", "z_index": 0},
+        {"id": "texture", "type": "text", "x": 0, "y": 320, "width": 1080, "height": 360, "content": "SUMMER",
+         "font_size": 300, "font_family": "Lora", "color": "rgba(255,255,255,0.08)", "text_align": "center", "z_index": 1},
+        {"id": "headline", "type": "text", "x": 90, "y": 640, "width": 900, "height": 90, "content": "Stay Golden",
+         "font_size": 72, "font_family": "Lora", "color": "#ffffff", "text_align": "center", "z_index": 2},
+        {"id": "cta", "type": "text", "x": 390, "y": 860, "width": 300, "height": 40, "content": "Order Today",
+         "font_size": 30, "font_family": "Poppins", "color": "#ffffff", "text_align": "center", "z_index": 2},
+    ],
+}
+
+
+@pytest.mark.parametrize("target", [(1920, 1080), (1080, 1920), (728, 90)])
+def test_faint_text_is_texture_not_the_headline(target):
+    """Huge faint type behind the content is decoration: it keeps its place on
+    the canvas, and the real headline stays the most prominent opaque text."""
+    W, H = target
+    out = {e["id"]: e for e in resize(WATERMARK, {"width": W, "height": H})["elements"]}
+    tex, head = out["texture"], out["headline"]
+    assert abs((tex["y"] + tex["height"] / 2) / H - 0.5) < 0.1  # centred vertically, as in the source
+    assert head["font_size"] > out["cta"]["font_size"]

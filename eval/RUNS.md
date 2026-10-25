@@ -90,6 +90,7 @@ v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 | v36w | banner rows take even end margins when they cost nothing visible: a logo's transparent padding pinned at the edge (ink 52 px in from the left on 320x100) used to leave the far end at the usual margin; the row now reserves the same drawn margin at both ends whenever every text keeps its line breaks and the type keeps >=90% of its size | – | 98.51 | discriminator formats 183–45, holdout2 26–8, 0 severe; content hidden on 2 tasks, shown on 4 more; VLM 21–32 (67 ties) is uninformative here: on the bench it prefers the lopsided copy (lopsided 0.04: 7% right, 43% wrong) | |
 | v37b | from a human label note ("the text at the top should be centered"): a left- or right-aligned text in a centred column used a box ~0.6 em wider than its lines, all of the slack on one side, so the words sat off the centre line; such boxes now shrink to the narrowest width that wraps identically and stay centred | – | 98.52 | discriminator formats 66–3, holdout2 14–5 (p 0.06), 0 severe - kept on visual review (titles in tall formats now on the centre line) | |
 | v37i | edge bands, from the stress-set audit (quality, not just crashes): a full-width bar on the top or bottom edge (header, footer, photo scrim) is a panel even with one thing inside, keeps its edge, the full width and its share of the height, with its content laid out inside; the rest flows between the bars, and runs under a bar as deep as the source let it (product art beneath a scrim). Bars stay bars whenever that layout is legible, else they flow as before (thin strips) | – | 98.51 | discriminator formats 42–41, holdout2 5–4, 0 severe (neutral); crazy 96.80 -> 96.86; header/footer bars no longer float as boxes, the footer is no longer read as a button - kept on visual review for the structural fix; tests/test_structure.py fails without it | |
+| v37n | faint text (colour alpha < 0.3) is texture: decor, re-anchored proportionally behind the content, never the headline - a huge faint 'SUMMER' used to become the title block | – | 98.51 | regular sets unchanged; stress set (now 35 designs, 350 tasks) 8–2, 0 severe; test_structure covers it | |
 
 **Lesson (v29–v31):** a chain of small A/B wins (+0.06, +0.06, +0.38 on 8
 tasks) hid a real regression. Every few versions, compare against a fixed
@@ -140,6 +141,7 @@ does; the judge consistently prefers keeping content and bigger product art.
 | v37f: layout-tree family - each design parsed by recursive XY-cut (widest whitespace first, so what sits close ends up in the same subtree: the advanced sample parses as [[logo, product], [[headline, subhead, badges], button]], legal), re-solved with up to two stacks flipped the way the canvas went | loop: formats 57–140, 25 severe | the parse is right and role-free, the naive solver is not: rows share width by source width (tiny logos and buttons), no image-fills-height or button caps, and it sometimes wins the ranking because it has no family prior; next use of the parse: group-aware spacing inside the existing families. Code kept outside the repo |
 | v37g / v37h: edge bands always / as an extra option, band height from the narrower canvas scale | loop: v37g formats 24–76, 5 severe; v37h 16–11, 3 severe | scrims shrank to ~80 px on skyscrapers; as an option the ranking had no reason to keep a header a header; fixed by the height share, preferring bands when legible, and letting content run under them (v37i) |
 | v37j: v37i + a split needs text beside the product | loop: formats 43–40, scorer 98.51 -> 98.47 | hurts elsewhere |
+| v37k / v37l / v37m: rows judged by drawn extents and a staggered trio counted as a row (k); row gaps between drawn extents (l: all rows; m: bare images only) and row width including the end tiles' padding | stress set vs v37i: k 13–9, l 11–31 (8 severe), m 11–23; l also formats 14–71 | grouping the staggered bottles exposed the row layout: box-based gaps let padded bottles touch, edge clamping shrank the outer one; drawn gaps inflated product-tile rows; and in a 160x600 collage a band panel holding the headline was dropped whole. Open: padding-aware image rows; never drop a panel that holds the headline |
 | v36z: banner logo never outgrows the text relative to the source (1.0x, was 1.5x) | loop: formats 230–88, holdout2 35–16, 0 severe; **VLM 12–39** | the wordmark becomes illegible on 728x90 / 320x50 (VLM: 'logo larger and more readable' x20) |
 | v36z2: banner logo at most 40% of the row height (was 50%) | loop: formats 65–13, holdout2 13–3; VLM 14–21 (62 ties) | parked (patch kept): the headline also loses ~10% when even ends become affordable - waiting on human labels for logo size and balance-vs-size (pairs p080–p109) |
 | v35l: banner rows also offered with a 0.75× button | discriminator 22–41 (p 0.02), engine 60% slower | the objective picked small buttons where they hurt; reverted |
@@ -221,6 +223,16 @@ Made valid, it scores 12.7 against our 14.4 - mostly logo/presence and a
 collision from the subhead the example leaves out.  Its taste is clear
 though: a far bigger headline (150 px vs our 85) and a smaller product than
 ours - more evidence for the bigger-headline side of the open question.
+
+**Stress set, judged for quality (2026-10-25):** the 28 stress designs had only
+been checked for crashes.  Looked at, the engine broke structure on several:
+header and footer bars became floating boxes (the footer read as a button), a
+photo scrim was re-placed as a card, a huge faint watermark word became the
+title.  Fixed by edge bands (v37i) and faint text as texture (v37n).  Seven
+designs added (faint watermark word, imagery with no text, full-height
+sidebar, product bleeding off an edge, three feature cards, eyebrow-to-legal
+stack with two buttons, copy straight on the background): 35 designs x 10
+targets.
 
 **Extra presets** (`eval/testsets/formats_extra`, 546 tasks: 14 real presets
 not in the main catalogue, incl. 120×600, 300×1050, 468×60, 234×60,

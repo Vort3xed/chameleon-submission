@@ -241,7 +241,7 @@ def classify(items: List[Item], W: float, H: float):
             if it.alpha < 0.45 or tiny or bleeding:
                 decor.append(it)
                 continue
-        if faint_frame:
+        if faint_frame or it.type == "text" and it.alpha < 0.3:  # faint type is texture, not copy
             decor.append(it)
             continue
         rest.append(it)
