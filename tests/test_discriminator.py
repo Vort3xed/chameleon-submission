@@ -92,3 +92,13 @@ def test_same_size_keeps_the_composition(path):
         dx = abs((o["x"] + o["width"] / 2) - (e["x"] + e["width"] / 2)) / W
         dy = abs((o["y"] + o["height"] / 2) - (e["y"] + e["height"] / 2)) / H
         assert dx < 0.1 and dy < 0.1, (e["id"], dx, dy)
+
+
+def test_loop_acceptance_rule():
+    from eval.loop import verdict
+
+    assert verdict(60, 20, 0.1, 0, 100)  # clear win
+    assert not verdict(60, 20, -0.1, 0, 100)  # wins on count, loses on average
+    assert not verdict(60, 20, 0.1, 5, 100)  # too many severe losses
+    assert not verdict(12, 8, 0.1, 0, 20)  # not significant
+    assert verdict(300, 200, 0.05, 4, 500)  # severe losses allowed up to 1% of a large set
