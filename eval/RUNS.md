@@ -104,6 +104,7 @@ does; the judge consistently prefers keeping content and bigger product art.
 | v35x: stacks also offered with the headline alone grown further (emphasis; the brief's own example grows the headline 56 → 150 px for a story) | discriminator 42–70 | engine 30% slower; with the presence rule, growth past each element's source share earns nothing and costs margins. VLM and the brief favour bigger; the discriminator does not - the open question for human labels |
 | v36a: the tight preserve (v35u) offered as an extra candidate beside the normal one | discriminator 36–44 | the objective seldom picks it; no gain |
 | v36d: columns at the optical centre (45% of the outer slack above) | discriminator 55–76, mean −0.004 | trades against vertical margin symmetry; no measurable gain |
+| v36g: unreadable text (< 70% of legible size) no longer counts as kept in the objective | discriminator 17–17, 1 severe | badges and subheads got dropped but the headline did not grow: in 320×100 rows the text column is narrow because logo, product and button keep their width |
 | v35l: banner rows also offered with a 0.75× button | discriminator 22–41 (p 0.02), engine 60% slower | the objective picked small buttons where they hurt; reverted |
 | edge bands (full-width header/footer bars) | not built | they scale rigidly and get dropped in banners; needs a band concept — deferred, the official samples have none |
 
