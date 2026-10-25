@@ -121,6 +121,7 @@ does; the judge consistently prefers keeping content and bigger product art.
 | v36n: a text whose id names the brand (logo / wordmark / brand) is the logo (never dropped) | discriminator 18–53 | in tiny typographic banners dropping the wordmark was the better trade |
 | v36o: tight preserve + every element keeps ≥ 60% of its scaled edge distance | discriminator 39–219, 96 severe | the proportional floor can exceed the room there is and pushes blocks into impossible positions; tightening stays parked for human labels (VLM was 173–31 for it) |
 | v36p: a minor ornament with no spot clear of content is hidden instead of overlapping | loop: formats 2–7, holdout 1–1 | rare; dropping the badge costs more presence than the overlap |
+| v36q: preserve also offers the next calmer boost | loop: formats 50–50, holdout 5–0 | no gain for the extra candidates |
 | v35l: banner rows also offered with a 0.75× button | discriminator 22–41 (p 0.02), engine 60% slower | the objective picked small buttons where they hurt; reverted |
 | edge bands (full-width header/footer bars) | not built | they scale rigidly and get dropped in banners; needs a band concept — deferred, the official samples have none |
 
