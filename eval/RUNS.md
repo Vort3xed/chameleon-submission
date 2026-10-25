@@ -13,6 +13,12 @@ Every engine change is measured three ways:
 * **holdout** – a test set generated with another seed (`--seed 2026`), never
   used for tuning, to check that gains generalise.
 
+**Taste policy.** The discriminator vetoes defects; it has no calibration on
+bigger-vs-faithful (see the attack notes).  A change on that axis whose
+severe losses are within the limit is decided by the VLM judge, on the format
+set and confirmed on the fresh holdout.  Human labels, when they exist, will
+replace this.
+
 `python -m eval.loop --name <step> --baseline <step>` does a whole step
 (engine on formats + fresh holdout + stress set, gate/crash check,
 discriminator verdict on both quality sets) in ~3 minutes and logs it to
@@ -81,6 +87,7 @@ v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 | v36i | the logo's legibility floor is capped at 25% of the canvas height (in 320×100 rows the 28 px floor made the logo a space hog) | – | – | discriminator 87–10, 0 severe; one subhead now outgrows its headline (poster_center_00 320×100) | |
 | v36k | a banner row must give its copy at least 25% of the width - otherwise something is dropped or another layout used (a 320×100 headline had a 36 px column) | – | 98.53 | discriminator 20–6, 0 severe; fixes v36i's inverted subhead | |
 | v36l | short titles (3–6 words) keep at least two words a line: the widest word pair, not the widest word, is what must fit (found by the new wrap rule: "Taste / the / Sunset" in a 600×200 header) | – | 98.52 | discriminator 61–42 (p 0.076), mean +0.12, 1 severe (looks fine: an alignment shift); kept: typography | |
+| v36r | keep-the-composition tightens lone text boxes around their lines before enlarging (a full-width box around short lines no longer caps the growth), and refuses any boost that eats more than 40% of an element's breathing room (capped at two margins) - the fix that made tightening safe after v35u/v36h/v36o | – | 98.52 | discriminator neutral, defect veto passed (formats 95–86, 0 severe; holdout 14–16, 1 severe); **VLM 124–50 (formats), 17–12 (holdout)** - accepted under the taste policy | |
 
 **Lesson (v29–v31):** a chain of small A/B wins (+0.06, +0.06, +0.38 on 8
 tasks) hid a real regression. Every few versions, compare against a fixed

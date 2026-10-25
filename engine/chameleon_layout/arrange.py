@@ -136,7 +136,31 @@ def _drawn(b: Block) -> Rect:
     return bounding([i.ink for i in b.items])
 
 
+def _tight_text(b: Block, ink: Rect, s: float) -> Optional[Tuple[Rect, int]]:
+    """(source-space frame, font) for a lone text box tightened around its
+    lines at scale s, or None.  The font is the one that keeps the source's
+    lines in the full scaled box; the tight width is verified to wrap the same."""
+    if b.kind != "text" or b.rotated:
+        return None
+    it, r = b.items[0], b.src
+    font = keep_lines(it, it.font * s, r.w * s)
+    lay = it.text_layout(font, r.w * s)
+    w = lay.max_line_width + 0.1 * font + 6
+    if w >= r.w * s or it.text_layout(font, w).lines != lay.lines:
+        return None
+    w /= s
+    x = {"center": ink.cx - w / 2, "right": ink.x1 - w}.get(it.el.get("text_align", "left"), ink.x)
+    return Rect(x, r.y, w, r.h), font
+
+
+ROOM_KEPT = 0.6  # an enlarged element keeps at least this share of its scaled breathing room (up to 2 margins)
+
+
 def preserve(scope: Scope, ctx0: Ctx, boost: float, items) -> Optional[Layout]:
+    """Keep the composition, scaled by `boost`.  Lone text boxes are first
+    tightened around their lines (a full-width box around short lines must
+    not cap the growth); a boost is refused if it eats more than 40% of any
+    element's breathing room (capped at two margins, so sparse designs grow)."""
     src, reg = scope.src, scope.region
     s = min(reg.w / src.w, reg.h / src.h) * boost
     ctx = ctx0.with_scale(s, s)
@@ -149,7 +173,8 @@ def preserve(scope: Scope, ctx0: Ctx, boost: float, items) -> Optional[Layout]:
     ys = _band_starts([(inks[k].y, inks[k].y1) for k in flow], src.y, src.y1, s, reg.y, reg.h)
     starts = {k: (x, y) for k, x, y in zip(flow, xs, ys)}
     for k, (b, ink) in enumerate(zip(scope.blocks, inks)):
-        r = b.src
+        snug = _tight_text(b, ink, s)
+        r = snug[0] if snug else b.src
         if k in starts:  # band positions are of the drawn content
             x0, y0 = starts[k][0] - (ink.x - r.x) * s, starts[k][1] - (ink.y - r.y) * s
         else:  # an ornament keeps its relative place, i.e. stays by its corner
@@ -164,7 +189,15 @@ def preserve(scope: Scope, ctx0: Ctx, boost: float, items) -> Optional[Layout]:
         il, it_, ir, ib = (ink.x - r.x) * s, (ink.y - r.y) * s, (r.x1 - ink.x1) * s, (r.y1 - ink.y1) * s
         x = max(reg.x, reg.x + l - il, min(x0, reg.x1 - w, reg.x1 - rt - w + ir))
         y = max(reg.y, reg.y + t - it_, min(y0, reg.y1 - h, reg.y1 - bt - h + ib))
-        scale_block(b, s, x, y, lay.out)
+        if snug:
+            lay.out[b.items[0].idx] = Placement(x, y, w, h, snug[1])
+        else:
+            scale_block(b, s, x, y, lay.out)
+        drawn = Rect(x + (ink.x - r.x) * s, y + (ink.y - r.y) * s, ink.w * s, ink.h * s)
+        for got, d in ((drawn.x - reg.x, ink.x - src.x), (drawn.y - reg.y, ink.y - src.y),
+                       (reg.x1 - drawn.x1, src.x1 - ink.x1), (reg.y1 - drawn.y1, src.y1 - ink.y1)):
+            if got < min(ROOM_KEPT * max(0.0, d) * s0, 2 * m) - 0.5:
+                return None  # this boost eats the element's breathing room
         lay.placed.append((b, Rect(x, y, w, h)))
     if any(it.rotation and (p.x < -0.5 or p.y < -0.5 or p.x + p.w > ctx0.W + 0.5 or p.y + p.h > ctx0.H + 0.5)
            for it, p in ((items[i], p) for i, p in lay.out.items())):
