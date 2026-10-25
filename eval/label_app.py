@@ -130,13 +130,16 @@ PAGE = """<!doctype html><meta charset=utf-8><title>Which resize is better?</tit
 .row{display:flex;gap:16px;align-items:flex-start}.col{flex:1;min-width:0}
 img{max-width:100%;max-height:78vh;box-shadow:0 0 0 1px #0003;display:block}
 .src img{max-height:40vh}h2{margin:4px 0 8px;font-size:15px}kbd{background:#fff;border:1px solid #999;
-border-radius:3px;padding:0 5px}.bar{margin-bottom:10px}</style>
-<div class=bar><b>{done}/{total}</b> labelled &nbsp; {target} &nbsp;&nbsp; <kbd>A</kbd> left better &nbsp;
-<kbd>B</kbd> right better &nbsp; <kbd>=</kbd> can't tell &nbsp; <kbd>S</kbd> skip</div>
+border-radius:3px;padding:0 5px}.bar{margin-bottom:10px}button{font:inherit;padding:4px 10px;cursor:pointer}</style>
+<div class=bar><b>{done}/{total}</b> labelled &nbsp; {target} &nbsp;&nbsp;
+<button onclick="send('A')"><kbd>A</kbd> left better</button> <button onclick="send('B')"><kbd>B</kbd> right better</button>
+<button onclick="send('=')"><kbd>=</kbd> can't tell</button> <button onclick="send('X')"><kbd>X</kbd> both bad</button>
+<button onclick="send('S')"><kbd>S</kbd> skip</button></div>
 <div class=row><div class="col src" style="flex:.6"><h2>Original</h2><img src="/img/{key}_source.png"></div>
 <div class=col><h2>A</h2><img src="/img/{key}_a.png"></div><div class=col><h2>B</h2><img src="/img/{key}_b.png"></div></div>
-<script>document.onkeydown=e=>{const k={a:'A',b:'B','=':'=',s:'S'}[e.key.toLowerCase()];if(!k)return;
-fetch('/label',{method:'POST',body:JSON.stringify({key:'{key}',choice:k})}).then(()=>location.reload())}</script>"""
+<script>function send(k){const note=k==='X'?(prompt('Both bad - what is wrong? (optional)')||''):'';
+fetch('/label',{method:'POST',body:JSON.stringify({key:'{key}',choice:k,note})}).then(()=>location.reload())}
+document.onkeydown=e=>{const k={a:'A',b:'B','=':'=',s:'S',x:'X'}[e.key.toLowerCase()];if(k){e.preventDefault();send(k)}}</script>"""
 
 DONE = "<!doctype html><meta charset=utf-8><body style='font:16px system-ui;margin:40px'>All {total} pairs labelled. Thanks!"
 
@@ -165,7 +168,11 @@ def export():
     BENCH.mkdir(parents=True, exist_ok=True)
     (BENCH / "human_pairs.jsonl").write_text("\n".join(json.dumps(p) for p in out))
     ties = sum(c == "=" for c in latest.values())
-    print(f"{len(out)} decided pairs exported ({ties} can't-tell)")
+    notes = {r["key"]: r.get("note", "") for r in _labels()}
+    bad = [{"key": k, "task_id": pairs[k]["task_id"], "origin": pairs[k]["origin"], "note": notes[k]}
+           for k, c in latest.items() if c == "X"]
+    (LABELS / "both_bad.jsonl").write_text("\n".join(json.dumps(b) for b in bad))
+    print(f"{len(out)} decided pairs exported ({ties} can't-tell, {len(bad)} both bad -> eval/labels/both_bad.jsonl)")
 
 
 def serve(port: int):
@@ -196,8 +203,11 @@ def serve(port: int):
 
         def do_POST(self):
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            rec = {"key": body["key"], "choice": body["choice"]}
+            if body.get("note"):
+                rec["note"] = body["note"]
             with (LABELS / "human.jsonl").open("a") as f:
-                f.write(json.dumps({"key": body["key"], "choice": body["choice"]}) + "\n")
+                f.write(json.dumps(rec) + "\n")
             self._send(b"ok", "text/plain")
 
     print(f"label at http://127.0.0.1:{port}  (Ctrl-C to stop; then run: python -m eval.label_app export)")
