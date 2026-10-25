@@ -159,7 +159,11 @@ are not broken one word per line) closed it: refit weight 1.50, held-out
 at the cost of size (a slightly smaller product for exact alignment): the
 discriminator penalises falling below an element's source share but never
 rewards more - the bigger-vs-faithful axis only human labels can calibrate.
-Two of six engine outputs were already local optima for it.
+Two of six engine outputs were already local optima for it.  A second
+attack on six fresh-holdout tasks: four were local optima; it found a card
+stretched to the canvas edges unpenalised (the edge rule exempted every panel;
+now only panels that already bled in the source), and two genuine
+improvements (slightly bigger text) the engine leaves on the table.
 
 **Selection audit:** among the engine's top-6 candidates, the discriminator
 would pick differently in 10 of 80 fresh-holdout tasks; by eye the engine's

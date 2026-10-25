@@ -225,9 +225,17 @@ def _framed(sc, ink, W: float, H: float) -> List[Rect]:
     return out
 
 
-def _not_bleeding(sc, ink) -> List[Rect]:
-    """Flow blocks that are meant to sit inside the margins (panels and frames may bleed)."""
-    return [ink[id(b)] for b in sc.blocks if ink[id(b)] is not None and b.kind != "panel"]
+def _not_bleeding(sc, ink, bleeds=frozenset()) -> List[Rect]:
+    """Flow blocks that are meant to sit inside the margins: everything except
+    panels that already bled off the source's edge (`bleeds`: their element ids)."""
+    return [ink[id(b)] for b in sc.blocks if ink[id(b)] is not None
+            and not (b.kind == "panel" and frozenset(i.el.get("id") for i in b.items) & bleeds)]
+
+
+def _bleeding_panels(sc, ink, W: float, H: float) -> frozenset:
+    """Element ids of panels whose drawn extent touches the canvas edge (full-bleed bands, scrims)."""
+    return frozenset(i.el.get("id") for b in sc.blocks if b.kind == "panel" and ink[id(b)] is not None
+                     and min(ink[id(b)].x, ink[id(b)].y, W - ink[id(b)].x1, H - ink[id(b)].y1) <= 1.0 for i in b.items)
 
 
 def evaluate(source: dict, output: dict) -> Dict[str, float]:
@@ -241,7 +249,8 @@ def evaluate(source: dict, output: dict) -> Dict[str, float]:
     allr = flow + [ink[id(b)] for b in sc.ornaments if ink[id(b)] is not None]
     m = {}
     m["alignment"] = _clamp(1 - max(0.0, alignment(sW, sH, _groups(sW, ssc, sink)) - alignment(W, H, _groups(W, sc, ink))) / 0.6)
-    m["edge"] = _clamp(1 - max(0, crowded(W, H, _not_bleeding(sc, ink)) - crowded(sW, sH, _not_bleeding(ssc, sink))) / 2)
+    bleeds = _bleeding_panels(ssc, sink, sW, sH)
+    m["edge"] = _clamp(1 - max(0, crowded(W, H, _not_bleeding(sc, ink, bleeds)) - crowded(sW, sH, _not_bleeding(ssc, sink, bleeds))) / 2)
     # corner ornaments, and panels bleeding off an edge (they act as background), are left out
     (sx, sy), (ox, oy) = lopsided(sW, sH, _framed(ssc, sink, sW, sH)), lopsided(W, H, _framed(sc, ink, W, H))
     m["margins"] = _clamp(1 - max(0.0, ox - sx) / 0.08) * _clamp(1 - max(0.0, oy - sy) / 0.2) ** 0.5
