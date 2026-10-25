@@ -2,7 +2,8 @@
 judge is measured against.
 
     python -m eval.label_app build --n 80      # pick pairs, render them
-    python -m eval.label_app serve             # http://127.0.0.1:8790, keys A / B / = (S skips)
+    python -m eval.label_app append --versions runA:runB:origin   # more pairs, labels stay valid
+    python -m eval.label_app serve             # http://127.0.0.1:8790, keys A / B / = / X (both bad), S skips
 
 Pairs are real decisions: two engine versions that disagree on a task, or the
 engine's best layout against the best one from a different family (what the
@@ -33,13 +34,29 @@ def _family(name: str) -> str:
     return next((f for f in FAMILIES if name.startswith(f)), name.split()[0])
 
 
+def version_pairs(a: str, b: str, origin: str, n: int, rng, tset: str = "formats") -> list:
+    """Up to n tasks on which runs a and b produced visibly different designs."""
+    from eval.vlm_pairwise import differs
+
+    ra, rb = ROOT / "eval" / "runs" / a / "outputs", ROOT / "eval" / "runs" / b / "outputs"
+    ids = sorted(q.stem for q in ra.glob("*.json") if (rb / q.name).exists())
+    rng.shuffle(ids)
+    out = []
+    for tid in ids:
+        da, db = json.loads((ra / f"{tid}.json").read_text()), json.loads((rb / f"{tid}.json").read_text())
+        if differs(da, db):
+            out.append({"id": f"{tid}|{a}|{b}", "task_id": tid, "tset": tset, "origin": origin, "a": da, "b": db})
+            if len(out) >= n:
+                break
+    return out
+
+
 def build_questions(n: int, seed: int):
     """Pairs that settle what the judges disagree on: the engine's objective vs
     the discriminator's pick among the top candidates, and bigger vs more
     faithful (the tight-preserve and headline-emphasis experiments)."""
     from engine.chameleon_layout.pipeline import candidate_outputs
     from eval.discriminator import _weights, quality
-    from eval.vlm_pairwise import differs
 
     rng, w, pairs = random.Random(seed), _weights(), []
     for tset in ("holdout2", "formats"):
@@ -58,26 +75,19 @@ def build_questions(n: int, seed: int):
                               "origin": "judges disagree", "a": cands[0][2], "b": cands[k][2]})
     for a, b, origin in (("v35v_allformats", "v35u_allformats", "bigger: tight text"),
                          ("v35w_allformats", "v35x_allformats", "bigger: headline emphasis")):
-        ra, rb = ROOT / "eval" / "runs" / a / "outputs", ROOT / "eval" / "runs" / b / "outputs"
-        ids = sorted(q.stem for q in ra.glob("*.json") if (rb / q.name).exists())
-        rng.shuffle(ids)
-        got = 0
-        for tid in ids:
-            da, db = json.loads((ra / f"{tid}.json").read_text()), json.loads((rb / f"{tid}.json").read_text())
-            if differs(da, db):
-                pairs.append({"id": f"{tid}|{a}|{b}", "task_id": tid, "tset": "formats", "origin": origin, "a": da, "b": db})
-                got += 1
-                if got >= n // 4:
-                    break
+        pairs += version_pairs(a, b, origin, n // 4, rng)
     _finish(pairs, rng)
 
 
-def _finish(pairs, rng):
+def _finish(pairs, rng, append: bool = False):
+    """Shuffle, key, render and save the pairs (after the existing ones, if appending)."""
     from eval.render import render
 
+    path = LABELS / "pairs.jsonl"
+    old = path.read_text().splitlines() if append and path.exists() else []
     rng.shuffle(pairs)
     (LABELS / "img").mkdir(parents=True, exist_ok=True)
-    for k, p in enumerate(pairs):
+    for k, p in enumerate(pairs, start=len(old)):
         p["key"] = f"p{k:03d}"
         task = json.loads((ROOT / "eval" / "testsets" / p.get("tset", "formats") / "tasks" / f"{p['task_id']}.json").read_text())
         p["source"], p["target"] = task["source"], task["target_canvas"]
@@ -85,30 +95,18 @@ def _finish(pairs, rng):
             p["a"], p["b"] = p["b"], p["a"]
         for side in ("source", "a", "b"):
             render(p[side], max_size=900)[0].convert("RGB").save(LABELS / "img" / f"{p['key']}_{side}.png")
-    (LABELS / "pairs.jsonl").write_text("\n".join(json.dumps(p) for p in pairs))
-    print(f"{len(pairs)} pairs -> {LABELS / 'pairs.jsonl'}")
+    path.write_text("\n".join(old + [json.dumps(p) for p in pairs]))
+    print(f"{len(pairs)} pairs -> {path} ({len(old) + len(pairs)} in all)")
 
 
 def build(n: int, seed: int, versions):
     from engine.chameleon_layout.pipeline import candidate_outputs
-    from eval.vlm_pairwise import differs
 
     tasks = ROOT / "eval" / "testsets" / "formats" / "tasks"
     rng = random.Random(seed)
     pairs = []
-    # 1. engine versions that disagree
-    for a, b in versions:
-        ra, rb = ROOT / "eval" / "runs" / a / "outputs", ROOT / "eval" / "runs" / b / "outputs"
-        ids = sorted(p.stem for p in ra.glob("*.json") if (rb / p.name).exists())
-        rng.shuffle(ids)
-        got = 0
-        for tid in ids:
-            da, db = json.loads((ra / f"{tid}.json").read_text()), json.loads((rb / f"{tid}.json").read_text())
-            if differs(da, db):
-                pairs.append({"id": f"{tid}|{a}|{b}", "task_id": tid, "origin": "versions", "a": da, "b": db})
-                got += 1
-                if got >= n // (2 * len(versions)):
-                    break
+    for a, b in versions:  # 1. engine versions that disagree
+        pairs += [dict(q, origin="versions") for q in version_pairs(a, b, "versions", n // (2 * len(versions)), rng)]
     # 2. the objective's own decision: best layout vs best of another family
     ids = sorted(p.stem for p in tasks.glob("*.json"))
     rng.shuffle(ids)
@@ -226,6 +224,10 @@ def main():
     q = sub.add_parser("questions", help="pairs that settle what the judges disagree on")
     q.add_argument("--n", type=int, default=80)
     q.add_argument("--seed", type=int, default=0)
+    ap_ = sub.add_parser("append", help="add version pairs after the existing ones (labels stay valid)")
+    ap_.add_argument("--versions", required=True, help="runA:runB:origin,... ")
+    ap_.add_argument("--n", type=int, default=15, help="pairs per version pair")
+    ap_.add_argument("--seed", type=int, default=1)
     s = sub.add_parser("serve")
     s.add_argument("--port", type=int, default=8790)
     sub.add_parser("export")
@@ -234,6 +236,9 @@ def main():
         build(a.n, a.seed, [tuple(v.split(":")) for v in a.versions.split(",")])
     elif a.cmd == "questions":
         build_questions(a.n, a.seed)
+    elif a.cmd == "append":
+        rng = random.Random(a.seed)
+        _finish([q for v in a.versions.split(",") for q in version_pairs(*v.split(":"), a.n, rng)], rng, append=True)
     elif a.cmd == "serve":
         serve(a.port)
     else:
