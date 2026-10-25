@@ -142,23 +142,26 @@ def _clearance(a: Rect, b: Rect) -> float:
     return max(b.x - a.x1, a.x - b.x1, b.y - a.y1, a.y - b.y1)
 
 
-TIGHT = 0.012  # neighbours closer than this (fraction of the short side) read as crammed
+TIGHT = 0.012  # neighbours closer than this (fraction of the short side) read as crammed,
+EM = 0.3  # and so do groups closer than 0.3 em of the larger text beside them (groups need more air than lines)
 
 
 def cramming(src_blocks, out_blocks, sW, sH, W, H) -> float:
     """Share of facing neighbour pairs that are not newly crammed: closer than
-    1.2% of the short side now, although they were comfortably apart in the source.
-    Blocks are matched across source and output by their element ids."""
-    src = {frozenset(ids): r for ids, r in src_blocks}
-    pairs = _facing([r for _, r in out_blocks])
+    1.2% of the short side or 0.3 em now, although they were comfortably apart
+    in the source.  Blocks are (ids, drawn extent, largest font), matched across
+    source and output by their element ids."""
+    src = {frozenset(ids): (r, f) for ids, r, f in src_blocks}
+    pairs = _facing([r for _, r, _ in out_blocks])
     if not pairs:
         return 1.0
     crammed = 0
     for i, j, gap in pairs:
-        if gap / min(W, H) >= TIGHT:
+        (ia, _, fa), (ib, _, fb) = out_blocks[i], out_blocks[j]
+        if gap >= max(TIGHT * min(W, H), EM * max(fa, fb)):
             continue
-        a, b = src.get(frozenset(out_blocks[i][0])), src.get(frozenset(out_blocks[j][0]))
-        if a is None or b is None or _clearance(a, b) / min(sW, sH) >= TIGHT:
+        a, b = src.get(frozenset(ia)), src.get(frozenset(ib))
+        if a is None or b is None or _clearance(a[0], b[0]) >= max(TIGHT * min(sW, sH), EM * max(a[1], b[1])):
             crammed += 1
     return _clamp(1 - 2 * crammed / len(pairs))
 
@@ -193,7 +196,9 @@ def _role_frac(d: dict, scene, ink, role: str) -> float:
 
 
 def _ids_inks(sc, ink):
-    return [(tuple(i.el.get("id") for i in b.items), ink[id(b)]) for b in sc.blocks if ink[id(b)] is not None]
+    """(element ids, drawn extent, largest font) of each flow block."""
+    return [(tuple(i.el.get("id") for i in b.items), ink[id(b)], max((i.font for i in b.texts), default=0.0))
+            for b in sc.blocks if ink[id(b)] is not None]
 
 
 IMPORTANCE = {"headline": 1.0, "cta": 0.85, "logo": 0.85, "hero": 0.75, "subhead": 0.6, "price": 0.6}
@@ -202,10 +207,10 @@ IMPORTANCE = {"headline": 1.0, "cta": 0.85, "logo": 0.85, "hero": 0.75, "subhead
 def presence(src_blocks, out_blocks, ssc, src_area: float, out_area: float) -> float:
     """Importance-weighted share of blocks that keep at least 80% of their source share of
     the canvas (each capped at its share); a block that disappeared keeps nothing."""
-    out = {frozenset(ids): r for ids, r in out_blocks}
+    out = {frozenset(ids): r for ids, r, _ in out_blocks}
     role = {frozenset(i.el.get("id") for i in b.items): b.role for b in ssc.blocks}
     num = den = 0.0
-    for ids, r in src_blocks:
+    for ids, r, _ in src_blocks:
         key = frozenset(ids)
         w = IMPORTANCE.get(role.get(key, ""), 0.4)
         o = out.get(key)
