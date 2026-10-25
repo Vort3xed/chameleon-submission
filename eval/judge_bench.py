@@ -295,6 +295,81 @@ def stretched(task, sev):
 FROM_SOURCE = {"shrunk": shrunk, "stretched": stretched}  # bad answers built from the source, not the output
 
 
+def widow(d, sev, rng):
+    """The headline's box narrowed until its last line is one lone word."""
+    from engine.chameleon_layout.scene import make_items
+
+    W, H, sc = _blocks(d)
+    b = _pick(sc.blocks, ("headline",), rng)
+    if b is None or b.kind != "text":
+        return None
+    it = b.items[0]
+    e = d["elements"][it.idx]
+    for k in range(40):
+        w = e["width"] * (1 - 0.02 * k)
+        lines = it.text_layout(e["font_size"], w).lines
+        if len(lines) >= 2 and len(lines[-1].split()) == 1 and lines != it.text_layout(e["font_size"], e["width"]).lines:
+            e["x"], e["width"] = e["x"] + (e["width"] - w) / 2, w
+            e["height"] = it.text_layout(e["font_size"], w).box_height
+            return d
+    return None
+
+
+def stranded_cta(d, sev, rng):
+    """The button pushed far from the copy it belongs to."""
+    W, H, sc = _blocks(d)
+    c = _pick(sc.blocks, ("cta",), rng)
+    if c is None:
+        return None
+    r = c.src
+    dy = (H - r.y1) * 0.9 if r.cy < H / 2 else -r.y * 0.9
+    dx, dy = _move(d, _idxs(c), 0, dy)
+    return d if abs(dy) > 0.08 * H else None
+
+
+def logo_drift(d, sev, rng):
+    W, H, sc = _blocks(d)
+    b = _pick(sc.blocks + sc.ornaments, ("logo",), rng)
+    if b is None:
+        return None
+    dx, dy = _move(d, _idxs(b), rng.uniform(-0.25, 0.25) * W, rng.uniform(-0.25, 0.25) * H)
+    return d if abs(dx) + abs(dy) > 0.08 * min(W, H) else None
+
+
+def badge_on_headline(d, sev, rng):
+    W, H, sc = _blocks(d)
+    h, g = _pick(sc.blocks, ("headline",), rng), _pick(sc.blocks + sc.ornaments, ("badge", "ribbon"), rng)
+    if h is None or g is None:
+        return None
+    _move(d, _idxs(g), h.src.cx - g.src.cx, h.src.cy - g.src.cy)
+    return d
+
+
+def tilt(d, sev, rng):
+    W, H, sc = _blocks(d)
+    b = _pick(sc.blocks, ("headline",), rng)
+    if b is None or b.kind != "text":
+        return None
+    d["elements"][b.items[0].idx]["rotation"] = sev * rng.choice((-1, 1))
+    return d
+
+
+def squeeze(d, sev, rng):
+    """All content compressed horizontally toward one side (positions only)."""
+    W, H, sc = _blocks(d)
+    side = rng.choice((0.0, W))
+    for b in sc.blocks + sc.ornaments:
+        r = b.src
+        _move(d, _idxs(b), (side - r.cx) * sev, 0)
+    return d
+
+
+UNSEEN2 = {"widow": (1,), "stranded_cta": (1,), "logo_drift": (1,), "badge_on_headline": (1,), "tilt": (4,),
+           "squeeze": (0.15,)}
+UNSEEN2_FNS = {"widow": widow, "stranded_cta": stranded_cta, "logo_drift": logo_drift,
+               "badge_on_headline": badge_on_headline, "tilt": tilt, "squeeze": squeeze}
+
+
 UNSEEN = {  # kinds never used to fit the discriminator: a check of how it generalises
     "swap_order": (1,), "text_on_art": (0.5,), "tiny_logo": (0.5,), "huge_cta": (1.6,), "shrink_all": (0.75,),
     "drift": (0.08,), "halve_gaps": (0.5,),
@@ -364,7 +439,8 @@ def prerender(designs, procs: int = 6):
             pool.map(_render_one, todo, chunksize=4)
 
 
-SETS = {"synthetic": "pairs.jsonl", "human": "human_pairs.jsonl", "unseen": "unseen_pairs.jsonl"}
+SETS = {"synthetic": "pairs.jsonl", "human": "human_pairs.jsonl", "unseen": "unseen_pairs.jsonl",
+        "unseen2": "unseen2_pairs.jsonl"}
 
 
 def run(judge_name: str, workers: int, limit: int, which: str = "synthetic"):

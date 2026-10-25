@@ -99,6 +99,7 @@ does; the judge consistently prefers keeping content and bigger product art.
 | v35p: preserve bands keep the outer margins when compressing (both axes / x only) | discriminator 50–95 / 17–25 | x-only turned the jammed split layouts into stacks, which look cleaner but lose on the scorer's group-integrity metric: the discriminator may be biased toward keeping the composition (its training defects never include a good re-layout); needs human labels |
 | v35u: preserve tightens lone text boxes around their lines before scaling (lets sparse/list designs grow) | discriminator 77–115 (p 0.007); VLM **173–31 for it** | bigger text, but tighter edges; first version re-wrapped text (integer fonts) - fixed by verifying lines; still rejected; revisit with human labels (bigger vs faithful is the axis the discriminator has no calibration for) |
 | v35x: stacks also offered with the headline alone grown further (emphasis; the brief's own example grows the headline 56 → 150 px for a story) | discriminator 42–70 | engine 30% slower; with the presence rule, growth past each element's source share earns nothing and costs margins. VLM and the brief favour bigger; the discriminator does not - the open question for human labels |
+| v36a: the tight preserve (v35u) offered as an extra candidate beside the normal one | discriminator 36–44 | the objective seldom picks it; no gain |
 | v35l: banner rows also offered with a 0.75× button | discriminator 22–41 (p 0.02), engine 60% slower | the objective picked small buttons where they hurt; reverted |
 | edge bands (full-width header/footer bars) | not built | they scale rigidly and get dropped in banners; needs a band concept — deferred, the official samples have none |
 
@@ -121,8 +122,11 @@ that must tie (identical, and a block moved 1 px / 0.15%).
 | structural scorer alone | 72% | – |
 | **fitted discriminator** (non-negative logistic on rules + scorer metrics) | **82% held-out tasks** | invisible-change sensitivity 0.02 |
 
-Anti-overfitting audit (current): held-out tasks 83.8% vs 83.6% train; seven
-defect kinds never used in fitting, on other tasks and a newer engine: 89.6%;
+Anti-overfitting audit (current): held-out tasks 85.2% vs 85.3% train; seven
+defect kinds never used in fitting, on other tasks and a newer engine: 90.4%;
+a second unseen set built after the rules were last changed (widow, stranded
+button, drifting logo, badge on headline, tilted headline, squeezed layout):
+97.2%;
 adding the VLM vote does not help (81.9 → 81.2%).  Fixes found by auditing it:
 hidden (opacity 0) elements were counted; a design failing the hard gate got
 perfect scorer features (the starter's stretch went undetected); the spacing

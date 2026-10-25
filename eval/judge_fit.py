@@ -62,7 +62,8 @@ def save_cache():
 
 
 def load(which: str):
-    path = BENCH / {"synthetic": "pairs.jsonl", "human": "human_pairs.jsonl", "unseen": "unseen_pairs.jsonl"}[which]
+    path = BENCH / {"synthetic": "pairs.jsonl", "human": "human_pairs.jsonl", "unseen": "unseen_pairs.jsonl",
+                    "unseen2": "unseen2_pairs.jsonl"}[which]
     return [json.loads(l) for l in path.read_text().splitlines()] if path.exists() else []
 
 
@@ -155,13 +156,15 @@ def audit(vlm: str = "", l2: float = 0.01):
         accs = [accuracy(Xh[hfo == k], fit(np.vstack([Xs, Xh[hfo != k]]), l2)) for k in range(5) if (hfo == k).any()]
         print(f"  fit synthetic + other human -> held-out human: {np.mean(accs):.1%}")
     w = fit(np.vstack([Xs, Xh]) if len(hum) else Xs, l2)
-    unseen, Xu = design_matrix(load("unseen"), vlm)
-    if len(unseen):
-        print("  defect kinds never used in fitting (other tasks, newer engine):")
-        u_of = np.array([p["kind"] for p in unseen])
-        for k in sorted(set(u_of)):
-            print(f"    {k:<16}{accuracy(Xu[u_of == k], w):>7.1%}  (n={int((u_of == k).sum())})")
-        print(f"    {'all':<16}{accuracy(Xu, w):>7.1%}")
+    for name, title in (("unseen", "defect kinds never used in fitting (other tasks, newer engine)"),
+                        ("unseen2", "a second unseen set, built after the rules were last changed")):
+        unseen, Xu = design_matrix(load(name), vlm)
+        if len(unseen):
+            print(f"  {title}:")
+            u_of = np.array([p["kind"] for p in unseen])
+            for k in sorted(set(u_of)):
+                print(f"    {k:<18}{accuracy(Xu[u_of == k], w):>7.1%}  (n={int((u_of == k).sum())})")
+            print(f"    {'all':<18}{accuracy(Xu, w):>7.1%}")
     save_cache()
     # invisible changes must not move the verdict: |score| on them vs a typical real defect
     typical = float(np.median(np.abs(Xs @ w))) if len(Xs) else 1.0
