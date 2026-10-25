@@ -94,21 +94,30 @@ def _word_width(it: Item, font: int) -> float:
                                  font, it.letter_spacing(font))
 
 
-def fit_text(it: Item, font: int, max_w: float) -> Tuple[int, float, float]:
+def _pair_width(it: Item, font: int) -> float:
+    """Width of the widest two consecutive words: a short title set narrower
+    than this breaks one word per line."""
+    e, words = it.el, it.content.split()
+    return max(tm.natural_width(f"{a} {b}", e.get("font_family", ""), e.get("font_weight"), e.get("font_style"), font,
+                                it.letter_spacing(font)) for a, b in zip(words, words[1:]))
+
+
+def fit_text(it: Item, font: int, max_w: float, pairs: bool = False) -> Tuple[int, float, float]:
     """(font, box width, box height) for `it` wrapped inside `max_w`.
 
-    The font shrinks if a single word is wider than `max_w` (the renderer
-    never breaks words).  The renderer wraps ignoring letter spacing, so the
+    The font shrinks if a single word (with `pairs`, two consecutive words) is
+    wider than `max_w` (the renderer never breaks words).  The renderer wraps ignoring letter spacing, so the
     wrap width is narrowed until the spaced lines really fit.  Finally the box
     is tightened to the widest line, verified to wrap identically."""
     if max_w == INF:
         e = it.el
         max_w = tm.natural_width(it.content, e.get("font_family", ""), e.get("font_weight"), e.get("font_style"),
                                  font, it.letter_spacing(font)) + 2
-    word = _word_width(it, font)
+    unit = _pair_width if pairs else _word_width
+    word = unit(it, font)
     while word > max_w and font > 1:
         font = max(1, min(font - 1, int(font * max_w / word)))
-        word = _word_width(it, font)
+        word = unit(it, font)
     wrap_w = max(1.0, max_w)
     lay = it.text_layout(font, wrap_w)
     for _ in range(6):
@@ -165,7 +174,9 @@ def _text(b, ctx, max_w, max_h, out, x, y):
         fitted = (f, w, h) if w <= max_w else None
     if fitted is None:
         measure_w = max(it.box.w * MAX_MEASURE * font / it.font, 4.0 * font)
-        fitted = fit_text(it, font, min(max_w, measure_w))
+        words = len(it.content.split())
+        pairs = b.role in ("headline", "subhead") and 3 <= words <= 6 and "\n" not in it.content
+        fitted = fit_text(it, font, min(max_w, measure_w), pairs)  # short titles keep two words a line
     font, w, h = fitted
     if b.role in BALANCED and it.el.get("text_align") == "center":  # a narrower centred box stays centred
         w = balance(it, font, w)

@@ -73,6 +73,7 @@ v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 | v36f | the same shape (aspect within 8%) keeps the designer's composition (scaled, enlarged where it fits), unless that is not legible - found by resizing every design to its own size: 8/75 got worse, one was rebuilt as a side-by-side layout | – | – | discriminator 7–22, mean −0.17, 0 severe (small margin shifts on near-identical outputs); kept: a design asked for at its own size should not be rearranged | |
 | v36i | the logo's legibility floor is capped at 25% of the canvas height (in 320×100 rows the 28 px floor made the logo a space hog) | – | – | discriminator 87–10, 0 severe; one subhead now outgrows its headline (poster_center_00 320×100) | |
 | v36k | a banner row must give its copy at least 25% of the width - otherwise something is dropped or another layout used (a 320×100 headline had a 36 px column) | – | 98.53 | discriminator 20–6, 0 severe; fixes v36i's inverted subhead | |
+| v36l | short titles (3–6 words) keep at least two words a line: the widest word pair, not the widest word, is what must fit (found by the new wrap rule: "Taste / the / Sunset" in a 600×200 header) | – | 98.52 | discriminator 61–42 (p 0.076), mean +0.12, 1 severe (looks fine: an alignment shift); kept: typography | |
 
 **Lesson (v29–v31):** a chain of small A/B wins (+0.06, +0.06, +0.38 on 8
 tasks) hid a real regression. Every few versions, compare against a fixed
