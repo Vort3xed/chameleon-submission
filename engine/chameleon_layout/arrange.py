@@ -331,7 +331,7 @@ def row(scope: Scope, ctx0: Ctx, shrink: float = 1.0) -> List[Layout]:
             x += w + gap + extra
         if cta:
             _cta_below_headline(lay, cta[0], cf, reg)
-        _center_ink(lay, blocks, reg)
+        _center_ink(lay, blocks, reg, gap)
         layouts.append(lay)
     return layouts
 
@@ -364,21 +364,44 @@ def _cta_below_headline(lay: Layout, cta: Block, c: Ctx, reg: Rect):
     lay.placed = [(b, r if b is cta else q) for b, q in lay.placed]
 
 
-def _center_ink(lay: Layout, blocks: List[Block], reg: Rect):
-    """Shift the row so its outer margins match as drawn: transparent padding
-    in product art must not make one side look wider than the other."""
-    from .objective import leaf_blocks, visible_inks
+def _center_ink(lay: Layout, blocks: List[Block], reg: Rect, gap: float):
+    """Make the row's outer margins match as drawn.  Transparent padding in a
+    logo or product art must not make one side look wider: the whole row
+    shifts as far as the boxes allow, then whatever is left over is taken
+    from the padding-side gap (everything after the padded end slides in)."""
+    from .objective import visible_inks
 
-    inks = [o for _, _, o, _ in visible_inks(lay.out, blocks)]
-    idxs = [it.idx for b in leaf_blocks(blocks) for it in b.items if it.idx in lay.out]
-    if not inks or not idxs:
+    order = sorted(lay.placed, key=lambda br: br[1].x)
+    ink_of = {it.idx: o for _, it, o, _ in visible_inks(lay.out, blocks)}
+    inks = [bounding([ink_of[it.idx] for it in b.items if it.idx in ink_of]) for b, _ in order]
+    if not order or any(r is None for r in inks):
         return
-    dx = (reg.x - min(r.x for r in inks) + reg.x1 - max(r.x1 for r in inks)) / 2
-    boxes = [lay.out[i] for i in idxs]
-    dx = max(-min(p.x for p in boxes), min(dx, lay.ctx.W - max(p.x + p.w for p in boxes)))  # boxes stay on canvas
-    for i in idxs:
-        lay.out[i] = replace(lay.out[i], x=lay.out[i].x + dx)
-    lay.placed = [(b, Rect(r.x + dx, r.y, r.w, r.h)) for b, r in lay.placed]
+
+    def shift(bs, dx):
+        for b in bs:
+            for it in b.items:
+                if it.idx in lay.out:
+                    lay.out[it.idx] = replace(lay.out[it.idx], x=lay.out[it.idx].x + dx)
+        moved = {id(b) for b in bs}
+        lay.placed = [(b, r.moved(dx, 0) if id(b) in moved else r) for b, r in lay.placed]
+
+    def room(bs, dx):
+        """dx clipped so that every box of bs stays on the canvas."""
+        ps = [lay.out[it.idx] for b in bs for it in b.items if it.idx in lay.out]
+        return max(-min(p.x for p in ps), min(dx, lay.ctx.W - max(p.x + p.w for p in ps)))
+
+    blocks_in_order = [b for b, _ in order]
+    left, right = inks[0].x - reg.x, reg.x1 - max(r.x1 for r in inks)
+    dx = room(blocks_in_order, (right - left) / 2)
+    shift(blocks_in_order, dx)
+    left, right = left + dx, right - dx
+    if len(order) > 1 and abs(left - right) > 1.0:
+        if left > right:  # the first block's padding held the row back: the rest slides toward it
+            free = min(r.x for r in inks[1:]) + dx - (inks[0].x + dx) - (inks[0].w) - gap
+            shift(blocks_in_order[1:], room(blocks_in_order[1:], -max(0.0, min((left - right) / 2, free))))
+        else:
+            free = (inks[-1].x + dx) - max(r.x1 for r in inks[:-1]) - dx - gap
+            shift(blocks_in_order[:-1], room(blocks_in_order[:-1], max(0.0, min((right - left) / 2, free))))
 
 
 def _slot_ctx(b: Block, c: Ctx, reg: Rect) -> Ctx:
@@ -644,17 +667,16 @@ SNAP = 0.015  # a block this close (fraction of the canvas) to a shared line is 
 
 
 def snap_alignment(scene: Scene, lay: Layout) -> None:
-    """Final beautification: a flow block whose edge or centre sits within
-    1.5% of the same line of another block (or, for its centre, of the canvas
-    centre) is moved onto that line exactly - near-misses read as mistakes,
-    exact alignment as intent - unless that creates an overlap, crams a
-    neighbour, unbalances the margins or leaves the canvas.  Run on the
-    chosen layout only."""
+    """Final beautification: a block whose edge or centre sits within 1.5% of
+    the same line of a sibling (or, for its centre, of the centre of what holds
+    it: the canvas, or its card) is moved onto that line exactly - near-misses
+    read as mistakes, exact alignment as intent - unless that creates an
+    overlap, crams a neighbour, unbalances the margins or leaves its frame.
+    Cards are done the same way inside.  Run on the chosen layout only."""
     from .objective import new_overlap, visible_inks
 
     W, H = lay.ctx.W, lay.ctx.H
     every = [b for b, _ in lay.placed]
-    flow = [b for b in every if b not in scene.ornaments]
 
     def ink(b: Block) -> Optional[Rect]:
         return bounding([scene.items[it.idx].ink_at(lay.out[it.idx].rect, lay.out[it.idx].font)
@@ -667,42 +689,49 @@ def snap_alignment(scene: Scene, lay: Layout) -> None:
     def overlap() -> float:
         return new_overlap(visible_inks(lay.out, every))
 
-    def clearance(b: Block) -> float:
-        """Distance from b to its nearest neighbour along the axis that separates them."""
-        r = ink(b)
-        gaps = [max(o.x - r.x1, r.x - o.x1, o.y - r.y1, r.y - o.y1)
-                for o in (ink(o) for o in flow if o is not b) if o is not None]
-        return min(gaps, default=INF)
+    def snap(group: List[Block], frame: Rect):
+        def clearance(b: Block) -> float:
+            """Distance from b to its nearest sibling along the axis that separates them."""
+            r = ink(b)
+            gaps = [max(o.x - r.x1, r.x - o.x1, o.y - r.y1, r.y - o.y1)
+                    for o in (ink(o) for o in group if o is not b) if o is not None]
+            return min(gaps, default=INF)
 
-    def lopsided() -> float:
-        c = bounding([r for r in (ink(o) for o in flow) if r is not None])
-        return abs(c.x - (W - c.x1))
+        def lopsided() -> float:
+            c = bounding([r for r in (ink(o) for o in group) if r is not None])
+            return abs((c.x - frame.x) - (frame.x1 - c.x1))
 
-    room = 0.6 * margin(W, H)  # a gap this wide is comfortable whatever happens to it
-
-    for b in sorted(flow, key=lambda b: -b.importance):
-        r = ink(b)
-        if r is None:
-            continue
-        others = [o for o in (ink(o) for o in flow if o is not b) if o is not None]
-        for axis, size in (("x", W), ("y", H)):
-            lines = (lambda q: (q.x, q.cx, q.x1)) if axis == "x" else (lambda q: (q.y, q.cy, q.y1))
-            offers = [ref - mine for o in others for mine, ref in zip(lines(r), lines(o))]
-            if axis == "x":
-                offers.append(W / 2 - r.cx)
-            offers = [d for d in offers if 0.5 < abs(d) < SNAP * size]
-            if not offers:
+        room = 0.6 * margin(frame.w, frame.h)  # a gap this wide is comfortable whatever happens to it
+        for b in sorted(group, key=lambda b: -b.importance):
+            r = ink(b)
+            if r is None:
                 continue
-            d = min(offers, key=abs)
-            new = moved(b, d if axis == "x" else 0.0, d if axis == "y" else 0.0)
-            if any(p.x < -0.5 or p.y < -0.5 or p.x + p.w > W + 0.5 or p.y + p.h > H + 0.5 for p in new.values()):
-                continue
-            before, gap, side, old = overlap(), clearance(b), lopsided(), {i: lay.out[i] for i in new}
-            lay.out.update(new)
-            if overlap() > before + 1e-6 or clearance(b) < min(0.75 * gap, room) or lopsided() > side + 0.005 * W:
-                lay.out.update(old)  # no new collision, no crammed neighbour, no lopsided margins
-            else:
-                r = ink(b)
+            others = [o for o in (ink(o) for o in group if o is not b) if o is not None]
+            for axis, size in (("x", W), ("y", H)):
+                lines = (lambda q: (q.x, q.cx, q.x1)) if axis == "x" else (lambda q: (q.y, q.cy, q.y1))
+                offers = [ref - mine for o in others for mine, ref in zip(lines(r), lines(o))]
+                if axis == "x":
+                    offers.append(frame.cx - r.cx)
+                offers = [d for d in offers if 0.5 < abs(d) < SNAP * size]
+                if not offers:
+                    continue
+                d = min(offers, key=abs)
+                new = moved(b, d if axis == "x" else 0.0, d if axis == "y" else 0.0)
+                if any(p.x < frame.x - 0.5 or p.y < frame.y - 0.5 or p.x + p.w > frame.x1 + 0.5 or
+                       p.y + p.h > frame.y1 + 0.5 for p in new.values()):
+                    continue
+                before, gap, side, old = overlap(), clearance(b), lopsided(), {i: lay.out[i] for i in new}
+                lay.out.update(new)
+                if overlap() > before + 1e-6 or clearance(b) < min(0.75 * gap, room) or \
+                        lopsided() > side + 0.005 * frame.w:
+                    lay.out.update(old)  # no new collision, no crammed neighbour, no lopsided margins
+                else:
+                    r = ink(b)
+        for b in group:  # inside each card, its children against the card
+            if b.kind == "panel" and b.frame is not None and b.frame.idx in lay.out:
+                snap(b.children, lay.out[b.frame.idx].rect)
+
+    snap([b for b in every if b not in scene.ornaments], Rect(0, 0, W, H))
 
 
 DROP_STEPS = (0.25, 0.36, 0.45, 0.55, 0.65, 0.8, 0.9)

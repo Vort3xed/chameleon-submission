@@ -62,25 +62,41 @@ def _scene(d: dict):
     return W, H, sc, ink
 
 
-def alignment(W, H, rects: List[Rect]) -> float:
-    """Share of blocks that line up (an edge or centre within max(0.3%, 1.5 px)
-    of the same line of another block, or the centre with the canvas centre),
-    falling off linearly to 0 at 1.5%: a pixel never matters, a near-miss does.
-    Distances are in units of the long side, as the canvas is seen scaled to it."""
-    if len(rects) < 2:
-        return 1.0
-    L = max(W, H)
+def _aligned(r: Rect, others: List[Rect], centre: float, L: float) -> float:
+    """1 if r shares an edge or centre line with another rect (or its centre with `centre`) within
+    max(0.3%, 1.5 px) of the long side L, falling to 0 at 1.5%: a pixel never matters, a near-miss does."""
+    best = abs(r.cx - centre) / L
+    for o in others:
+        best = min(best, *(abs(a - b) / L for a, b in zip((r.x, r.cx, r.x1, r.y, r.cy, r.y1),
+                                                           (o.x, o.cx, o.x1, o.y, o.cy, o.y1))))
     ok = max(0.003, 1.5 / L)
     far = max(0.015, 3 * ok)
-    total = 0.0
-    for i, r in enumerate(rects):
-        best = abs(r.cx - W / 2) / L
-        for j, o in enumerate(rects):
-            if i != j:
-                best = min(best, *(abs(a - b) / L for a, b in zip((r.x, r.cx, r.x1, r.y, r.cy, r.y1),
-                                                                   (o.x, o.cx, o.x1, o.y, o.cy, o.y1))))
-        total += _clamp((far - best) / (far - ok)) if best > ok else 1.0
-    return total / len(rects)
+    return _clamp((far - best) / (far - ok)) if best > ok else 1.0
+
+
+def alignment(W, H, groups) -> float:
+    """Share of blocks that line up with a sibling or the centre of what holds
+    them; `groups` are (rects, centre x) - the canvas's flow blocks, and each
+    card's children.  Distances are in units of the long side, as the canvas
+    is seen scaled to it."""
+    L = max(W, H)
+    scores = [_aligned(r, rects[:i] + rects[i + 1:], centre, L)
+              for rects, centre in groups if len(rects) >= 2 for i, r in enumerate(rects)]
+    return sum(scores) / len(scores) if scores else 1.0
+
+
+def _groups(W: float, sc, ink) -> list:
+    """(rects, centre x) to judge alignment in: the canvas, and the inside of every card."""
+    out = [([ink[id(b)] for b in sc.blocks if ink[id(b)] is not None], W / 2)]
+
+    def cards(blocks):
+        for b in blocks:
+            if b.kind == "panel" and b.frame is not None:
+                kids = [r for r in (bounding([i.ink for i in k.items]) for k in b.children) if r is not None]
+                out.append((kids, b.frame.box.cx))
+                cards(b.children)
+    cards(sc.blocks)
+    return out
 
 
 def crowded(W, H, rects: List[Rect]) -> int:
@@ -189,7 +205,7 @@ def evaluate(source: dict, output: dict) -> Dict[str, float]:
     sall = sflow + [sink[id(b)] for b in ssc.ornaments if sink[id(b)] is not None]
     allr = flow + [ink[id(b)] for b in sc.ornaments if ink[id(b)] is not None]
     m = {}
-    m["alignment"] = _clamp(1 - max(0.0, alignment(sW, sH, sflow) - alignment(W, H, flow)) / 0.6)
+    m["alignment"] = _clamp(1 - max(0.0, alignment(sW, sH, _groups(sW, ssc, sink)) - alignment(W, H, _groups(W, sc, ink))) / 0.6)
     m["edge"] = _clamp(1 - max(0, crowded(W, H, _not_bleeding(sc, ink)) - crowded(sW, sH, _not_bleeding(ssc, sink))) / 2)
     (sx, sy), (ox, oy) = lopsided(sW, sH, sflow), lopsided(W, H, flow)  # corner ornaments excluded
     m["margins"] = _clamp(1 - max(0.0, ox - sx) / 0.08) * _clamp(1 - max(0.0, oy - sy) / 0.2) ** 0.5

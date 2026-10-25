@@ -62,6 +62,8 @@ v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 | v35o | preserve: margins measured on drawn content, not boxes (a wide box around short text pushed it to x = 0); corner ornaments no longer shape the bands (a corner ribbon put all the slack on one side) | – | 98.43 | discriminator 225–30, 0 severe (formats); 84–55 (holdout) | |
 | v35q | decoration that sat on a card moves with the card (dots were left behind when a card moved); scorer: a dot leaving its card weighs by its importance | – | – | discriminator 33–0 | |
 | v35r | preserve bands keep the outer horizontal margin when compressing (a clamp had jammed text against a product panel) | – | – | discriminator 17–25, mean −0.003, 0 severe (neutral); kept: principled | |
+| v35s | banner rows: after shifting, leftover margin imbalance is taken from the padding-side gap (a logo's transparent padding no longer leaves the button end tight) | – | – | discriminator 82–18, 0 severe | |
+| v35t | alignment snapping also inside cards (against the card's centre) | – | – | ties (offsets were below the visible threshold) | |
 
 **Lesson (v29–v31):** a chain of small A/B wins (+0.06, +0.06, +0.38 on 8
 tasks) hid a real regression. Every few versions, compare against a fixed
