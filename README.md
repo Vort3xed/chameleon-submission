@@ -25,6 +25,9 @@ semantic labels:
   proportionally (large faint frames instead keep their distance to each canvas edge);
 * *hidden* – invisible elements and images whose asset is missing (the
   intentional `holiday_watermark` case) → skipped gracefully (opacity 0);
+* *bands* – full-width bars on the top or bottom edge (header, footer, photo
+  scrim) → stay bars on that edge with their content inside; the rest flows
+  between them (and under them, as far as the source let it);
 * *blocks* – the units that get laid out: single texts and images, **rigid
   groups** (shared `group_id`, e.g. button shape + label, rotated ribbons,
   product tiles), **panels** (a container shape such as a card or scrim whose
@@ -185,6 +188,8 @@ Development-only tooling, not copied into the image
   determinism, no-fonts/no-assets operation, import from any cwd or as a
   top-level module, `python -m engine.main` end to end, and every stress
   design at five targets.
+* `tests/test_structure.py` – structure survives any canvas: header and footer
+  bars stay full-width on their edges with their content inside.
 * `tests/test_discriminator.py` – the discriminator's invariants: a designer's
   original scores 1.0 on every rule against itself, a 1 px move is a tie,
   collisions / shrunk headlines / edge-crowding score lower, and the naive

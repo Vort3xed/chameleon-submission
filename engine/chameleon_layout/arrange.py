@@ -924,6 +924,79 @@ MAX_LAYOUTS = 400  # past this many candidates no further drop levels are explor
                    # unlike a time budget: the same input gives the same output on any machine)
 
 
+def _flowing(scene: Scene, ctx0: Ctx, src: Rect, region: Rect, judge: Scope, bands, mx: float) -> List[Layout]:
+    """The arrangement families at each drop level, with the given bands kept at their edges."""
+    from .objective import evaluate
+
+    out: List[Layout] = []
+    for drop in drop_levels(scene):
+        flow = [prune(b, drop) for b in scene.blocks if b not in drop and id(b) not in bands]
+        if flow:
+            lays = arrangements(Scope(flow, src, region), ctx0, scene.items, allow_preserve=False)
+        elif bands:  # nothing but bars: they are the layout
+            lays = [Layout("bands", _base(ctx0, 1.0))]
+        else:
+            continue
+        for lay in lays:
+            lay.hidden += drop
+            _place_bands(lay, bands, scene, mx)
+            finish(scene, lay, [b for b in scene.ornaments if b not in drop])
+        out += lays
+        if any(evaluate(lay, judge, scene.items)["legibility"] >= 0.97 for lay in lays):
+            break  # everything left is legible: no need to drop more
+        if len(out) > MAX_LAYOUTS:
+            break
+    return out
+
+
+def _between(region: Rect, bands, scene: Scene, my: float) -> Rect:
+    """The content region left between the kept bands.  Where the source let
+    content run under a bar (product art beneath a photo scrim), it may again,
+    as deep into the bar as it went."""
+    def under(b: Block) -> float:
+        f, flow = b.frame.box, [o.src for o in scene.blocks if o is not b and not o.band]
+        depth = [min(r.y1, f.y1) - f.y if b.band == "bottom" else f.y1 - max(r.y, f.y)
+                 for r in flow if min(r.x1, f.x1) > max(r.x, f.x)]
+        return max(0.0, min(0.6, max(depth, default=0.0) / f.h))
+
+    tops = [r.y1 - under(b) * r.h if under(b) else r.y1 + my for b, r in bands.values() if b.band == "top"]
+    bottoms = [r.y + under(b) * r.h if under(b) else r.y - my for b, r in bands.values() if b.band == "bottom"]
+    y0, y1 = max([region.y] + tops), min([region.y1] + bottoms)
+    return Rect(region.x, y0, region.w, max(1.0, y1 - y0))
+
+
+BAND_MIN = 24.0  # px: a band thinner than this cannot hold its content, so on such strips bands flow like any block
+
+
+def _bands(scene: Scene, W: float, H: float) -> Dict[int, Tuple[Block, Rect]]:
+    """Full-width bars (header, footer, photo scrim) keep their edge, the full
+    width and their share of the canvas height - or none do."""
+    s = H / scene.H
+    out = {id(b): (b, Rect(0.0, 0.0 if b.band == "top" else H - b.frame.box.h * s, W, b.frame.box.h * s))
+           for b in scene.blocks if b.band}
+    return out if all(r.h >= BAND_MIN for _, r in out.values()) else {}
+
+
+def _place_bands(lay: Layout, bands: Dict[int, Tuple[Block, Rect]], scene: Scene, mx: float):
+    """Each band's bar at its edge, its content laid out inside it."""
+    for b, r in bands.values():
+        f, inner = b.frame.box, b.inner or b.frame.box
+        s = r.h / f.h
+        lay.out[b.frame.idx] = Placement(r.x, r.y, r.w, r.h)
+        box = Rect(r.x + mx, r.y + (inner.y - f.y) * s, r.w - 2 * mx, inner.h * s)
+        lay.out.update(_panel_inner(b.children, inner, box, lay.ctx, scene.items))
+        lay.placed.append((b, r))
+
+
+def _bleed_bands(lay: Layout, scene: Scene, W: float, H: float):
+    """Keep-the-composition scales a band in place: its bar grows back to the edge and the full width."""
+    for b in scene.blocks:
+        if b.band and b.frame.idx in lay.out:
+            p = lay.out[b.frame.idx]
+            lay.out[b.frame.idx] = replace(p, x=0.0, w=W, y=0.0, h=p.y + p.h) if b.band == "top" else \
+                replace(p, x=0.0, w=W, h=H - p.y)
+
+
 def candidates(scene: Scene, ctx0: Ctx) -> Tuple[Scope, List[Layout]]:
     """All candidate layouts, plus the scope they should be judged in."""
     from .objective import evaluate
@@ -945,23 +1018,17 @@ def candidates(scene: Scene, ctx0: Ctx) -> Tuple[Scope, List[Layout]]:
         for boost in (2.0, 1.75, 1.5, 1.4, 1.3, 1.2, 1.1, 1.0):
             lay = preserve(Scope(scene.blocks + scene.ornaments, src, canvas), ctx0, boost, scene.items)
             if lay is not None:  # preserve positions the ornaments itself
+                _bleed_bands(lay, scene, W, H)
                 out.append(finish(scene, lay, []))
                 break
         if out and stretch < SAME_SHAPE and evaluate(out[0], judge, scene.items)["legibility"] >= 0.9:
             return judge, out  # the same shape keeps the designer's composition
-    for drop in drop_levels(scene):
-        flow = [prune(b, drop) for b in scene.blocks if b not in drop]
-        if not flow:
-            continue
-        lays = arrangements(Scope(flow, src, region), ctx0, scene.items, allow_preserve=False)
-        for lay in lays:
-            lay.hidden += drop
-            finish(scene, lay, [b for b in scene.ornaments if b not in drop])
-        out += lays
-        if any(evaluate(lay, judge, scene.items)["legibility"] >= 0.97 for lay in lays):
-            break  # everything left is legible: no need to drop more
-        if len(out) > MAX_LAYOUTS:
-            break
+    bands = _bands(scene, W, H)
+    kept = _flowing(scene, ctx0, src, _between(region, bands, scene, my), judge, bands, mx) if bands else []
+    if any(evaluate(lay, judge, scene.items)["legibility"] >= 0.9 for lay in kept):
+        out += kept  # headers, footers and scrims stay at their edges whenever that reads
+    else:
+        out += _flowing(scene, ctx0, src, region, judge, {}, mx)
     if not out:
         out.append(finish(scene, letterbox(scene, ctx0), []))
     return judge, out

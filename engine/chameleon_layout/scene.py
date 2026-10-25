@@ -136,6 +136,7 @@ class Block:
     corner: str = ""  # for ornaments: tl/tr/bl/br
     hero: bool = False  # carries the main product imagery
     inner: Optional[Rect] = None  # panels: where the children sat inside the frame
+    band: str = ""  # panels: "top" / "bottom" when the frame is a full-width bar on that edge (header, footer, scrim)
 
     @property
     def src(self) -> Rect:
@@ -316,12 +317,24 @@ def make_block(members: List[Item], children_of: Dict[int, List[Item]], scope: R
     frames = [m for m in members if m.idx in children_of and m.type == "shape"]
     frame = max(frames, key=lambda f: f.box.area) if frames else None
     inner = [m for m in members if m is not frame]
-    big = frame is not None and frame.box.area >= 0.12 * scope.area and len(inner) >= 2
+    band = _band(frame, scope) if frame is not None else ""
+    big = frame is not None and (band or frame.box.area >= 0.12 * scope.area and len(inner) >= 2)
     if big and not any(m.rotation for m in members) and frame.box.contains(bounding([m.bounds for m in inner]), 0.95):
         direct = [m for m in inner if not any(m in children_of.get(o.idx, []) for o in inner)]
         kids = build_blocks(direct, children_of, frame.box)
-        return Block("panel", members, children=kids, frame=frame, inner=bounding([k.src for k in kids]))
+        return Block("panel", members, children=kids, frame=frame, inner=bounding([k.src for k in kids]), band=band)
     return Block("rigid", members, frame=frame)
+
+
+def _band(frame: Item, scope: Rect) -> str:
+    """"top" / "bottom" for a full-width bar on that edge of its scope, else ""."""
+    b = frame.box
+    if frame.rotation or frame.el.get("shape_type", "rectangle") != "rectangle" or b.w < 0.9 * scope.w \
+            or b.h > 0.45 * scope.h:
+        return ""
+    if b.y <= scope.y + 0.01 * scope.h:
+        return "top"
+    return "bottom" if b.y1 >= scope.y1 - 0.01 * scope.h else ""
 
 
 def group_rows(blocks: List[Block]) -> List[Block]:  # noqa: C901
