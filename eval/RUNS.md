@@ -31,9 +31,8 @@ pairwise logs); `eval/runs/history.jsonl` has every scorer run.
 
 ## Current best
 
-**v35w**: formats 98.48 · holdout 98.09 · fresh holdout2 98.11 · crazy 96.85 (28 designs) · 0 gate failures · 0.07 s/design.
-Fresh holdout2 (seed 4242, never inspected before this run): v35w vs v34 132–47, 0 severe; vs v35r 45–8.
-Discriminator (below) vs v34: formats 907–398 (p 10⁻⁴⁶), holdout 218–70 (p 10⁻¹⁹).
+**v36r**: formats 98.52 · fresh holdout2 98.16 · crazy 96.81 (28 designs) · extra presets 97.55 · 0 gate failures · 0.08 s/design.
+Discriminator vs v34: formats 1134–291 (p 10⁻¹¹⁷, 1 severe), fresh holdout2 145–45 (2 severe).
 Holdout (never tuned on): v31-era engine beats v12 (start of day 2) 55–19 (+0.29);
 v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 
@@ -130,6 +129,7 @@ does; the judge consistently prefers keeping content and bigger product art.
 | v36p: a minor ornament with no spot clear of content is hidden instead of overlapping | loop: formats 2–7, holdout 1–1 | rare; dropping the badge costs more presence than the overlap |
 | v36q: preserve also offers the next calmer boost | loop: formats 50–50, holdout 5–0 | no gain for the extra candidates |
 | v36s: 9:16 stories keep content inside the platform-safe band (12% top, 18% bottom clear; 78/117 story CTAs sat in the bottom 20%) | loop: formats 11–132, 4 severe (veto) | the narrower band shrinks everything; the AI evaluator judges the image, not a phone UI over it - noted for the finale (a 'safe zones' toggle) |
+| v36t: the headline term saturates at 64 px viewed (was 44), so rankings prefer bigger headlines | loop: formats 82–129, holdout2 8–25, 0 severe; VLM 39–44 (37 ties) on formats | neither judge wants it; the brief's "bigger" is already met where room allows |
 | v35l: banner rows also offered with a 0.75× button | discriminator 22–41 (p 0.02), engine 60% slower | the objective picked small buttons where they hurt; reverted |
 | edge bands (full-width header/footer bars) | not built | they scale rigidly and get dropped in banners; needs a band concept — deferred, the official samples have none |
 
