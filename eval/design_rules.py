@@ -8,8 +8,8 @@ VLM judge is bad at seeing reliably:
              Kikuchi et al. 2021 / Inoue et al. 2023)
   edge       no block crowds the canvas edge (within 2.5% of the short side)
   margins    the content's outer margins balance left/right and top/bottom
-  spacing    no two neighbours are crammed together relative to the other gaps
-             (Gestalt proximity: spacing must still show what belongs together)
+  spacing    no two neighbours that were comfortably apart are now crammed
+             together (Gestalt proximity: spacing must still show what belongs together)
 
 Every rule is relative to the source: the resize is penalised only where it
 is worse than the designer's original (a full-bleed band may touch the edge
@@ -45,9 +45,19 @@ def _clamp(v: float) -> float:
     return max(0.0, min(1.0, v))
 
 
+def _opacity(e: dict) -> float:
+    try:
+        return 1.0 if e.get("opacity") is None else float(e["opacity"])
+    except (TypeError, ValueError):
+        return 1.0
+
+
 def _scene(d: dict):
+    """Scene analysis of what is actually drawn: elements at opacity 0 (how the
+    engine hides dropped content, text included) are left out."""
     W, H = float(d["canvas"]["width"]), float(d["canvas"]["height"])
-    sc = analyze(d["elements"], W, H)
+    drawn = [e for e in d["elements"] if isinstance(e, dict) and _opacity(e) > 0.01]
+    sc = analyze(drawn, W, H)
     ink = {id(b): bounding([i.ink for i in b.items]) for b in sc.blocks + sc.ornaments}
     return W, H, sc, ink
 
@@ -87,9 +97,9 @@ def lopsided(W, H, rects: List[Rect]) -> Tuple[float, float]:
     return abs(c.x - (W - c.x1)) / W, abs(c.y - (H - c.y1)) / H
 
 
-def _gaps(rects: List[Rect]) -> List[float]:
-    """Gaps between neighbours that face each other (vertically or horizontally) with nothing in between."""
-    gaps = []
+def _facing(rects: List[Rect]) -> List[Tuple[int, int, float]]:
+    """(i, j, gap) for neighbours that face each other vertically or horizontally with nothing in between."""
+    out = []
     for i, a in enumerate(rects):
         for j, b in enumerate(rects):
             if i == j:
@@ -97,22 +107,38 @@ def _gaps(rects: List[Rect]) -> List[float]:
             if b.y >= a.y1 and min(a.x1, b.x1) > max(a.x, b.x):  # b below a
                 if not any(k not in (i, j) and c.y >= a.y1 and c.y1 <= b.y and min(c.x1, a.x1, b.x1) > max(c.x, a.x, b.x)
                            for k, c in enumerate(rects)):
-                    gaps.append(b.y - a.y1)
+                    out.append((i, j, b.y - a.y1))
             if b.x >= a.x1 and min(a.y1, b.y1) > max(a.y, b.y):  # b right of a
                 if not any(k not in (i, j) and c.x >= a.x1 and c.x1 <= b.x and min(c.y1, a.y1, b.y1) > max(c.y, a.y, b.y)
                            for k, c in enumerate(rects)):
-                    gaps.append(b.x - a.x1)
-    return gaps
+                    out.append((i, j, b.x - a.x1))
+    return out
 
 
-def cramming(W, H, rects: List[Rect]) -> float:
-    """How crammed the tightest pair of neighbours is: 1 = fine, 0 = touching
-    (relative to the typical gap, and to 1% of the short side)."""
-    gaps = sorted(_gaps(rects))
-    if len(gaps) < 2:
+def _clearance(a: Rect, b: Rect) -> float:
+    """Gap between two rects along the axis that separates them (negative if they overlap)."""
+    return max(b.x - a.x1, a.x - b.x1, b.y - a.y1, a.y - b.y1)
+
+
+TIGHT = 0.012  # neighbours closer than this (fraction of the short side) read as crammed
+
+
+def cramming(src_blocks, out_blocks, sW, sH, W, H) -> float:
+    """Share of facing neighbour pairs that are not newly crammed: closer than
+    1.2% of the short side now, although they were comfortably apart in the source.
+    Blocks are matched across source and output by their element ids."""
+    src = {frozenset(ids): r for ids, r in src_blocks}
+    pairs = _facing([r for _, r in out_blocks])
+    if not pairs:
         return 1.0
-    median = gaps[len(gaps) // 2]
-    return _clamp(gaps[0] / max(1e-6, 0.4 * median)) * _clamp(gaps[0] / (0.01 * min(W, H)))
+    crammed = 0
+    for i, j, gap in pairs:
+        if gap / min(W, H) >= TIGHT:
+            continue
+        a, b = src.get(frozenset(out_blocks[i][0])), src.get(frozenset(out_blocks[j][0]))
+        if a is None or b is None or _clearance(a, b) / min(sW, sH) >= TIGHT:
+            crammed += 1
+    return _clamp(1 - 2 * crammed / len(pairs))
 
 
 def _font_of(d: dict, el_id) -> float:
@@ -144,6 +170,10 @@ def _role_frac(d: dict, scene, ink, role: str) -> float:
     return sum(ink[id(b)].area for b in blocks) / (W * H)
 
 
+def _ids_inks(sc, ink):
+    return [(tuple(i.el.get("id") for i in b.items), ink[id(b)]) for b in sc.blocks if ink[id(b)] is not None]
+
+
 def _not_bleeding(sc, ink) -> List[Rect]:
     """Flow blocks that are meant to sit inside the margins (panels and frames may bleed)."""
     return [ink[id(b)] for b in sc.blocks if ink[id(b)] is not None and b.kind != "panel"]
@@ -163,7 +193,7 @@ def evaluate(source: dict, output: dict) -> Dict[str, float]:
     m["edge"] = _clamp(1 - max(0, crowded(W, H, _not_bleeding(sc, ink)) - crowded(sW, sH, _not_bleeding(ssc, sink))) / 2)
     (sx, sy), (ox, oy) = lopsided(sW, sH, sflow), lopsided(W, H, flow)  # corner ornaments excluded
     m["margins"] = _clamp(1 - max(0.0, ox - sx) / 0.08) * _clamp(1 - max(0.0, oy - sy) / 0.2) ** 0.5
-    m["spacing"] = _clamp(1 - max(0.0, cramming(sW, sH, sflow) - cramming(W, H, flow)) / 0.7)
+    m["spacing"] = cramming(_ids_inks(ssc, sink), _ids_inks(sc, ink), sW, sH, W, H)
     m["hierarchy"] = hierarchy(source, output, ssc)
     hs, ho = _role_frac(source, ssc, sink, "hero"), _role_frac(output, sc, ink, "hero")
     m["hero"] = 1.0 if hs <= 0 else _clamp(ho / (0.85 * hs))
