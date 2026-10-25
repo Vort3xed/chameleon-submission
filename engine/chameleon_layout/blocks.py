@@ -189,7 +189,7 @@ def balance(it: Item, font: int, w: float) -> float:
     for _ in range(12):
         mid = (lo + hi) / 2
         lo, hi = (lo, mid) if it.text_layout(font, mid).n_lines == n else (mid, hi)
-    tight = it.text_layout(font, hi).max_line_width + 0.1 * font + 2
+    tight = hi + 0.05 * font + 1  # the narrowest width that wraps the same, plus rounding room
     return tight if tight < w and it.text_layout(font, tight).n_lines == n else w
 
 
