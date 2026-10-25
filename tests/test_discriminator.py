@@ -75,3 +75,20 @@ def test_sign_test():
     assert sign_test(10, 10) == pytest.approx(1.0)
     assert sign_test(30, 5) < 0.001
     assert sign_test(5, 30) == pytest.approx(sign_test(30, 5))
+
+
+@pytest.mark.parametrize("path", SAMPLES, ids=lambda p: p.stem)
+def test_same_size_keeps_the_composition(path):
+    """Asked for its own size, a design is kept, not rearranged: every visible element's centre
+    stays within 10% of the canvas of where the designer put it."""
+    s = source(path)
+    target = {"width": s["canvas"]["width"], "height": s["canvas"]["height"]}
+    out = {e["id"]: e for e in resize(copy.deepcopy(s), target)["elements"]}
+    W, H = target["width"], target["height"]
+    for e in s["elements"]:
+        o = out[e["id"]]
+        if o.get("opacity", 1) == 0:
+            continue
+        dx = abs((o["x"] + o["width"] / 2) - (e["x"] + e["width"] / 2)) / W
+        dy = abs((o["y"] + o["height"] / 2) - (e["y"] + e["height"] / 2)) / H
+        assert dx < 0.1 and dy < 0.1, (e["id"], dx, dy)
