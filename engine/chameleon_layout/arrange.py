@@ -94,7 +94,7 @@ def _base(ctx0: Ctx, relax: float) -> Ctx:
 
 
 def _band_starts(spans: List[Tuple[float, float]], lo: float, hi: float, s: float, out_lo: float,
-                 out_len: float) -> List[float]:
+                 out_len: float, edge: float = 0.0, s0: float = 1.0) -> List[float]:
     """New start of each source span [a, b] (inside [lo, hi]) along one axis.
 
     Spans whose drawn content overlaps form a band and keep their relative
@@ -111,12 +111,16 @@ def _band_starts(spans: List[Tuple[float, float]], lo: float, hi: float, s: floa
         else:
             bands.append([a, max(a, b), i])
     gaps = [bands[0][0] - lo] + [n[0] - p[1] for p, n in zip(bands, bands[1:])] + [hi - bands[-1][1]]
+    # the outer margins never shrink below `edge` (or their own scaled distance, if smaller)
+    floor = [min(edge, max(0.0, gaps[0]) * s0)] + [0.0] * (len(gaps) - 2) + [min(edge, max(0.0, gaps[-1]) * s0)]
     gaps = [max(0.0, g) * s for g in gaps]
     slack = out_len - s * sum(b[1] - b[0] for b in bands) - sum(gaps)
     if slack >= 0:
         gaps = [g + slack / len(gaps) for g in gaps]
-    elif sum(gaps) > 0:  # tighter than the source: gaps shrink in proportion
-        gaps = [g * max(0.0, 1 + slack / sum(gaps)) for g in gaps]
+    else:  # tighter than the source: what can give way shrinks in proportion
+        give = sum(max(0.0, g - f) for g, f in zip(gaps, floor))
+        k = max(0.0, 1 + slack / give) if give > 0 else 0.0
+        gaps = [min(g, f) + max(0.0, g - f) * k for g, f in zip(gaps, floor)]
     pos = out_lo + gaps[0]
     starts = [0.0] * len(spans)
     for band, gap in zip(bands, gaps[1:]):
@@ -139,7 +143,7 @@ def preserve(scope: Scope, ctx0: Ctx, boost: float, items) -> Optional[Layout]:
     m, s0 = margin(reg.w, reg.h), s / boost
     inks = [_drawn(b) for b in scope.blocks]
     flow = [k for k, b in enumerate(scope.blocks) if not b.ornament]  # corner pieces do not shape the bands
-    xs = _band_starts([(inks[k].x, inks[k].x1) for k in flow], src.x, src.x1, s, reg.x, reg.w)
+    xs = _band_starts([(inks[k].x, inks[k].x1) for k in flow], src.x, src.x1, s, reg.x, reg.w, m, s0)
     ys = _band_starts([(inks[k].y, inks[k].y1) for k in flow], src.y, src.y1, s, reg.y, reg.h)
     starts = {k: (x, y) for k, x, y in zip(flow, xs, ys)}
     for k, (b, ink) in enumerate(zip(scope.blocks, inks)):
@@ -556,6 +560,23 @@ def place_ornaments(ornaments: List[Block], lay: Layout):
         taken.append(r)
 
 
+def _panels(blocks: List[Block]) -> List[Block]:
+    out = []
+    for b in blocks:
+        if b.kind == "panel":
+            out += [b] + _panels(b.children)
+    return out
+
+
+def _on_frame(it, frame, p: Placement) -> Placement:
+    """Keep an item where it sat on its card: same relative centre, scaled with the card."""
+    f = frame.box
+    k = min(p.w / max(f.w, 1e-6), p.h / max(f.h, 1e-6))
+    cx, cy = p.x + (it.box.cx - f.x) / max(f.w, 1e-6) * p.w, p.y + (it.box.cy - f.y) / max(f.h, 1e-6) * p.h
+    w, h = it.box.w * k, it.box.h * k
+    return Placement(cx - w / 2, cy - h / 2, w, h)
+
+
 def finish(scene: Scene, lay: Layout, ornaments: List[Block]) -> Layout:
     W, H = lay.ctx.W, lay.ctx.H
     m = min(W / scene.W, H / scene.H)
@@ -563,10 +584,18 @@ def finish(scene: Scene, lay: Layout, ornaments: List[Block]) -> Layout:
     for it in scene.backgrounds:
         lay.out[it.idx] = Placement(0.0, 0.0, W, H)
     canvas_src = Rect(0, 0, scene.W, scene.H)
+    frames = [b.frame for b in _panels(scene.blocks) if b.frame is not None and b.frame.idx in lay.out
+              and not lay.out[b.frame.idx].hidden]
     for it in scene.decor:
         visible = it.bounds.intersection(canvas_src) / max(1e-6, it.bounds.area)
-        lay.out[it.idx] = _anchored(it, scene, W, H, m) if _is_frame(it, scene) else \
-            _proportional(it, scene, W, H, m * math.sqrt(max(0.2, visible)))
+        c = it.bounds
+        card = next((f for f in frames if f.box.x <= c.cx <= f.box.x1 and f.box.y <= c.cy <= f.box.y1
+                     and c.area < 0.5 * f.box.area), None)
+        if card is not None:  # decoration on a card moves with the card
+            lay.out[it.idx] = _on_frame(it, card, lay.out[card.idx])
+        else:
+            lay.out[it.idx] = _anchored(it, scene, W, H, m) if _is_frame(it, scene) else \
+                _proportional(it, scene, W, H, m * math.sqrt(max(0.2, visible)))
     for it in scene.hidden:
         p = _proportional(it, scene, W, H, m)
         p.hidden = it.missing  # graceful skip of a missing asset

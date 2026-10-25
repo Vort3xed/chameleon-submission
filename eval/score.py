@@ -784,7 +784,7 @@ def score_task(source: dict, target: dict, output, src_prep: Optional[Prep] = No
         if not po or not co or not po.visible or not co.visible:
             continue
         ok = _contained(co.ink, po.box, 0.85)
-        gs.append((1.0 if ok else 0.0, 1.0))
+        gs.append((1.0 if ok else 0.0, imp.get(cid, 0.3)))  # a dot leaving a card matters less than a headline
         if not ok:
             issues.append(f"{cid} left container {pid}")
     m["groups"] = wavg(gs) if gs else 1.0

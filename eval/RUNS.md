@@ -60,6 +60,8 @@ v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 | v35k | objective: the headline must lead (1.15× any other text, weight 0.08); the logo is never dropped (brand) | – | 98.34 | discriminator 36–19 | |
 | v35m | sparse designs (little drawn on their canvas) may scale up to 2× more | – | 98.41 | discriminator 152–159 (neutral); kept on visual review: sparse stories and squares stop looking empty | |
 | v35o | preserve: margins measured on drawn content, not boxes (a wide box around short text pushed it to x = 0); corner ornaments no longer shape the bands (a corner ribbon put all the slack on one side) | – | 98.43 | discriminator 225–30, 0 severe (formats); 84–55 (holdout) | |
+| v35q | decoration that sat on a card moves with the card (dots were left behind when a card moved); scorer: a dot leaving its card weighs by its importance | – | – | discriminator 33–0 | |
+| v35r | preserve bands keep the outer horizontal margin when compressing (a clamp had jammed text against a product panel) | – | – | discriminator 17–25, mean −0.003, 0 severe (neutral); kept: principled | |
 
 **Lesson (v29–v31):** a chain of small A/B wins (+0.06, +0.06, +0.38 on 8
 tasks) hid a real regression. Every few versions, compare against a fixed
@@ -88,6 +90,7 @@ does; the judge consistently prefers keeping content and bigger product art.
 | v25: same aspect ratio → return the source layout scaled exactly | **1–76, −0.93** | the judge prefers our larger text even to the designer's own sizing |
 | v28: preserve boosts 2.5× / 3× | 0 differing | never fit |
 | v35n: banner rows mirror the logo's padding inset on the button side | discriminator 277–47 but 4 severe losses | the mirrored inset starved the headline (Twitch banner headline shrank to a few px); a case of the generator gaming the margin rule - comparisons now also require a positive mean and no severe losses |
+| v35p: preserve bands keep the outer margins when compressing (both axes / x only) | discriminator 50–95 / 17–25 | x-only turned the jammed split layouts into stacks, which look cleaner but lose on the scorer's group-integrity metric: the discriminator may be biased toward keeping the composition (its training defects never include a good re-layout); needs human labels |
 | v35l: banner rows also offered with a 0.75× button | discriminator 22–41 (p 0.02), engine 60% slower | the objective picked small buttons where they hurt; reverted |
 | edge bands (full-width header/footer bars) | not built | they scale rigidly and get dropped in banners; needs a band concept — deferred, the official samples have none |
 
