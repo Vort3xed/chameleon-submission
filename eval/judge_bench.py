@@ -297,8 +297,6 @@ FROM_SOURCE = {"shrunk": shrunk, "stretched": stretched}  # bad answers built fr
 
 def widow(d, sev, rng):
     """The headline's box narrowed until its last line is one lone word."""
-    from engine.chameleon_layout.scene import make_items
-
     W, H, sc = _blocks(d)
     b = _pick(sc.blocks, ("headline",), rng)
     if b is None or b.kind != "text":

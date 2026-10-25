@@ -19,7 +19,6 @@ import argparse
 import hashlib
 import json
 import sys
-from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
