@@ -71,6 +71,7 @@ v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 | v36b | side-by-side layouts centred by drawn content too (a 4:3 slide had 14% more margin on one side) | – | – | discriminator 191–43, 0 severe | |
 | v36c | a corner badge keeps its corner: product art there shrinks (≤15%, about its far corner) to make way; text is never pushed aside | – | – | 14–12, mean +0.31, 0 severe on the 29 tasks it touches (too few for the sign test); kept: badges back in their corners, a ribbon no longer overlapping the product | |
 | v36f | the same shape (aspect within 8%) keeps the designer's composition (scaled, enlarged where it fits), unless that is not legible - found by resizing every design to its own size: 8/75 got worse, one was rebuilt as a side-by-side layout | – | – | discriminator 7–22, mean −0.17, 0 severe (small margin shifts on near-identical outputs); kept: a design asked for at its own size should not be rearranged | |
+| v36i | the logo's legibility floor is capped at 25% of the canvas height (in 320×100 rows the 28 px floor made the logo a space hog) | – | – | discriminator 87–10, 0 severe; one subhead now outgrows its headline (poster_center_00 320×100) | |
 
 **Lesson (v29–v31):** a chain of small A/B wins (+0.06, +0.06, +0.38 on 8
 tasks) hid a real regression. Every few versions, compare against a fixed
