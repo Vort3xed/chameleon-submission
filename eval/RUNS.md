@@ -18,7 +18,8 @@ pairwise logs); `eval/runs/history.jsonl` has every scorer run.
 
 ## Current best
 
-**v35o**: formats 98.43 · holdout 98.09 · crazy 96.85 (28 designs) · 0 gate failures · 0.07 s/design.
+**v35w**: formats 98.48 · holdout 98.09 · fresh holdout2 98.11 · crazy 96.85 (28 designs) · 0 gate failures · 0.07 s/design.
+Fresh holdout2 (seed 4242, never inspected before this run): v35w vs v34 132–47, 0 severe; vs v35r 45–8.
 Discriminator (below) vs v34: formats 907–398 (p 10⁻⁴⁶), holdout 218–70 (p 10⁻¹⁹).
 Holdout (never tuned on): v31-era engine beats v12 (start of day 2) 55–19 (+0.29);
 v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
@@ -64,6 +65,8 @@ v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 | v35r | preserve bands keep the outer horizontal margin when compressing (a clamp had jammed text against a product panel) | – | – | discriminator 17–25, mean −0.003, 0 severe (neutral); kept: principled | |
 | v35s | banner rows: after shifting, leftover margin imbalance is taken from the padding-side gap (a logo's transparent padding no longer leaves the button end tight) | – | – | discriminator 82–18, 0 severe | |
 | v35t | alignment snapping also inside cards (against the card's centre) | – | – | ties (offsets were below the visible threshold) | |
+| v35v | an inset border frame is the canvas the content lives in (preserve maps into the frame's new box; reflowed layouts use its inside) | – | – | neutral (34–39, 0 severe) | |
+| v35w | side-by-side and banner columns share one drawn centre line (boxes include line spacing and padding, so centred boxes left visible centres a few px apart) | – | 98.48 | discriminator 255–100, 0 severe; holdout2 45–8 | |
 
 **Lesson (v29–v31):** a chain of small A/B wins (+0.06, +0.06, +0.38 on 8
 tasks) hid a real regression. Every few versions, compare against a fixed
@@ -93,6 +96,7 @@ does; the judge consistently prefers keeping content and bigger product art.
 | v28: preserve boosts 2.5× / 3× | 0 differing | never fit |
 | v35n: banner rows mirror the logo's padding inset on the button side | discriminator 277–47 but 4 severe losses | the mirrored inset starved the headline (Twitch banner headline shrank to a few px); a case of the generator gaming the margin rule - comparisons now also require a positive mean and no severe losses |
 | v35p: preserve bands keep the outer margins when compressing (both axes / x only) | discriminator 50–95 / 17–25 | x-only turned the jammed split layouts into stacks, which look cleaner but lose on the scorer's group-integrity metric: the discriminator may be biased toward keeping the composition (its training defects never include a good re-layout); needs human labels |
+| v35u: preserve tightens lone text boxes around their lines before scaling (lets sparse/list designs grow) | discriminator 77–115 (p 0.007) | bigger text, but tighter edges; first version re-wrapped text (integer fonts) - fixed by verifying lines; still rejected; revisit with human labels (bigger vs faithful is the axis the discriminator has no calibration for) |
 | v35l: banner rows also offered with a 0.75× button | discriminator 22–41 (p 0.02), engine 60% slower | the objective picked small buttons where they hurt; reverted |
 | edge bands (full-width header/footer bars) | not built | they scale rigidly and get dropped in banners; needs a band concept — deferred, the official samples have none |
 
@@ -115,8 +119,15 @@ that must tie (identical, and a block moved 1 px / 0.15%).
 | structural scorer alone | 72% | – |
 | **fitted discriminator** (non-negative logistic on rules + scorer metrics) | **82% held-out tasks** | invisible-change sensitivity 0.02 |
 
-Anti-overfitting audit: held-out tasks 82.3% vs 82.7% train; on defect types
-never seen in fitting 68–100%; adding the VLM vote does not help (81.9 → 81.2%).
+Anti-overfitting audit (current): held-out tasks 83.8% vs 83.6% train; seven
+defect kinds never used in fitting, on other tasks and a newer engine: 89.6%;
+adding the VLM vote does not help (81.9 → 81.2%).  Fixes found by auditing it:
+hidden (opacity 0) elements were counted; a design failing the hard gate got
+perfect scorer features (the starter's stretch went undetected); the spacing
+rule flagged good grouping (now: pairs newly closer than 1.2% that were apart
+in the source - 288 flags on v35o fell to 8, mostly real); alignment inside
+cards was invisible; the naive letterbox beat real layouts on wide sources
+(now a training defect, from the brief: "rearrange, not simply shrink").
 Rules are relative to the source (a designer's original scores 1.0 against
 itself), and alignment is perceptual (aligned within max(0.3%, 1.5 px),
 0 at 1.5%), so pixel nudges cannot move the verdict.  Speed: ~1 ms per design;

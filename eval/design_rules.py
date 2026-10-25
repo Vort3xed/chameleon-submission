@@ -17,7 +17,7 @@ if it did before; a deliberately bottom-heavy poster may stay bottom-heavy).
   hierarchy  the source's headline is still the largest text, by its old margin
   hero       the product art keeps its share of the canvas
   logo       the logo keeps a legible share of the canvas (the brief: the logo survives intact)
-  fill       the content uses the canvas about as much as the source did
+  fill       the content's outer box spans the canvas about as much as the source's did
   corners    corner badges / ribbons stay in their source corner
 
 Blocks come from the engine's own scene analysis (a button's label and shape

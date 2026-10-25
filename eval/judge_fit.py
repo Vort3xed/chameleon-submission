@@ -38,7 +38,7 @@ SCORER = ("overlap", "cutoff", "text_fit", "readability", "hierarchy", "prominen
 FEATURES = tuple(f"rule_{k}" for k in RULES) + tuple(f"score_{k}" for k in SCORER)
 
 # cache keyed by the metric code too: editing the rules or the scorer invalidates it
-_CODE = hashlib.sha1(b"".join((ROOT / "eval" / f).read_bytes() for f in ("design_rules.py", "score.py"))).hexdigest()[:12]
+_CODE = hashlib.sha1(b"".join((ROOT / "eval" / f).read_bytes() for f in ("design_rules.py", "score.py", "judge_fit.py"))).hexdigest()[:12]
 _cache_path = BENCH / f"features_{_CODE}.json"
 _cache = json.loads(_cache_path.read_text()) if _cache_path.exists() else {}
 
@@ -50,8 +50,9 @@ def features(source: dict, target: dict, design: dict) -> dict:
     key = hashlib.sha1((json.dumps(source, sort_keys=True) + json.dumps(design, sort_keys=True)).encode()).hexdigest()
     if key not in _cache:
         f = {f"rule_{k}": v for k, v in evaluate(source, design).items()}
-        m = score_task(source, target, design, do_render=False)["metrics"]
-        f.update({f"score_{k}": float(m.get(k, 1.0)) for k in SCORER})
+        r = score_task(source, target, design, do_render=False)
+        failed = bool(r.get("gate"))  # a design that breaks the hard rules scores nothing
+        f.update({f"score_{k}": 0.0 if failed else float(r["metrics"].get(k, 1.0)) for k in SCORER})
         _cache[key] = f
     return _cache[key]
 

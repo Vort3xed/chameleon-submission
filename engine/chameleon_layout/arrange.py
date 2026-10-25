@@ -101,6 +101,8 @@ def _band_starts(spans: List[Tuple[float, float]], lo: float, hi: float, s: floa
     layout, scaled by s.  The gaps between bands (and the outer margins)
     scale by s too, and any space left over is shared equally among them:
     tight pairs stay tighter than loose ones while spacing evens out."""
+    if not spans:
+        return []
     order = sorted(range(len(spans)), key=lambda i: spans[i][0])
     bands: List[List[float]] = []  # [start, end, members...]
     for i in order:
@@ -244,9 +246,30 @@ def split(scope: Scope, ctx0: Ctx, side: str, frac: float, k: float, shrink: flo
         w, h = measure(vis, big, vcol.w)
         r = place(vis, big, vcol.x + (vcol.w - w) / 2, vcol.y + (vcol.h - h) / 2, vcol.w, INF, lay.out)
         lay.placed = [(vis, r)] + stack_place(rest, lay.ctx, tcol, lay.out, valign="center")
+        _centre_columns(lay, [[vis], rest], reg.cy)
         return lay
 
     return _fit_scale(build)
+
+
+def _centre_columns(lay: Layout, columns: List[List[Block]], cy: float):
+    """Side-by-side columns share one centre line as drawn: boxes include line
+    spacing and transparent padding, so centring them leaves the visible
+    centres a few pixels apart - a near-miss reads as a mistake."""
+    H = lay.ctx.H
+    for col in columns:
+        items = [it for b in col for it in b.items if it.idx in lay.out and not lay.out[it.idx].hidden]
+        ink = bounding([it.ink_at(lay.out[it.idx].rect, lay.out[it.idx].font) for it in items])
+        if ink is None:
+            continue
+        boxes = [lay.out[it.idx] for b in col for it in b.items if it.idx in lay.out]
+        dy = max(-min(q.y for q in boxes), min(cy - ink.cy, H - max(q.y + q.h for q in boxes)))
+        for b in col:
+            for it in b.items:
+                if it.idx in lay.out:
+                    lay.out[it.idx] = replace(lay.out[it.idx], y=lay.out[it.idx].y + dy)
+        ids = {id(b) for b in col}
+        lay.placed = [(b, r.moved(0, dy) if id(b) in ids else r) for b, r in lay.placed]
 
 
 def _partitions(items: List[Block], max_parts: int):
@@ -331,6 +354,7 @@ def row(scope: Scope, ctx0: Ctx, shrink: float = 1.0) -> List[Layout]:
             x += w + gap + extra
         if cta:
             _cta_below_headline(lay, cta[0], cf, reg)
+        _centre_columns(lay, [obj if isinstance(obj, list) else [obj] for obj, _ in seq], reg.cy)
         _center_ink(lay, blocks, reg, gap)
         layouts.append(lay)
     return layouts
@@ -801,15 +825,20 @@ def candidates(scene: Scene, ctx0: Ctx) -> Tuple[Scope, List[Layout]]:
     from .objective import evaluate
 
     W, H = ctx0.W, ctx0.H
-    mx, my = outer_margins(W, H)
-    src = Rect(0, 0, scene.W, scene.H)
-    region = Rect(mx, my, W - 2 * mx, H - 2 * my)
+    src, canvas = Rect(0, 0, scene.W, scene.H), Rect(0, 0, W, H)
+    frame = max((it for it in scene.decor if _is_frame(it, scene)), key=lambda it: it.box.area, default=None)
+    if frame is not None:  # an inset border frames the content: it is the canvas the content lives in
+        src = Rect(max(0.0, frame.box.x), max(0.0, frame.box.y), 0, 0)
+        src = Rect(src.x, src.y, min(scene.W, frame.box.x1) - src.x, min(scene.H, frame.box.y1) - src.y)
+        canvas = _anchored(frame, scene, W, H, min(W / scene.W, H / scene.H)).rect
+    mx, my = outer_margins(canvas.w, canvas.h)
+    region = Rect(canvas.x + mx, canvas.y + my, canvas.w - 2 * mx, canvas.h - 2 * my)
     judge = Scope(scene.blocks + scene.ornaments, src, region)
     B.panel_layout_hook = lambda kids, s, r, c: _panel_inner(kids, s, r, c, scene.items)
     out = []
     if abs(math.log((W / H) / (scene.W / scene.H))) < 0.45:
         for boost in (2.0, 1.75, 1.5, 1.4, 1.3, 1.2, 1.1, 1.0):
-            lay = preserve(Scope(scene.blocks + scene.ornaments, src, Rect(0, 0, W, H)), ctx0, boost, scene.items)
+            lay = preserve(Scope(scene.blocks + scene.ornaments, src, canvas), ctx0, boost, scene.items)
             if lay is not None:  # preserve positions the ornaments itself
                 out.append(finish(scene, lay, []))
                 break

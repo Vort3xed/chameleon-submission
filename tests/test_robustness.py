@@ -162,6 +162,47 @@ def test_fuzz_main_pipeline_handles_junk(idx):
     assert_valid(src, tc, retarget(copy.deepcopy(src), tc))
 
 
+def _adversarial_sources():
+    base = load(SAMPLES[1])["source"]
+
+    def text(i, content, x=100, y=100, w=800, size=40):
+        return {"id": f"adv_t{i}", "type": "text", "x": x, "y": y, "width": w, "height": size * 1.4, "content": content,
+                "font_family": "Solstice Sans", "font_size": size, "color": "rgba(255,255,255,1)", "z_index": 50 + i}
+
+    cases = {}
+    d = copy.deepcopy(base)
+    d["elements"] = d["elements"][:1] + [
+        {"id": f"dot{i}", "type": "shape", "x": (i * 37) % 1000, "y": (i * 53) % 1000, "width": 20, "height": 20,
+         "shape_type": "ellipse", "fill_color": "rgba(255,255,255,0.3)", "z_index": 2} for i in range(150)] + [
+        text(i, f"Item {i}", 50 + (i % 5) * 200, 100 + (i // 5) * 80, 180, 20) for i in range(50)]
+    cases["200 elements"] = d
+    d = copy.deepcopy(base)
+    d["elements"].append(text(99, "Lorem ipsum dolor sit amet " * 200, 60, 60, 960, 18))
+    cases["5000-char text"] = d
+    d = copy.deepcopy(base)
+    d["elements"].append(text(98, "\u0645\u0631\u062d\u0628\u0627 \u05e9\u05dc\u05d5\u05dd e\u0301\u0301 \u200b\u200b"))
+    cases["rtl and combining marks"] = d
+    d = copy.deepcopy(base)
+    for e in d["elements"]:
+        e["opacity"] = 0
+    cases["everything at opacity 0"] = d
+    d = copy.deepcopy(base)
+    d["elements"] = d["elements"][:1] + [e for e in d["elements"] if e.get("group_id") == "badge"]
+    cases["only a corner badge"] = d
+    return cases
+
+
+@pytest.mark.parametrize("name", sorted(_adversarial_sources()))
+@pytest.mark.parametrize("target", [(1080, 1920), (728, 90), (1, 1)])
+def test_adversarial_inputs_main_pipeline(name, target):
+    """Odd but legal inputs must be handled by the real engine, not by the fallback."""
+    from engine.chameleon_layout.pipeline import retarget
+
+    src = _adversarial_sources()[name]
+    tc = {"width": target[0], "height": target[1]}
+    assert_valid(src, tc, retarget(copy.deepcopy(src), tc))
+
+
 @pytest.mark.parametrize("idx", range(0, 60, 3))
 def test_fallback_always_valid(idx):
     from engine.chameleon_layout.fallback import letterbox

@@ -267,6 +267,34 @@ def halve_gaps(d, sev, rng):
     return d
 
 
+def shrunk(task, sev):
+    """The brief's anti-example: the design just scaled to fit, when the shape changes a lot."""
+    import math
+
+    from engine.chameleon_layout.fallback import letterbox
+
+    s, t = task["source"]["canvas"], task["target_canvas"]
+    if abs(math.log((t["width"] / t["height"]) / (s["width"] / s["height"]))) < 0.7:
+        return None  # nearly the same shape: scaling may be a fair answer
+    return letterbox(copy.deepcopy(task["source"]), t)
+
+
+def stretched(task, sev):
+    """The starter's answer: every box scaled by the canvas ratio (fonts by the smaller one)."""
+    s, t = task["source"]["canvas"], task["target_canvas"]
+    sx, sy = t["width"] / s["width"], t["height"] / s["height"]
+    d = copy.deepcopy(task["source"])
+    d["canvas"] = {"width": t["width"], "height": t["height"]}
+    for e in d["elements"]:
+        e["x"], e["y"], e["width"], e["height"] = e["x"] * sx, e["y"] * sy, e["width"] * sx, e["height"] * sy
+        if e.get("type") == "text":
+            e["font_size"] = max(1, int(round(e["font_size"] * min(sx, sy))))
+    return d
+
+
+FROM_SOURCE = {"shrunk": shrunk, "stretched": stretched}  # bad answers built from the source, not the output
+
+
 UNSEEN = {  # kinds never used to fit the discriminator: a check of how it generalises
     "swap_order": (1,), "text_on_art": (0.5,), "tiny_logo": (0.5,), "huge_cta": (1.6,), "shrink_all": (0.75,),
     "drift": (0.08,), "halve_gaps": (0.5,),
@@ -278,7 +306,7 @@ UNSEEN_FNS = {"swap_order": swap_order, "text_on_art": text_on_art, "tiny_logo":
 DEFECTS = {  # kind: severities
     "same": (0,), "invisible": (1, 0.0015), "nudge": (0.03, 0.08), "cramp": (0.6, 0.95), "lopsided": (0.04, 0.08), "edge": (1,),
     "shrink_hero": (0.8, 0.6), "flat_hierarchy": (0.8, 0.6), "jitter": (0.02, 0.04), "text_small": (0.85,),
-    "collide": (1,),
+    "collide": (1,), "shrunk": (1,), "stretched": (1,),
 }
 TIES = ("same", "invisible")  # pairs a judge should call even
 FNS = {"same": same, "invisible": invisible, "nudge": nudge, "cramp": cramp, "lopsided": lopsided, "edge": edge, "shrink_hero": shrink_hero,
@@ -296,8 +324,11 @@ def build(run: str, tasks: str, n: int, seed: int, unseen: bool = False):
         good = json.loads((outs / f"{tid}.json").read_text())
         for kind, sevs in (UNSEEN if unseen else DEFECTS).items():
             for sev in sevs:
-                fn = (UNSEEN_FNS if unseen else FNS)[kind]
-                bad = fn(copy.deepcopy(good), sev, random.Random(f"{tid}:{kind}:{sev}"))
+                if kind in FROM_SOURCE:
+                    bad = FROM_SOURCE[kind](task, sev)
+                else:
+                    fn = (UNSEEN_FNS if unseen else FNS)[kind]
+                    bad = fn(copy.deepcopy(good), sev, random.Random(f"{tid}:{kind}:{sev}"))
                 if bad is not None and (kind in TIES or bad != good):
                     pairs.append({"id": f"{tid}|{kind}|{sev}", "task_id": tid, "kind": kind, "sev": sev,
                                   "source": task["source"], "target": task["target_canvas"], "good": good, "bad": bad})

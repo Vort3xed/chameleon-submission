@@ -139,6 +139,18 @@ Development-only tooling, not copied into the image
 * `vlm_sanity.py` – how far the judge can be trusted: a resize against copies
   with known defects (smaller text, collisions, squashed product, text cut off,
   dropped headline, naive stretch) and against itself, in both orders.
+* `design_rules.py` – exact design-rule metrics, each relative to the source
+  (alignment incl. inside cards, edge crowding, margin balance, newly crammed
+  neighbours, headline lead, product and logo share, fill, corner pieces).
+* `judge_bench.py` – known-answer pairs for judges: an output against a copy
+  with one defect at graded severity, tie controls (identical, 1 px moves),
+  the brief's anti-examples (shrunk, stretched), and held-out defect kinds.
+* `judge_fit.py`, `discriminator.py` – the fitted discriminator (non-negative
+  logistic on rules + scorer metrics, a floor on every rule) with an
+  overfitting audit (held-out tasks, unseen defect kinds, invisible-change
+  sensitivity), and run-vs-run comparison: sign test, mean, severe losses.
+* `judges.py` – VLM judge variants measured on the bench; `label_app.py` – a
+  local page for human A/B labels, the yardstick for every judge.
 * `sheets.py`, `format_sheet.py` – contact sheets for eyeballing results.
 * `tests/test_robustness.py` – 307 tests: samples pass the gate at many sizes,
   fuzzed/malformed inputs never crash or break invariants (and are absorbed
