@@ -107,6 +107,7 @@ does; the judge consistently prefers keeping content and bigger product art.
 | v36d: columns at the optical centre (45% of the outer slack above) | discriminator 55–76, mean −0.004 | trades against vertical margin symmetry; no measurable gain |
 | v36g: unreadable text (< 70% of legible size) no longer counts as kept in the objective | discriminator 17–17, 1 severe | badges and subheads got dropped but the headline did not grow: in 320×100 rows the text column is narrow because logo, product and button keep their width |
 | v36h: tight preserve again on the current engine (+ margins growing with the boost) | discriminator 94–134, 3 severe | the composition grows until the widest full-line paragraph reaches its margin; body copy then crowds an inset frame. Parked until human labels settle bigger vs faithful |
+| v36j: in a column, text other than the headline is capped 1.15× below it | 4–5 on 12 tasks | the inversions left are at the legibility floor (both 8 px in a 36 px column): the row itself is wrong for that much content at 320×100 |
 | v35l: banner rows also offered with a 0.75× button | discriminator 22–41 (p 0.02), engine 60% slower | the objective picked small buttons where they hurt; reverted |
 | edge bands (full-width header/footer bars) | not built | they scale rigidly and get dropped in banners; needs a band concept — deferred, the official samples have none |
 
