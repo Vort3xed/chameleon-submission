@@ -334,6 +334,20 @@ def test_crazy_designs_pass_gate(arch, target):
     out = resize(copy.deepcopy(src), tc)
     assert_valid(src, tc, out)
     assert gate(src, tc, out) == []
+    shown = {e["id"] for e in out["elements"] if (1 if e.get("opacity") is None else e["opacity"]) > 0.01}
+    assert set(_headlines(src)) <= shown, "the headline is never hidden"
+
+
+def _headlines(src):
+    from engine.chameleon_layout.scene import analyze
+
+    def walk(blocks):
+        for b in blocks:
+            if b.role == "headline":
+                yield from (i.el["id"] for i in b.items)
+            yield from walk(b.children)
+
+    return list(walk(analyze(src["elements"], src["canvas"]["width"], src["canvas"]["height"]).blocks))
 
 
 @pytest.mark.parametrize("arch", _crazy_names())
