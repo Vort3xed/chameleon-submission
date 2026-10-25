@@ -13,6 +13,13 @@ Every engine change is measured three ways:
 * **holdout** – a test set generated with another seed (`--seed 2026`), never
   used for tuning, to check that gains generalise.
 
+`python -m eval.loop --name <step> --baseline <step>` does a whole step
+(engine on formats + fresh holdout + stress set, gate/crash check,
+discriminator verdict on both quality sets) in ~3 minutes and logs it to
+`eval/runs/loop.jsonl`.  A change that fails only on the sign test but has a
+positive mean and no severe losses may still be kept on visual review - the
+log row says so.
+
 Runs live in `eval/runs/<name>/` (outputs, `results.jsonl`, `summary.json`,
 pairwise logs); `eval/runs/history.jsonl` has every scorer run.
 
