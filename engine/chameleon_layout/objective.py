@@ -33,12 +33,15 @@ from .scene import Block
 # Half the logistic weights fitted to ~300 tasks of AI-judge rankings
 # (eval/fit_prefs.py).  Guard terms keep their earlier weights: the judge only
 # ever saw candidates these already screened (narrow shattered columns, tiny
-# text, overlaps), so the data cannot price them.
+# text, overlaps), so the data cannot price them.  The family priors are
+# halved once more: they are the judge's taste in arrangements (it is ~65%
+# right on known defects), and at full size they outvoted every quality term
+# in close calls (a product shrunk to a speck under a card, kept for "stack").
 WEIGHTS = {"hero": 0.16, "fill": 0.14, "coverage": 0.12, "headline": 0.20, "kept": 0.18, "legibility": 0.28,
            "balance": 0.07, "faithful": 0.06, "product_share": 0.04, "headline_share": 0.06, "wrap": 0.12, "overlap": 0.12, "hierarchy": 0.08,
-           "is_preserve_near": 0.06, "is_stack_near": 0.05, "is_split_near": -0.05,
-           "is_preserve_mid": 0.10, "is_split_mid": 0.13, "is_stack_mid": -0.09, "is_row_mid": -0.14,
-           "is_split_wide": 0.04, "is_stack_wide": -0.24, "is_row_wide": 0.20}
+           "is_preserve_near": 0.03, "is_stack_near": 0.025, "is_split_near": -0.025,
+           "is_preserve_mid": 0.05, "is_split_mid": 0.065, "is_stack_mid": -0.045, "is_row_mid": -0.07,
+           "is_split_wide": 0.02, "is_stack_wide": -0.12, "is_row_wide": 0.10}
 
 
 def _holds_hero(b: Block) -> bool:
