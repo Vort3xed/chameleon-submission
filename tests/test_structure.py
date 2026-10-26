@@ -164,3 +164,25 @@ def test_text_hides_beneath_its_card_when_there_is_no_background():
         assert card["x"] <= body["x"] and body["x"] + body["width"] <= card["x"] + card["width"]
         assert card["y"] <= body["y"] and body["y"] + body["height"] <= card["y"] + card["height"]
     assert out["headline"].get("opacity", 1) != 0
+
+
+def test_text_hides_beneath_a_button_without_background_or_card():
+    """No opaque background, no card: a dropped text goes beneath the button."""
+    els = [
+        {"id": "headline", "type": "text", "x": 60, "y": 200, "width": 960, "height": 120, "content": "Stay Golden",
+         "font_family": "Solstice Serif", "font_size": 96, "color": "rgba(35,24,38,1)", "z_index": 2},
+        {"id": "legal", "type": "text", "x": 60, "y": 1000, "width": 960, "height": 40, "font_family": "Solstice Sans",
+         "content": "Please drink responsibly. Botanical Sparkling Co., 2026. Void where prohibited. " * 2,
+         "font_size": 14, "color": "rgba(35,24,38,1)", "z_index": 3},
+        {"id": "cta_bg", "type": "shape", "x": 380, "y": 700, "width": 320, "height": 70, "shape_type": "rectangle",
+         "fill_color": "rgba(232,106,58,1)", "group_id": "cta", "z_index": 4},
+        {"id": "cta_label", "type": "text", "x": 380, "y": 714, "width": 320, "height": 41, "content": "Shop Now",
+         "font_family": "Solstice Sans", "font_size": 28, "color": "rgba(255,255,255,1)", "group_id": "cta", "z_index": 5},
+    ]
+    out = {e["id"]: e for e in resize({"canvas": {"width": 1080, "height": 1080}, "elements": els},
+                                      {"width": 320, "height": 50})["elements"]}
+    legal, button = out["legal"], out["cta_bg"]
+    assert legal.get("opacity") == 0, "the legal line should be dropped at 320x50"
+    assert legal["z_index"] < button["z_index"]
+    assert button["x"] <= legal["x"] and legal["x"] + legal["width"] <= button["x"] + button["width"]
+    assert button["y"] <= legal["y"] and legal["y"] + legal["height"] <= button["y"] + button["height"]

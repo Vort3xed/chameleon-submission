@@ -110,9 +110,10 @@ internal error it falls back to a letterboxed copy of the design.
 **Hidden elements.** Dropped images/shapes get `opacity: 0`. cr-renderer
 ignores opacity on text, so dropped text gets `opacity: 0` *and* a `z_index`
 just below the opaque full-canvas background, which hides it in the
-reference renderer as well. Without such a background, text inside an
-opaque card can still be dropped: it is squeezed to 1 px in the middle of
-the card with a `z_index` just beneath it. Otherwise text is never dropped.
+reference renderer as well. Without such a background, a dropped text is
+squeezed to 1 px in the middle of its own opaque card - or else the design's
+biggest opaque button - with a `z_index` just beneath it. With nothing opaque
+to hide behind, text is never dropped.
 
 ## Run it
 

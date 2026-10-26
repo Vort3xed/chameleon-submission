@@ -206,10 +206,10 @@ def finish(scene: Scene, lay: Layout, ornaments: List[Block]) -> Layout:
         lay.out[it.idx] = p
     covers = opaque_covers(scene)
     for b in lay.hidden:
-        card = covers.get(id(b)) if scene.hide_z is None else None
+        cover = covers.get(id(b)) if scene.hide_z is None else None
         for it in b.items:
-            if card is not None and it.type == "text" and card.frame.idx in lay.out:
-                p = _beneath(it, lay.out[card.frame.idx], card.frame.idx)
+            if cover is not None and it.type == "text" and cover.idx in lay.out and not lay.out[cover.idx].hidden:
+                p = _beneath(it, lay.out[cover.idx], cover.idx)
             else:
                 p = _proportional(it, scene, W, H, m)
             p.hidden = True
@@ -217,28 +217,33 @@ def finish(scene: Scene, lay: Layout, ornaments: List[Block]) -> Layout:
     return lay
 
 
-def opaque_covers(scene: Scene) -> Dict[int, Block]:
-    """id(block) -> the card whose opaque frame can hide it: text cannot be
-    hidden by opacity (the renderer ignores it on text), so without an opaque
-    full-canvas background it goes beneath the card it belongs to."""
-    out: Dict[int, Block] = {}
+def _opaque(it) -> bool:
+    return it.type == "shape" and it.alpha >= 0.99 and not it.rotation and \
+        it.el.get("shape_type", "rectangle") == "rectangle"
 
-    def walk(blocks: List[Block], cover: Optional[Block]):
+
+def opaque_covers(scene: Scene) -> Dict[int, object]:
+    """id(block) -> the opaque shape (item) that can hide its text: text cannot
+    be hidden by opacity (the renderer ignores it on text), so without an
+    opaque full-canvas background it goes beneath the card it belongs to, or
+    else beneath the design's biggest opaque button (buttons are never dropped)."""
+    buttons = [it for b in scene.blocks if b.role == "cta" for it in b.items if _opaque(it)]
+    host = max(buttons, key=lambda it: it.box.area, default=None)
+    out: Dict[int, object] = {}
+
+    def walk(blocks: List[Block], cover):
         for b in blocks:
             if b.kind == "panel":
-                f = b.frame
-                opaque = f.type == "shape" and f.alpha >= 0.99 and not f.rotation and \
-                    f.el.get("shape_type", "rectangle") == "rectangle"
-                walk(b.children, b if opaque else cover)
-            elif cover is not None:
+                walk(b.children, b.frame if _opaque(b.frame) else cover)
+            if cover is not None and b.role != "cta":
                 out[id(b)] = cover
 
-    walk(scene.blocks, None)
+    walk(scene.blocks, host)
     return out
 
 
 def _beneath(it, frame: Placement, frame_idx: int) -> Placement:
-    """A hidden text squeezed to 1 px in the middle of a card's frame, under it."""
+    """A hidden text squeezed to 1 px in the middle of an opaque shape, under it."""
     w = max(1.0, frame.w / 2)
     h = max(1.0, it.text_layout(1, w).box_height)
     return Placement(frame.x + frame.w / 2 - w / 2, frame.y + frame.h / 2 - h / 2, w, min(h, max(1.0, frame.h / 2)), 1,
