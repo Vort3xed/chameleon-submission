@@ -45,6 +45,13 @@ skyscraper sources (`--tall`, 160x600 / 300x600 / 300x1050 / 120x600 -> square
 and wide): 0 gate failures, 0 crashes, scorer 98.3 (`t_<step>`); the weak case
 is a source with no background and no card, where no text can be hidden.
 
+**Scorer fix (v38o, fresh random set 4):** with v38n dropping more small print,
+text tucked 1 px beneath a pill-shaped button showed up as a 'collision' - the
+scorer never counted rounded rectangles as covers.  A rounded rectangle now
+covers whatever lies in its opaque core (the box less the corner radius on
+either axis), and the engine places hidden text inside that core.  No engine
+output changed; discriminator audit unchanged, a few weights moved slightly.
+
 **Loop acceptance (2026-10-25):** a judged set where nothing changed is neutral;
 a set blocks a step with gate failures/crashes, severe losses over the limit,
 or significantly more losses than wins; a step is accepted when no set blocks

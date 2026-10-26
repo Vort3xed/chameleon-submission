@@ -325,8 +325,7 @@ def _opaque(v: Vis) -> bool:
     if num(el.get("rotation"), 0) or v.opacity < 0.99:
         return False
     if v.type == "shape":
-        return el.get("shape_type", "rectangle") == "rectangle" and not num(el.get("corner_radius"), 0) \
-            and parse_color(el.get("fill_color"))[3] >= 0.99
+        return el.get("shape_type", "rectangle") == "rectangle" and parse_color(el.get("fill_color"))[3] >= 0.99
     if v.type == "image":
         info = asset_info(el.get("asset_id"))
         return info is not None and el.get("fit", "contain") in ("cover", "fill") and _asset_opaque(el.get("asset_id"))
@@ -350,8 +349,19 @@ def _apply_occlusion(vs: List[Vis]):
             continue
         canvas = union_rect([c.box for c in covers])
         ink = (max(v.ink[0], canvas[0]), max(v.ink[1], canvas[1]), min(v.ink[2], canvas[2]), min(v.ink[3], canvas[3]))
-        if area(ink) <= 0 or any(rank[id(c)] > rank[id(v)] and _contained(ink, c.box, 0.999) for c in covers):
+        if area(ink) <= 0 or any(rank[id(c)] > rank[id(v)] and any(_contained(ink, core, 0.999) for core in _cores(c))
+                                 for c in covers):
             v.visible = False
+
+
+def _cores(c: Vis) -> List[Rect]:
+    """The parts of an opaque rectangle that are opaque edge to edge: the whole box, or, with rounded
+    corners, the box without the corner radius on either axis."""
+    r = min(num(c.el.get("corner_radius"), 0), (c.box[2] - c.box[0]) / 2, (c.box[3] - c.box[1]) / 2)
+    if r <= 0:
+        return [c.box]
+    x0, y0, x1, y1 = c.box
+    return [(x0 + r, y0, x1 - r, y1), (x0, y0 + r, x1, y1 - r)]
 
 
 # ---------------------------------------------------------------------------

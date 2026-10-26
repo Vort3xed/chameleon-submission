@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Tuple
 
 from .blocks import INF, Ctx, Placement, measure, place
 from .geometry import Rect, bounding
-from .scene import Block, Scene
+from .scene import Block, Scene, num
 
 from .families import Layout, margin
 
@@ -209,7 +209,7 @@ def finish(scene: Scene, lay: Layout, ornaments: List[Block]) -> Layout:
         cover = covers.get(id(b)) if scene.hide_z is None else None
         for it in b.items:
             if cover is not None and it.type == "text" and cover.idx in lay.out and not lay.out[cover.idx].hidden:
-                p = _beneath(it, lay.out[cover.idx], cover.idx)
+                p = _beneath(it, lay.out[cover.idx], cover)
             else:
                 p = _proportional(it, scene, W, H, m)
             p.hidden = True
@@ -242,12 +242,13 @@ def opaque_covers(scene: Scene) -> Dict[int, object]:
     return out
 
 
-def _beneath(it, frame: Placement, frame_idx: int) -> Placement:
-    """A hidden text squeezed to 1 px in the middle of an opaque shape, under it."""
-    w = max(1.0, frame.w / 2)
-    h = max(1.0, it.text_layout(1, w).box_height)
-    return Placement(frame.x + frame.w / 2 - w / 2, frame.y + frame.h / 2 - h / 2, w, min(h, max(1.0, frame.h / 2)), 1,
-                     under=frame_idx)
+def _beneath(it, frame: Placement, cover) -> Placement:
+    """A hidden text squeezed to 1 px in the middle of an opaque shape, under it - inside the part that is opaque
+    edge to edge (a pill's rounded ends are not)."""
+    r = min(num(cover.el.get("corner_radius"), 0.0), frame.w / 2, frame.h / 2)
+    w = max(1.0, (frame.w - 2 * r) * 0.8)
+    h = min(max(1.0, it.text_layout(1, w).box_height), max(1.0, frame.h * 0.8))
+    return Placement(frame.x + frame.w / 2 - w / 2, frame.y + frame.h / 2 - h / 2, w, h, 1, under=cover.idx)
 
 
 def _overlap(a: Rect, b: Rect) -> float:
