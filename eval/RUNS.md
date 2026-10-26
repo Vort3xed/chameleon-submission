@@ -31,8 +31,8 @@ pairwise logs); `eval/runs/history.jsonl` has every scorer run.
 
 ## Current best
 
-**v36r**: formats 98.52 · fresh holdout2 98.16 · crazy 96.81 (28 designs) · extra presets 97.55 · 0 gate failures · 0.08 s/design.
-Discriminator vs v34: formats 1134–291 (p 10⁻¹¹⁷, 1 severe), fresh holdout2 145–45 (2 severe).
+**v37q**: formats 98.58 · fresh holdout2 98.25 · crazy 96.92 (35 designs) · extra presets 97.51 · 0 gate failures.
+(v36r, the previous best: formats 98.52 · holdout2 98.16.)
 Holdout (never tuned on): v31-era engine beats v12 (start of day 2) 55–19 (+0.29);
 v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 
@@ -92,6 +92,7 @@ v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 | v37i | edge bands, from the stress-set audit (quality, not just crashes): a full-width bar on the top or bottom edge (header, footer, photo scrim) is a panel even with one thing inside, keeps its edge, the full width and its share of the height, with its content laid out inside; the rest flows between the bars, and runs under a bar as deep as the source let it (product art beneath a scrim). Bars stay bars whenever that layout is legible, else they flow as before (thin strips) | – | 98.51 | discriminator formats 42–41, holdout2 5–4, 0 severe (neutral); crazy 96.80 -> 96.86; header/footer bars no longer float as boxes, the footer is no longer read as a button - kept on visual review for the structural fix; tests/test_structure.py fails without it | |
 | v37n | faint text (colour alpha < 0.3) is texture: decor, re-anchored proportionally behind the content, never the headline - a huge faint 'SUMMER' used to become the title block | – | 98.51 | regular sets unchanged; stress set (now 35 designs, 350 tasks) 8–2, 0 severe; test_structure covers it | |
 | v37o | vertical rhythm from the human notes ('spacing between the title, the line and the button should be smaller', 'need spacing between the description and the button'): in a column the widest source gaps (within 15% of the widest - the layout tree's first cut) separate groups; a gap inside a group is held between 0.5 and 1.2 em of the larger text beside it, and spare height goes only between groups and to the margins | – | **98.57** | discriminator formats 213–166 (1 severe), holdout2 37–20 (holdout2 scorer 98.14 -> **98.23**); crazy 96.96 -> 96.92; by eye compact text groups with bigger type; one near-tie flip (typographic_01, row 1.091 vs stack 1.094) shows the objective still under-weights headline size | |
+| v37q | objective weights from the human labels: headline 0.12 -> 0.20 (the strongest human preference), content kept 0.12 -> 0.18 (headline alone, v37p, bought size by hiding content on 20 tasks - product tiles, body copy; people also flag a missing flavour) | – | 98.58 | discriminator formats 52–29 (1 severe), holdout2 9–6 (positive, n small); hides content on 4 tasks, shows more on 11; by eye big wins (adversarial_00 on A4/4:3 from a tiny column to a readable split, typographic headlines 2x); one loss brings small-print back into a 320x100 - kept on visual review | |
 
 **Lesson (v29–v31):** a chain of small A/B wins (+0.06, +0.06, +0.38 on 8
 tasks) hid a real regression. Every few versions, compare against a fixed
@@ -143,6 +144,7 @@ does; the judge consistently prefers keeping content and bigger product art.
 | v37g / v37h: edge bands always / as an extra option, band height from the narrower canvas scale | loop: v37g formats 24–76, 5 severe; v37h 16–11, 3 severe | scrims shrank to ~80 px on skyscrapers; as an option the ranking had no reason to keep a header a header; fixed by the height share, preferring bands when legible, and letting content run under them (v37i) |
 | v37j: v37i + a split needs text beside the product | loop: formats 43–40, scorer 98.51 -> 98.47 | hurts elsewhere |
 | v37k / v37l / v37m: rows judged by drawn extents and a staggered trio counted as a row (k); row gaps between drawn extents (l: all rows; m: bare images only) and row width including the end tiles' padding | stress set vs v37i: k 13–9, l 11–31 (8 severe), m 11–23; l also formats 14–71 | grouping the staggered bottles exposed the row layout: box-based gaps let padded bottles touch, edge clamping shrank the outer one; drawn gaps inflated product-tile rows; and in a 160x600 collage a band panel holding the headline was dropped whole. Open: padding-aware image rows; never drop a panel that holds the headline |
+| v37p: objective headline weight 0.20 alone | loop: formats 53–33, holdout2 9–7 | hid content on 20 tasks (a product grid lost its products) - kept needed raising with it (v37q) |
 | v36z: banner logo never outgrows the text relative to the source (1.0x, was 1.5x) | loop: formats 230–88, holdout2 35–16, 0 severe; **VLM 12–39** | the wordmark becomes illegible on 728x90 / 320x50 (VLM: 'logo larger and more readable' x20) |
 | v36z2: banner logo at most 40% of the row height (was 50%) | loop: formats 65–13, holdout2 13–3; VLM 14–21 (62 ties) | parked (patch kept): the headline also loses ~10% when even ends become affordable - waiting on human labels for logo size and balance-vs-size (pairs p080–p109) |
 | v35l: banner rows also offered with a 0.75× button | discriminator 22–41 (p 0.02), engine 60% slower | the objective picked small buttons where they hurt; reverted |
