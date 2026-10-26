@@ -263,14 +263,71 @@ def skeleton_design(rng: random.Random) -> Design:
     return d
 
 
+def wild_design(rng: random.Random) -> Design:
+    """Five more kinds: a full-bleed product photo under a translucent scrim, a dense two-column menu of
+    flavours and prices, two grouped offers each with its own button, a product ringed by badges, and a
+    testimonial quote."""
+    W, H = rng.choice(SOURCES)
+    d, u = Design(W, H, rng), min(W, H) / 1080
+    kind = rng.choice(("photo", "menu", "duo", "badges", "quote"))
+    head, cta = rng.choice(HEAD_SHORT), rng.choice(CTAS)
+    if kind == "photo":
+        d.bg_solid(DEEP)
+        d.image("photo", BOTTLE, 0, 0, W, H, fit="cover")
+        sh = H * 0.32
+        d.shape("scrim", 0, H - sh, W, sh, INK, alpha=0.6)
+        d.text("headline", head, SERIF, 76 * u, rgba(*WHITE), W * 0.06, H - sh + 30 * u, W * 0.88, weight="bold")
+        _cta(d, cta, W / 2, H - 110 * u, 26 * u)
+    else:
+        d.bg_image() if rng.random() < 0.7 else d.bg_solid(rng.choice((PLUM, DEEP)))
+        d.logo(W / 2, 40 * u, 200 * u)
+    if kind == "menu":
+        d.text("headline", head, SERIF, 64 * u, rgba(*WHITE), W * 0.08, H * 0.14, W * 0.84, weight="bold")
+        for i, flavor in enumerate(rng.sample(FLAVORS, 6)):
+            x, y = W * (0.1 + 0.42 * (i % 2)), H * (0.32 + 0.12 * (i // 2))
+            d.text("item", flavor, SERIF, 30 * u, rgba(*WHITE), x, y, W * 0.26, align="left", weight="bold")
+            d.text("price", rng.choice(PRICES), SANS, 26 * u, rgba(*GOLD), x + W * 0.26, y, W * 0.12, align="right")
+        _cta(d, cta, W / 2, H * 0.8, 26 * u)
+    elif kind == "duo":
+        d.text("headline", head, SERIF, 64 * u, rgba(*WHITE), W * 0.08, H * 0.12, W * 0.84, weight="bold")
+        for i, flavor in enumerate(rng.sample(FLAVORS, 2)):
+            cx, size, g = W * (0.28 + 0.44 * i), min(W * 0.3, H * 0.3), f"offer{i}"
+            d.image("product", BOTTLE, cx - size / 2, H * 0.3, size, size, group=g)
+            d.text("name", flavor, SERIF, 32 * u, rgba(*WHITE), cx - W * 0.18, H * 0.3 + size + 10 * u, W * 0.36,
+                   weight="bold", group=g)
+            d.text("price", rng.choice(PRICES), SANS, 26 * u, rgba(*GOLD), cx - W * 0.18, H * 0.3 + size + 56 * u,
+                   W * 0.36, group=g)
+            w, _ = d.pill_size("Add to Cart", 22 * u)
+            d.pill("cta", "Add to Cart", cx - w / 2, H * 0.3 + size + 100 * u, 22 * u, ORANGE, group=g)
+    elif kind == "badges":
+        size = min(W, H) * 0.45
+        cx, cy = W / 2, H * 0.45
+        d.image("product", BOTTLE, cx - size / 2, cy - size / 2, size, size)
+        for i, lab in enumerate(rng.sample(BADGES, 4)):
+            bx, by = cx + (size * 0.62) * (-1 if i % 2 == 0 else 1), cy + (size * 0.4) * (-1 if i < 2 else 1)
+            w, _ = d.pill_size(lab, 16 * u)
+            d.pill("badge", lab, bx - w / 2, by, 16 * u, rng.choice((ORANGE, GOLD, INK)))
+        d.text("headline", head, SERIF, 70 * u, rgba(*WHITE), W * 0.08, cy + size / 2 + 40 * u, W * 0.84, weight="bold")
+        _cta(d, cta, W / 2, min(H - 110 * u, cy + size / 2 + 160 * u), 26 * u)
+    elif kind == "quote":
+        d.text("quote", "\u201cThe brightest thing I have tasted all summer. I keep a case in the fridge.\u201d", SERIF,
+               54 * u, rgba(*WHITE), W * 0.1, H * 0.2, W * 0.8, style="italic")
+        d.text("author", "- Maya R., Portland", SANS, 24 * u, rgba(*GOLD), W * 0.1, H * 0.52, W * 0.8)
+        size = min(W, H) * 0.22
+        d.image("product", BOTTLE, (W - size) / 2, H * 0.6, size, size)
+        _cta(d, cta, W / 2, H * 0.6 + size + 30 * u, 24 * u)
+    return d
+
+
 def generate(out_dir: Path, n: int, seed: int, strips: bool = False, tall: bool = False, patterns: bool = False,
-             skeletons: bool = False):
+             skeletons: bool = False, wild: bool = False):
     tasks_dir = Path(out_dir) / "tasks"
     tasks_dir.mkdir(parents=True, exist_ok=True)
     rng, manifest = random.Random(seed), []
     for i in range(n):
         r = random.Random(rng.random())
         src = (strip_design(r) if strips else pattern_design(r) if patterns else skeleton_design(r) if skeletons else
+               wild_design(r) if wild else
                design(r, TALL if tall else SOURCES)).to_source()
         sw, sh = src["canvas"]["width"], src["canvas"]["height"]
         wanted = (lambda f: f[2] >= 0.6 * f[1]) if strips else (lambda f: f[1] >= f[2]) if tall else (lambda f: True)
@@ -298,8 +355,10 @@ def main():
     ap.add_argument("--patterns", action="store_true", help="Z-pattern, 2x2 product grid and half-bleed panel designs")
     ap.add_argument("--skeletons", action="store_true",
                     help="copy in a colour block, scrim band, feature columns, partner footer, card overlap designs")
+    ap.add_argument("--wild", action="store_true",
+                    help="full-bleed photo, dense menu, grouped duo offers, badge ring, testimonial designs")
     a = ap.parse_args()
-    generate(Path(a.out), a.n, a.seed, a.strips, a.tall, a.patterns, a.skeletons)
+    generate(Path(a.out), a.n, a.seed, a.strips, a.tall, a.patterns, a.skeletons, a.wild)
 
 
 if __name__ == "__main__":
