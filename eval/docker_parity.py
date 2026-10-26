@@ -22,7 +22,7 @@ if str(ROOT) not in sys.path:
 from engine.resize import resize  # noqa: E402
 
 SETS = ("formats", "holdout2", "crazy", "random", "strips", "tall", "patterns", "skeletons", "wild", "effects",
-        "marketing")
+        "marketing", "offers")
 
 
 def sample(per_set: int):

@@ -420,6 +420,47 @@ def marketing_design(rng: random.Random) -> Design:
     return d
 
 
+def offers_design(rng: random.Random) -> Design:
+    """Offer furniture: a was/now price pair, a countdown (digits in boxes over their units), two store badges
+    side by side, a social-proof line (a cluster of avatar dots and a count)."""
+    W, H = rng.choice(SOURCES)
+    d, u = Design(W, H, rng), min(W, H) / 1080
+    d.bg_solid(rng.choice((PLUM, DEEP)))
+    d.logo(W / 2, 50 * u, 220 * u)
+    y = H * 0.15 + d.text("headline", rng.choice(HEAD_SHORT), SERIF, 80 * u, rgba(*WHITE), W * 0.08, H * 0.15, W * 0.84,
+                          weight="bold")["height"] + 40 * u
+    size = min(W, H) * 0.26
+    d.image("product", BOTTLE, (W - size) / 2, y, size, size)
+    y += size + 30 * u
+    kind = rng.choice(("was_now", "countdown", "stores", "proof"))
+    if kind == "was_now":
+        d.text("price_was", "$29.99", SANS, 34 * u, rgba(*WHITE, 0.6), W * 0.3, y + 14 * u, W * 0.18, align="right")
+        d.text("price_now", "$19.99", SERIF, 64 * u, rgba(*GOLD), W * 0.5, y, W * 0.25, weight="bold", align="left")
+    elif kind == "countdown":
+        bw, gap = 110 * u, 26 * u
+        x0 = (W - 4 * bw - 3 * gap) / 2
+        for k, (num_, unit) in enumerate((("03", "DAYS"), ("12", "HRS"), ("45", "MIN"), ("09", "SEC"))):
+            x = x0 + k * (bw + gap)
+            d.shape("tick_box", x, y, bw, bw, CREAM, radius=12 * u, group=f"tick{k}")
+            d.text("tick", num_, SANS, 54 * u, rgba(*INK), x, y + 22 * u, bw, weight="bold", group=f"tick{k}")
+            d.text("tick_unit", unit, SANS, 20 * u, rgba(*WHITE), x, y + bw + 10 * u, bw, ls=2 * u)
+    elif kind == "stores":
+        bw, bh = 260 * u, 78 * u
+        for k, label in enumerate(("App Store", "Google Play")):
+            x = W / 2 - bw - 12 * u if k == 0 else W / 2 + 12 * u
+            d.shape("store", x, y, bw, bh, INK, radius=14 * u, group=f"store{k}")
+            d.text("store_label", label, SANS, 28 * u, rgba(*WHITE), x, y + 22 * u, bw, weight="bold", group=f"store{k}")
+    else:
+        r = 30 * u
+        for k in range(4):
+            d.shape("avatar", W * 0.3 + k * 1.4 * r, y, 2 * r, 2 * r, rng.choice((ORANGE, GOLD, CREAM)), kind="ellipse",
+                    group="avatars")
+        d.text("proof", "Join 12,000 sunset fans", SANS, 28 * u, rgba(*WHITE), W * 0.3 + 6.2 * r, y + 14 * u, W * 0.4,
+               align="left")
+    _cta(d, rng.choice(CTAS), W / 2, H * 0.86, 26 * u)
+    return d
+
+
 KINDS = {  # test set: (design maker, which catalogue targets suit it)
     "random": (lambda r: design(r, SOURCES), lambda f: True),
     "strips": (strip_design, lambda f: f[2] >= 0.6 * f[1]),
@@ -429,6 +470,7 @@ KINDS = {  # test set: (design maker, which catalogue targets suit it)
     "wild": (wild_design, lambda f: True),
     "effects": (effects_design, lambda f: True),
     "marketing": (marketing_design, lambda f: True),
+    "offers": (offers_design, lambda f: True),
 }
 
 
@@ -465,7 +507,8 @@ def main():
                          "patterns: Z-pattern, 2x2 grid, half-bleed panel; skeletons: colour block, scrim band, "
                          "feature columns, partner footer, card overlap; wild: full-bleed photo, dense menu, duo "
                          "offers, badge ring, testimonial; effects: shadows, outlined type, two-tone, colour strips; "
-                         "marketing: stats row, numbered steps, coupon code, star rating, QR corner")
+                         "marketing: stats row, numbered steps, coupon code, star rating, QR corner; offers: was/now price, "
+                         "countdown, store badges, social proof")
     a = ap.parse_args()
     generate(Path(a.out), a.n, a.seed, a.kind)
 
