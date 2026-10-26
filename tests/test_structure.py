@@ -316,6 +316,32 @@ def test_a_shadowed_headline_rewraps_like_a_plain_one(target):
     assert shadow["font_size"] == head["font_size"] and abs(shadow["x"] - head["x"] - 6 * k) <= 1.5
 
 
+ICON_LIST = {
+    "canvas": {"width": 1080, "height": 1080},
+    "elements": [
+        {"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 1080, "fill_color": "rgba(42,26,46,1)",
+         "z_index": 0},
+        {"id": "headline", "type": "text", "x": 90, "y": 120, "width": 900, "height": 110, "content": "Why Solstice",
+         "font_size": 90, "font_family": "Lora", "color": "#ffffff", "text_align": "center", "z_index": 1},
+    ] + [e for i, lab in enumerate(["Zero sugar", "Real fruit", "Small batch", "Vegan"]) for e in (
+        {"id": f"icon{i}", "type": "shape", "shape_type": "ellipse", "x": 280, "y": 340 + 130 * i, "width": 60,
+         "height": 60, "fill_color": "rgba(232,106,58,1)", "z_index": 1},
+        {"id": f"label{i}", "type": "text", "x": 370, "y": 348 + 130 * i, "width": 450, "height": 44, "content": lab,
+         "font_size": 36, "font_family": "Poppins", "color": "#ffffff", "text_align": "left", "z_index": 1})],
+}
+
+
+@pytest.mark.parametrize("target", [(1920, 1080), (1080, 1920), (300, 600), (728, 90)])
+def test_icons_stay_beside_their_labels(target):
+    """A small icon just left of a one-line label travels with it: centred on it, just before it."""
+    W, H = target
+    out = {e["id"]: e for e in resize(ICON_LIST, {"width": W, "height": H})["elements"]}
+    for i in range(4):
+        icon, label = out[f"icon{i}"], out[f"label{i}"]
+        assert abs((icon["y"] + icon["height"] / 2) - (label["y"] + label["height"] / 2)) <= 2
+        assert 0 <= label["x"] - (icon["x"] + icon["width"]) <= 2 * icon["width"]
+
+
 SIDE_PANEL = {
     "canvas": {"width": 1080, "height": 1920},
     "elements": [

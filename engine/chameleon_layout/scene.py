@@ -631,9 +631,28 @@ def mark_echoes(items: List[Item]):
             a.echo_of = top.idx
 
 
+def icon_labels(items: List[Item], W: float, H: float):
+    """A small icon just beside a one-line label (a feature list, a tick before a claim) is one unit with
+    it, as a button's shape is with its label."""
+    texts = [t for t in items if t.type == "text" and not t.group and t.echo_of is None and t.font > 0
+             and t.box.h <= 1.8 * t.font and str(t.el.get("content") or "").strip()]
+    for ic in items:
+        if ic.type not in ("shape", "image") or ic.group or ic.rotation or ic.box.area > 0.02 * W * H:
+            continue
+        for t in texts:  # an opaque mark about the text's size (not a faint background dot)
+            gap = max(t.ink.x - ic.box.x1, ic.box.x - t.ink.x1)
+            if ic.alpha >= 0.6 and 0.25 * t.font ** 2 <= ic.box.area and ic.box.h <= 2.5 * t.font and \
+                    0 <= gap <= 1.5 * max(ic.box.w, t.font) and \
+                    t.box.y - 0.5 * t.font <= ic.box.cy <= t.box.y1 + 0.5 * t.font:
+                ic.group = t.group = f"icon:{t.idx}"
+                texts.remove(t)
+                break
+
+
 def analyze(elements: List[dict], W: float, H: float) -> Scene:
     items = make_items(elements)
     mark_echoes(items)
+    icon_labels(items, W, H)
     bgs, decor, hidden, content, parent = classify(items, W, H)
     children_of: Dict[int, List[Item]] = {}
     for idx, p in parent.items():
