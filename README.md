@@ -32,7 +32,10 @@ semantic labels:
   asset, so the scorer's bundle may hold product art we have never seen;
 * *bands* – full-width bars on the top or bottom edge (header, footer, photo
   scrim) → stay bars on that edge with their content inside; the rest flows
-  between them (and under them, as far as the source let it);
+  between them (and under them, as far as the source let it).  A full-height
+  panel on a side edge (a colour block bleeding off half the canvas) does the
+  same on a canvas relatively as wide as the source or wider; on a narrower
+  one it flows like any block;
 * *blocks* – the units that get laid out: single texts and images, **rigid
   groups** (shared `group_id`, e.g. button shape + label, rotated ribbons,
   product tiles), **panels** (a container shape such as a card or scrim whose
@@ -105,8 +108,12 @@ of the engine's own candidates on ~320 tasks (`eval/collect_prefs.py` +
 `eval/fit_prefs.py`); human labels then moved them: headline size and
 legibility count more, content kept more (size must not be bought by
 dropping content), and two terms reward using the canvas - the headline's
-share of the short side and the product's share of the area.  A layout that
-collides never outranks a clean one.
+share of the short side and the product's share of the area.  The family
+priors are kept small (a quarter of the fit): they are the judge's taste in
+arrangements and must not outvote the quality terms.  A family's prior
+follows the shape of the region it laid out (beside a side panel a stack sits
+in a near-square space, whatever the canvas).  A layout that collides never
+outranks a clean one.
 
 **5. Enforce the rules (`finalize.py`).** Same elements in the same order,
 only geometry / `font_size` / `opacity` (and, for hidden text, `z_index`) change;
@@ -213,8 +220,9 @@ Development-only tooling, not copied into the image
   design at five targets and 20 random designs at three - each passing the
   gate with its headline shown.
 * `tests/test_structure.py` – structure survives any canvas: header and footer
-  bars stay full-width on their edges with their content inside; faint
-  texture type stays decoration, never the headline.
+  bars stay full-width on their edges with their content inside, a side panel
+  stays a full-height bar holding the product with the copy beside it in
+  reading order; faint texture type stays decoration, never the headline.
 * `tests/test_discriminator.py` – the discriminator's invariants: a designer's
   original scores 1.0 on every rule against itself, a 1 px move is a tie,
   collisions / shrunk headlines / edge-crowding score lower, and the naive
