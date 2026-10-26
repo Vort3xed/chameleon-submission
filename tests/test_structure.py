@@ -87,3 +87,23 @@ def test_unknown_assets_large_laid_out_small_skipped(target):
     out = {e["id"]: e for e in resize(UNKNOWN_ART, {"width": target[0], "height": target[1]})["elements"]}
     assert out["photo"].get("opacity", 1) != 0 and out["photo"]["width"] > 0.3 * min(target)
     assert out["sticker"].get("opacity") == 0
+
+
+def test_group_straddling_a_card_stays_its_own_unit():
+    """A rotated ribbon (shape + label sharing a group_id) laid over a card's
+    corner must not pull the card and its headline into one rigid ornament."""
+    from engine.chameleon_layout.scene import analyze
+
+    els = [
+        {"id": "card", "type": "shape", "x": 60, "y": 15, "width": 527, "height": 302, "fill": "#f5ecdc", "z_index": 1},
+        {"id": "headline", "type": "text", "x": 72, "y": 60, "width": 504, "height": 150, "content": "Everything You Love",
+         "font_size": 41, "font_family": "Lora", "color": "#231826", "z_index": 2},
+        {"id": "ribbon_bg", "type": "shape", "x": 23, "y": 20, "width": 151, "height": 30, "fill": "#dc3c32",
+         "rotation": -12, "group_id": "ribbon", "z_index": 3},
+        {"id": "ribbon_label", "type": "text", "x": 23, "y": 27, "width": 151, "height": 16, "content": "HOT DEAL",
+         "font_size": 14, "font_family": "Poppins", "color": "#ffffff", "rotation": -12, "group_id": "ribbon", "z_index": 4},
+    ]
+    sc = analyze(els, 1200, 628)
+    card = next(b for b in sc.blocks + sc.ornaments if any(i.el["id"] == "card" for i in b.items))
+    assert card.kind == "panel" and not card.ornament
+    assert {i.el["id"] for i in card.items} == {"card", "headline"}

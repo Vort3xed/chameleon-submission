@@ -204,7 +204,8 @@ def _paints_above(child: Item, parent: Item) -> bool:
 
 
 def find_containers(content: List[Item]) -> Dict[int, Item]:
-    """Map item idx -> innermost opaque-enough shape that visually holds it."""
+    """Map item idx -> innermost opaque-enough shape that visually holds it.
+    A group travels together, so it is adopted whole or not at all."""
     shapes = [s for s in content if s.type == "shape" and s.alpha >= 0.3 and s.el.get("shape_type") != "line"
               and not s.rotation]
     parent: Dict[int, Item] = {}
@@ -218,6 +219,17 @@ def find_containers(content: List[Item]) -> Dict[int, Item]:
                     best = s
         if best is not None:
             parent[c.idx] = best
+    groups: Dict[str, List[Item]] = {}
+    for c in content:
+        if c.group:
+            groups.setdefault(c.group, []).append(c)
+    for members in groups.values():  # a group straddling a container's edge (a ribbon over a card's corner)
+        inside = {m.idx for m in members}  # is a unit of its own: none of it is adopted (a button's label sits
+        outer = [parent.get(m.idx) for m in members if getattr(parent.get(m.idx), "idx", None) not in inside]
+        if len({id(o) for o in outer}) > 1:  # in its own shape - only containers outside the group count)
+            for m in members:
+                if getattr(parent.get(m.idx), "idx", None) not in inside:
+                    parent.pop(m.idx, None)
     return parent
 
 
