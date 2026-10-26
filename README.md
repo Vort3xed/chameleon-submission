@@ -186,8 +186,12 @@ Development-only tooling, not copied into the image
   feature cards, the eyebrow-to-legal stack, copy on a bare background) × 10
   targets including 10:1 strips, 64 px squares and 4K.
 * `gen_random.py` – random plausible designs (the pieces real designs are made
-  of, combined at random in four skeletons) × random catalogue targets;
-  `hunt.py` ranks the engine's outputs on any set by the source-relative part
+  of, combined at random in four skeletons) × random catalogue targets, plus
+  modes for banner and skyscraper sources (`--strips`, `--tall`) and further
+  skeletons (`--patterns`: Z-pattern, product grid, half-bleed panel;
+  `--skeletons`: copy in a colour block, scrim, feature columns, partner
+  footer, card overlap; `--wild`: full-bleed photo, menu, grouped offers,
+  badge ring, testimonial); `hunt.py` ranks the engine's outputs on any set by the source-relative part
   of the discriminator and shows the worst - where new weaknesses come from.
 * `score.py` – a hard structural gate (schema, ids, frozen content/fonts/assets,
   bounds, aspect, renderability) plus 17 rubric metrics computed from real font
@@ -201,7 +205,8 @@ Development-only tooling, not copied into the image
   dropped headline, naive stretch) and against itself, in both orders.
 * `design_rules.py` – exact design-rule metrics, each relative to the source
   (alignment incl. inside cards, edge crowding, margin balance, newly crammed
-  neighbours, headline lead, product and logo share, fill, corner pieces).
+  neighbours, headline lead, product and logo share - nested in panels too -,
+  fill, corner pieces, header and footer bars kept on their edges).
 * `judge_bench.py` – known-answer pairs for judges: an output against a copy
   with one defect at graded severity, tie controls (identical, 1 px moves),
   the brief's anti-examples (shrunk, stretched), and held-out defect kinds.
@@ -209,15 +214,18 @@ Development-only tooling, not copied into the image
   logistic on rules + scorer metrics, a floor on every rule) with an
   overfitting audit (held-out tasks, unseen defect kinds, invisible-change
   sensitivity), and run-vs-run comparison: sign test, mean, severe losses.
-* `loop.py` – one step of the improvement loop in one command (~5 min): run
-  the engine on the format set, the fresh holdout, the stress set, the random
-  designs and the extra presets, judge each against a baseline with the
+* `loop.py` – one step of the improvement loop in one command (~20 min): run
+  the engine on the format set, the fresh holdout, the stress set, every
+  random-design set and the extra presets, judge each against a baseline with the
   discriminator (sign test, mean, severe losses); accepted when no set blocks
   and at least one improves significantly; logged to `eval/runs/loop.jsonl`.
 * `attack.py` – hill-climbs outputs on the discriminator's score to expose
   what it over-rewards (found the label-wrapping hole).
 * `judges.py` – VLM judge variants measured on the bench; `label_app.py` – a
   local page for human A/B labels, the yardstick for every judge.
+* `docker_parity.py` – runs a fixed sample of every test set in the amd64
+  image exactly as stage one does (`--network none`) and checks each output is
+  byte-identical to native `resize()`.
 * `sheets.py`, `format_sheet.py` – contact sheets for eyeballing results.
 * `tests/test_robustness.py` – the bulk of the suite: samples pass the gate at many sizes,
   fuzzed/malformed inputs never crash or break invariants (and are absorbed
