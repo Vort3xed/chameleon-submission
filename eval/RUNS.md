@@ -40,7 +40,10 @@ weights unchanged (no benchmark pair has texture type).
 almost every source in the sets was a poster or a wide card, so the reverse
 direction (a 728x90 or 970x250 turned into a story, square or portrait) was
 untested.  v38f: 0 gate failures, 0 crashes, scorer 99.6; outputs read well
-(stacked, big headlines).  Now a judged loop set (`s_<step>`).
+(stacked, big headlines).  Now a judged loop set (`s_<step>`).  Likewise
+skyscraper sources (`--tall`, 160x600 / 300x600 / 300x1050 / 120x600 -> square
+and wide): 0 gate failures, 0 crashes, scorer 98.3 (`t_<step>`); the weak case
+is a source with no background and no card, where no text can be hidden.
 
 **Loop acceptance (2026-10-25):** a judged set where nothing changed is neutral;
 a set blocks a step with gate failures/crashes, severe losses over the limit,

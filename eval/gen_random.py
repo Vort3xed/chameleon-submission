@@ -10,6 +10,7 @@ eval.hunt` ranks the engine's outputs on it and shows the worst.
 
     python -m eval.gen_random --out eval/testsets/random --n 150
     python -m eval.gen_random --out eval/testsets/strips --n 80 --strips   # banner sources -> tall / square
+    python -m eval.gen_random --out eval/testsets/tall --n 80 --tall       # skyscraper sources -> wide / square
 """
 
 from __future__ import annotations
@@ -34,8 +35,11 @@ SOURCES = [(1080, 1080), (1080, 1350), (1080, 1920), (1920, 1080), (1200, 628), 
 SKELETONS = ("column", "split", "overlay", "scatter")
 
 
-def design(rng: random.Random) -> Design:
-    W, H = rng.choice(SOURCES)
+TALL = [(160, 600), (300, 600), (300, 1050), (120, 600)]
+
+
+def design(rng: random.Random, sources=SOURCES) -> Design:
+    W, H = rng.choice(sources)
     d, u = Design(W, H, rng), min(W, H) / 1080
     bg = rng.random()
     if bg < 0.65:
@@ -154,14 +158,16 @@ def strip_design(rng: random.Random) -> Design:
     return d
 
 
-def generate(out_dir: Path, n: int, seed: int, strips: bool = False):
+def generate(out_dir: Path, n: int, seed: int, strips: bool = False, tall: bool = False):
     tasks_dir = Path(out_dir) / "tasks"
     tasks_dir.mkdir(parents=True, exist_ok=True)
     rng, manifest = random.Random(seed), []
     for i in range(n):
-        src = (strip_design if strips else design)(random.Random(rng.random())).to_source()
+        r = random.Random(rng.random())
+        src = (strip_design(r) if strips else design(r, TALL if tall else SOURCES)).to_source()
         sw, sh = src["canvas"]["width"], src["canvas"]["height"]
-        targets = [f for f in FORMATS if (f[1], f[2]) != (sw, sh) and (not strips or f[2] >= 0.6 * f[1])]
+        wanted = (lambda f: f[2] >= 0.6 * f[1]) if strips else (lambda f: f[1] >= f[2]) if tall else (lambda f: True)
+        targets = [f for f in FORMATS if (f[1], f[2]) != (sw, sh) and wanted(f)]
         for name, tw, th in rng.sample(targets, 2):
             tid = f"random_{i:03d}__{name.lower().replace(' ', '_')}"
             lvl = 3 if max(tw / th, th / tw) > 3 else (2 if (tw > th) != (sw > sh) else 1)
@@ -181,8 +187,9 @@ def main():
     ap.add_argument("--n", type=int, default=150)
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--strips", action="store_true", help="banner-shaped sources, resized to square and tall formats")
+    ap.add_argument("--tall", action="store_true", help="skyscraper sources, resized to square and wide formats")
     a = ap.parse_args()
-    generate(Path(a.out), a.n, a.seed, a.strips)
+    generate(Path(a.out), a.n, a.seed, a.strips, a.tall)
 
 
 if __name__ == "__main__":

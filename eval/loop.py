@@ -1,6 +1,6 @@
 """One step of the improvement loop: run the engine as it is now on the format
 set, the fresh holdout, the stress set, the random designs, banner-shaped
-sources (strips) and the extra presets, then judge it against a baseline run
+sources (strips), skyscraper sources (tall) and the extra presets, then judge it against a baseline run
 with the discriminator.
 
 A set where nothing changed is neutral; a set blocks the step if it has
@@ -34,6 +34,7 @@ SETS = {  # run-name prefix: test set
     "c_{}": "crazy",
     "r_{}": "random",
     "s_{}": "strips",
+    "t_{}": "tall",
     "x_{}": "formats_extra",
 }
 SAFETY_ONLY = ("formats_extra",)  # checked for gate failures and crashes, not judged for quality
