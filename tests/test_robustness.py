@@ -426,3 +426,35 @@ def test_dense_designs_stay_fast(target):
     out = resize(_dense(300), {"width": target[0], "height": target[1]})
     assert time.time() - t0 < 20
     assert not gate(_dense(300), {"width": target[0], "height": target[1]}, out)
+
+
+def _table(rows: int, cols: int, cell=lambda r, c: {}) -> dict:
+    """A price-list-like grid of text cells; `cell` overrides fields of cell (r, c)."""
+    els = [{"id": "bg", "type": "shape", "shape_type": "rectangle", "x": 0, "y": 0, "width": 1080, "height": 1080,
+            "fill_color": "#2a1a2e", "z_index": 0}]
+    for r in range(rows):
+        for c in range(cols):
+            e = {"id": f"c{r}_{c}", "type": "text", "x": 100 + 900 / cols * c, "y": 200 + 90 * r, "width": 900 / cols - 40,
+                 "height": 40, "content": f"Item {r} {c}", "font_size": 32, "font_family": "Poppins", "color": "#ffffff",
+                 "text_align": "left", "z_index": 1}
+            e.update(cell(r, c))
+            els.append(e)
+    return {"canvas": {"width": 1080, "height": 1080}, "elements": els}
+
+
+TABLE_EDGES = {
+    "empty cells": _table(4, 2, lambda r, c: {"content": ""} if c else {}),
+    "huge font cell": _table(4, 2, lambda r, c: {"font_size": 400} if (r, c) == (1, 1) else {}),
+    "rotated cell": _table(4, 2, lambda r, c: {"rotation": 30} if (r, c) == (2, 0) else {}),
+    "zero-size cells": _table(4, 3, lambda r, c: {"width": 0, "height": 0} if c == 2 else {}),
+    "five columns": _table(3, 5),
+    "two rows only": _table(2, 4),
+}
+
+
+@pytest.mark.parametrize("name", sorted(TABLE_EDGES))
+@pytest.mark.parametrize("target", [(1080, 1920), (728, 90), (160, 600), (64, 64)])
+def test_table_edge_cases_pass_gate(name, target):
+    src = TABLE_EDGES[name]
+    out = resize(src, {"width": target[0], "height": target[1]})
+    assert not gate(src, {"width": target[0], "height": target[1]}, out)
