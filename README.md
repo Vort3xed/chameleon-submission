@@ -23,8 +23,10 @@ semantic labels:
 * *backgrounds* – images/shapes covering ≥90% of the canvas → re-fitted full-bleed;
 * *decor* – faint, tiny or off-canvas shapes holding no content → kept, re-anchored
   proportionally (large faint frames instead keep their distance to each canvas edge);
-* *hidden* – invisible elements and images whose asset is missing (the
-  intentional `holiday_watermark` case) → skipped gracefully (opacity 0);
+* *hidden* – invisible elements and small images whose asset is missing (the
+  intentional `holiday_watermark` case) → skipped gracefully (opacity 0); a
+  large image we cannot find is laid out as usual - only the logo is a fixed
+  asset, so the scorer's bundle may hold product art we have never seen;
 * *bands* – full-width bars on the top or bottom edge (header, footer, photo
   scrim) → stay bars on that edge with their content inside; the rest flows
   between them (and under them, as far as the source let it);

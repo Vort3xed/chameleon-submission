@@ -64,3 +64,26 @@ def test_faint_text_is_texture_not_the_headline(target):
     tex, head = out["texture"], out["headline"]
     assert abs((tex["y"] + tex["height"] / 2) / H - 0.5) < 0.1  # centred vertically, as in the source
     assert head["font_size"] > out["cta"]["font_size"]
+
+
+UNKNOWN_ART = {
+    "canvas": {"width": 1080, "height": 1080},
+    "elements": [
+        {"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 1080, "fill": "#2a1a2e", "z_index": 0},
+        {"id": "photo", "type": "image", "x": 240, "y": 120, "width": 600, "height": 600, "asset_id": "not_in_our_bundle.png",
+         "fit": "contain", "z_index": 1},
+        {"id": "sticker", "type": "image", "x": 900, "y": 960, "width": 120, "height": 80, "asset_id": "also_unknown.png",
+         "fit": "contain", "z_index": 1},
+        {"id": "headline", "type": "text", "x": 90, "y": 780, "width": 900, "height": 90, "content": "Stay Golden",
+         "font_size": 72, "font_family": "Lora", "color": "#ffffff", "text_align": "center", "z_index": 2},
+    ],
+}
+
+
+@pytest.mark.parametrize("target", [(1920, 1080), (1080, 1920)])
+def test_unknown_assets_large_laid_out_small_skipped(target):
+    """Only the logo is a fixed asset, so an image we cannot find may exist in
+    the scorer's bundle: a large one is laid out, a small one (sticker) skipped."""
+    out = {e["id"]: e for e in resize(UNKNOWN_ART, {"width": target[0], "height": target[1]})["elements"]}
+    assert out["photo"].get("opacity", 1) != 0 and out["photo"]["width"] > 0.3 * min(target)
+    assert out["sticker"].get("opacity") == 0

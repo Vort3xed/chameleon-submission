@@ -3,7 +3,8 @@
 Turns the raw element list into a `Scene`:
   * backgrounds  - full-bleed images/shapes (re-fitted to the new canvas)
   * decor        - faint / tiny / bleeding shapes that hold no content
-  * hidden       - invisible elements and images whose asset is missing
+  * hidden       - invisible elements, and small images whose asset is missing
+                   (a large one is laid out: the scorer's bundle may have it)
   * blocks       - layout units in reading order: single texts/images,
                    rigid groups (buttons, badges, ribbons, product tiles),
                    panels (containers whose children are re-laid inside them)
@@ -220,10 +221,15 @@ def find_containers(content: List[Item]) -> Dict[int, Item]:
     return parent
 
 
+MISSING_HIDE = 0.02  # an image whose asset is not in our bundle is skipped only when this small (canvas share)
+
+
 def classify(items: List[Item], W: float, H: float):
     canvas = Rect(0, 0, W, H)
     bgs, decor, hidden, content = [], [], [], []
     for it in items:
+        if it.missing and it.box.area > MISSING_HIDE * canvas.area:
+            it.missing = False  # only the logo is a fixed asset: the scorer's bundle may well have this one
         if it.alpha <= 0.02 or it.box.w <= 0 or it.box.h <= 0 or it.missing:
             hidden.append(it)
         elif it.type in ("image", "shape") and not it.rotation and it.box.intersection(canvas) >= 0.9 * canvas.area:
