@@ -225,7 +225,13 @@ held-out human 42.7 -> 71.4%, unseen defect sets 92.2% / 96.8%, invisible-change
 sensitivity unchanged (0.01).  Gradient-boosted trees (xgboost, depth 2-4, also
 with monotone constraints) on the same features fit the familiar defects a little
 better (91.5%) but generalise worse (unseen 89-90%, human 63-73%): with ~600
-pairs the linear model stays.
+pairs the linear model stays.  Bootstrap over 20 task resamples with the taste
+features: out-of-sample 89.9% ± 1.7% (worst 86.9%; was 85.0% ± 1.5%, worst
+81.3%), weight shares stable (headline 0.121 ± 0.009).  Four more candidate
+features from the notes (button quieter than the headline, smallest text
+size, fewer headline lines, content coverage) do not raise held-out human
+accuracy (73.4% at best, coverage and line count lower it): with 51 labels
+the model is at what the labels can teach.
 
 **Attack (`eval/attack.py`):** hill-climbing engine outputs on the
 discriminator's score found one hole - it bought margin balance by breaking
