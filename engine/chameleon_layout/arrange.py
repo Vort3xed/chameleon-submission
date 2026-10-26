@@ -249,11 +249,15 @@ def candidates(scene: Scene, ctx0: Ctx) -> Tuple[Scope, List[Layout]]:
     bg = backdrop(scene)
     bands = {k: (b, kr) for k, (b, r) in _bands(scene, W, H).items() if (kr := _kept(b, r, bg, H)) is not None}
     thin = {k: v for k, v in bands.items() if min(v[1].w, v[1].h) < BAND_MIN}
+    def legibility(lays):
+        return max((evaluate(lay, judge, scene.items)["legibility"] for lay in lays), default=0.0)
+
     kept = between(bands, set(thin)) if bands else []
-    if any(evaluate(lay, judge, scene.items)["legibility"] >= 0.9 for lay in kept):
+    if legibility(kept) >= 0.9:
         out += kept  # headers, footers, scrims and side panels stay at their edges whenever that reads
-    else:  # else they flow as cards - the stripes still keep their edges
-        out += between(thin, set(thin)) if thin else _flowing(scene, ctx0, src, region, judge, {}, set(), mx, my)
+    else:  # else they flow as cards (the stripes still keep their edges) - if that reads better
+        flowing = between(thin, set(thin)) if thin else _flowing(scene, ctx0, src, region, judge, {}, set(), mx, my)
+        out += flowing if not kept or legibility(flowing) > legibility(kept) + 0.02 else kept
     if not out:
         out.append(finish(scene, letterbox(scene, ctx0), []))
     return judge, out

@@ -75,6 +75,38 @@ def test_content_never_loses_the_bar_it_needs(target):
         assert footer["y"] <= legal["y"] + 1 and legal["y"] + legal["height"] <= footer["y"] + footer["height"] + 1
 
 
+PHOTO = {  # from the wild random set (random_066): copy centred on a translucent scrim over a full-bleed photo
+    "canvas": {"width": 1200, "height": 628},
+    "elements": [
+        {"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1200, "height": 628, "fill_color": "rgba(30,18,34,1)",
+         "z_index": 0},
+        {"id": "photo", "type": "image", "x": 0, "y": 0, "width": 1200, "height": 628, "asset_id": "solstice_bottle.png",
+         "fit": "cover", "z_index": 1},
+        {"id": "scrim", "type": "shape", "x": 0, "y": 427, "width": 1200, "height": 201,
+         "fill_color": "rgba(35,24,38,0.6)", "z_index": 2},
+        {"id": "headline", "type": "text", "x": 72, "y": 444.5, "width": 1056, "height": 59, "content": "Hello Summer",
+         "font_size": 44, "font_family": "Solstice Serif", "font_weight": "bold", "color": "rgba(255,255,255,1)",
+         "text_align": "center", "z_index": 3},
+        {"id": "cta_bg", "type": "shape", "x": 502.5, "y": 564, "width": 195, "height": 36,
+         "fill_color": "rgba(232,106,58,1)", "corner_radius": 18, "group_id": "cta", "z_index": 4},
+        {"id": "cta_label", "type": "text", "x": 502.5, "y": 571.6, "width": 195, "height": 21,
+         "content": "Reserve Your Spot", "font_size": 15, "font_family": "Solstice Sans", "font_weight": "bold",
+         "color": "rgba(255,255,255,1)", "text_align": "center", "group_id": "cta", "z_index": 5},
+    ],
+}
+
+
+@pytest.mark.parametrize("target", [(336, 280), (300, 250), (1080, 1080)])
+def test_photo_scrim_stays_at_the_bottom(target):
+    """Copy on a translucent scrim over a full-bleed photo: the scrim keeps its edge with the copy on it,
+    rather than floating as a card over the product (whose label would show through)."""
+    W, H = target
+    out = {e["id"]: e for e in resize(PHOTO, {"width": W, "height": H})["elements"]}
+    scrim, head = out["scrim"], out["headline"]
+    assert scrim["x"] == 0 and scrim["width"] == W and scrim["y"] + scrim["height"] == H
+    assert scrim["y"] <= head["y"] and head["y"] + head["height"] <= H + 1
+
+
 SIDE_PANEL = {
     "canvas": {"width": 1080, "height": 1920},
     "elements": [
