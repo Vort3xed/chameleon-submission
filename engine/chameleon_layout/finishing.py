@@ -204,12 +204,45 @@ def finish(scene: Scene, lay: Layout, ornaments: List[Block]) -> Layout:
         p = _proportional(it, scene, W, H, m)
         p.hidden = it.missing  # graceful skip of a missing asset
         lay.out[it.idx] = p
+    covers = opaque_covers(scene)
     for b in lay.hidden:
+        card = covers.get(id(b)) if scene.hide_z is None else None
         for it in b.items:
-            p = _proportional(it, scene, W, H, m)
+            if card is not None and it.type == "text" and card.frame.idx in lay.out:
+                p = _beneath(it, lay.out[card.frame.idx], card.frame.idx)
+            else:
+                p = _proportional(it, scene, W, H, m)
             p.hidden = True
             lay.out[it.idx] = p
     return lay
+
+
+def opaque_covers(scene: Scene) -> Dict[int, Block]:
+    """id(block) -> the card whose opaque frame can hide it: text cannot be
+    hidden by opacity (the renderer ignores it on text), so without an opaque
+    full-canvas background it goes beneath the card it belongs to."""
+    out: Dict[int, Block] = {}
+
+    def walk(blocks: List[Block], cover: Optional[Block]):
+        for b in blocks:
+            if b.kind == "panel":
+                f = b.frame
+                opaque = f.type == "shape" and f.alpha >= 0.99 and not f.rotation and \
+                    f.el.get("shape_type", "rectangle") == "rectangle"
+                walk(b.children, b if opaque else cover)
+            elif cover is not None:
+                out[id(b)] = cover
+
+    walk(scene.blocks, None)
+    return out
+
+
+def _beneath(it, frame: Placement, frame_idx: int) -> Placement:
+    """A hidden text squeezed to 1 px in the middle of a card's frame, under it."""
+    w = max(1.0, frame.w / 2)
+    h = max(1.0, it.text_layout(1, w).box_height)
+    return Placement(frame.x + frame.w / 2 - w / 2, frame.y + frame.h / 2 - h / 2, w, min(h, max(1.0, frame.h / 2)), 1,
+                     under=frame_idx)
 
 
 def _overlap(a: Rect, b: Rect) -> float:

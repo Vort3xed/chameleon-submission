@@ -13,7 +13,7 @@ from typing import Dict, List, Tuple
 from . import blocks as B
 from .blocks import Ctx, Placement, place
 from .families import Layout, Scope, _base, _panel_inner, arrangements, outer_margins, preserve, scale_block
-from .finishing import _anchored, _is_frame, finish
+from .finishing import _anchored, _is_frame, finish, opaque_covers
 from .geometry import Rect
 from .scene import Block, Scene
 
@@ -53,10 +53,11 @@ def drop_levels(scene: Scene) -> List[List[Block]]:
     legibly.  Headline, CTA and logo are never dropped; text only when it
     can really be hidden."""
     pool = _drop_pool(scene.blocks) + scene.ornaments
+    covered = opaque_covers(scene)
     levels, seen = [[]], set()
     for thr in DROP_STEPS:
         drop = [b for b in pool if b.importance < thr and not _never_dropped(b)
-                and (scene.hide_z is not None or not b.texts)]
+                and (scene.hide_z is not None or not b.texts or id(b) in covered)]
         key = frozenset(map(id, drop))
         if drop and key not in seen and len(drop) < len(pool):
             seen.add(key)

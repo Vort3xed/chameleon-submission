@@ -91,6 +91,9 @@ def finalize(source: dict, W: int, H: int, placements: Dict[int, Placement], hid
             new["opacity"] = 0.0
             if t == "text" and hide_z is not None:
                 new["z_index"] = int(hide_z)  # the renderer ignores text opacity
+            elif t == "text" and p.under is not None:  # tucked beneath an opaque card instead
+                cover = source["elements"][p.under]
+                new["z_index"] = int(math.floor(num(cover.get("z_index") if isinstance(cover, dict) else 0))) - 1
         if t == "text" and p.font is not None and num(el.get("letter_spacing"), 0.0):
             new["letter_spacing"] = _r(num(el.get("letter_spacing")) * new["font_size"] / max(1.0, num(el.get("font_size"), 1.0)))
         out.append(new)

@@ -138,3 +138,29 @@ def test_a_card_holding_only_the_headline_is_not_a_badge():
     for W, H in ((728, 90), (320, 50), (1080, 1920)):
         out = {e["id"]: e for e in resize(src, {"width": W, "height": H})["elements"]}
         assert out["headline"].get("opacity", 1) != 0 and out["card"].get("opacity", 1) != 0
+
+
+def test_text_hides_beneath_its_card_when_there_is_no_background():
+    """The renderer ignores opacity on text, so a dropped text must be covered:
+    with no opaque background, it goes beneath its own opaque card."""
+    els = [
+        {"id": "card", "type": "shape", "x": 60, "y": 100, "width": 960, "height": 700, "shape_type": "rectangle",
+         "fill_color": "rgba(245,236,220,1)", "z_index": 5},
+        {"id": "headline", "type": "text", "x": 100, "y": 150, "width": 880, "height": 110, "content": "New Season",
+         "font_family": "Solstice Serif", "font_size": 90, "color": "rgba(35,24,38,1)", "z_index": 6},
+        {"id": "body", "type": "text", "x": 100, "y": 300, "width": 880, "height": 200, "font_family": "Solstice Sans",
+         "content": "Each bottle is brewed in small batches using hand-picked botanicals and real fruit. " * 3,
+         "font_size": 24, "color": "rgba(35,24,38,1)", "z_index": 7},
+        {"id": "cta_bg", "type": "shape", "x": 380, "y": 600, "width": 320, "height": 70, "shape_type": "rectangle",
+         "fill_color": "rgba(232,106,58,1)", "group_id": "cta", "z_index": 8},
+        {"id": "cta_label", "type": "text", "x": 380, "y": 614, "width": 320, "height": 41, "content": "Buy Tickets",
+         "font_family": "Solstice Sans", "font_size": 28, "color": "rgba(255,255,255,1)", "group_id": "cta", "z_index": 9},
+    ]
+    out = {e["id"]: e for e in resize({"canvas": {"width": 1080, "height": 1080}, "elements": els},
+                                      {"width": 320, "height": 50})["elements"]}
+    body, card = out["body"], out["card"]
+    if body.get("opacity") == 0:  # dropped: it must be fully covered by the card
+        assert body["z_index"] < card["z_index"]
+        assert card["x"] <= body["x"] and body["x"] + body["width"] <= card["x"] + card["width"]
+        assert card["y"] <= body["y"] and body["y"] + body["height"] <= card["y"] + card["height"]
+    assert out["headline"].get("opacity", 1) != 0

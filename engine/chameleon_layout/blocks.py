@@ -42,6 +42,7 @@ class Placement:
     font: Optional[int] = None
     opacity: Optional[float] = None
     hidden: bool = False
+    under: Optional[int] = None  # hidden text: the opaque shape (item idx) it is tucked beneath
 
     @property
     def rect(self) -> Rect:
