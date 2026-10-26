@@ -865,7 +865,10 @@ DROP_STEPS = (0.25, 0.36, 0.45, 0.55, 0.65, 0.8, 0.9)
 
 
 def _never_dropped(b: Block) -> bool:
-    return b.importance >= DROP_STEPS[-1] or b.role in ("headline", "cta", "logo") or b.kind == "panel"
+    """Headline, button and logo stay, and so does any panel holding one; a
+    panel holding only small print (a footer bar with legal text) may go."""
+    return b.importance >= DROP_STEPS[-1] or b.role in ("headline", "cta", "logo") or \
+        b.kind == "panel" and (not b.children or any(_never_dropped(c) for c in b.children))
 
 
 def _drop_pool(blocks: List[Block]) -> List[Block]:

@@ -158,6 +158,10 @@ Development-only tooling, not copied into the image
   watermark word, imagery with no text, a sidebar, art bleeding off an edge,
   feature cards, the eyebrow-to-legal stack, copy on a bare background) × 10
   targets including 10:1 strips, 64 px squares and 4K.
+* `gen_random.py` – random plausible designs (the pieces real designs are made
+  of, combined at random in four skeletons) × random catalogue targets;
+  `hunt.py` ranks the engine's outputs on any set by the source-relative part
+  of the discriminator and shows the worst - where new weaknesses come from.
 * `score.py` – a hard structural gate (schema, ids, frozen content/fonts/assets,
   bounds, aspect, renderability) plus 17 rubric metrics computed from real font
   metrics and actual renders (collisions, cut-off, readability, contrast,
@@ -178,11 +182,11 @@ Development-only tooling, not copied into the image
   logistic on rules + scorer metrics, a floor on every rule) with an
   overfitting audit (held-out tasks, unseen defect kinds, invisible-change
   sensitivity), and run-vs-run comparison: sign test, mean, severe losses.
-* `loop.py` – one step of the improvement loop in one command (~3 min): run
-  the engine on the format set, the fresh holdout and the stress set, check
-  gate failures / crashes, judge against a baseline with the discriminator
-  (sign test, mean, severe losses) and log ACCEPT / reject to
-  `eval/runs/loop.jsonl`.
+* `loop.py` – one step of the improvement loop in one command (~5 min): run
+  the engine on the format set, the fresh holdout, the stress set, the random
+  designs and the extra presets, judge each against a baseline with the
+  discriminator (sign test, mean, severe losses); accepted when no set blocks
+  and at least one improves significantly; logged to `eval/runs/loop.jsonl`.
 * `attack.py` – hill-climbs outputs on the discriminator's score to expose
   what it over-rewards (found the label-wrapping hole).
 * `judges.py` – VLM judge variants measured on the bench; `label_app.py` – a

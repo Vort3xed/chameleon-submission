@@ -102,3 +102,12 @@ def test_loop_acceptance_rule():
     assert not verdict(60, 20, 0.1, 5, 100)  # too many severe losses
     assert not verdict(12, 8, 0.1, 0, 20)  # not significant
     assert verdict(300, 200, 0.05, 4, 500)  # severe losses allowed up to 1% of a large set
+
+
+def test_loop_veto_rule():
+    from eval.loop import blocks
+
+    assert not blocks(0, 0, 0, 0)  # nothing changed: neutral
+    assert not blocks(9, 11, 0, 20)  # slightly worse but not significantly: neutral
+    assert blocks(5, 30, 0, 35)  # significantly worse
+    assert blocks(60, 20, 3, 100)  # better on count, but too many severe losses

@@ -19,6 +19,23 @@ severe losses are within the limit is decided by the VLM judge, on the format
 set and confirmed on the fresh holdout.  Human labels, when they exist, will
 replace this.
 
+**Random designs (`eval/gen_random.py`, 150 designs x 2 targets) and the hunt
+(`eval/hunt.py`):** hand-written archetypes only cover structures someone thought
+of, so random combinations of real design pieces (several products or none,
+cards, bars, badges, ribbons, texture type, prices, second buttons, no
+background) in four skeletons are generated, and the engine's worst outputs by
+the source-relative part of the discriminator are shown for review.  First run
+(v37v): 0 gate failures, 0 crashes in 300 tasks; worst cases: a legal-only
+footer card as loud as the headline (fixed, v37w), product art overlapping a
+card edge, product rows shrinking beside a card.
+
+**Loop acceptance (2026-10-25):** a judged set where nothing changed is neutral;
+a set blocks a step with gate failures/crashes, severe losses over the limit,
+or significantly more losses than wins; a step is accepted when no set blocks
+and at least one improves significantly.  The stress set and the random
+designs are now judged, so a fix aimed at unusual designs can be accepted
+where it acts.
+
 `python -m eval.loop --name <step> --baseline <step>` does a whole step
 (engine on formats + fresh holdout + stress set, gate/crash check,
 discriminator verdict on both quality sets) in ~3 minutes and logs it to
@@ -95,6 +112,7 @@ v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 | v37q | objective weights from the human labels: headline 0.12 -> 0.20 (the strongest human preference), content kept 0.12 -> 0.18 (headline alone, v37p, bought size by hiding content on 20 tasks - product tiles, body copy; people also flag a missing flavour) | – | 98.58 | discriminator formats 52–29 (1 severe), holdout2 9–6 (positive, n small); hides content on 4 tasks, shows more on 11; by eye big wins (adversarial_00 on A4/4:3 from a tiny column to a readable split, typographic headlines 2x); one loss brings small-print back into a 320x100 - kept on visual review | |
 | v37r | objective legibility 0.16 -> 0.28: unreadable text is worse than absent text - keep-the-composition won the official advanced sample at 300x250 with legibility 0.45 (body ~5 px) over a stack that drops the small print | – | **98.63** | discriminator formats 26–19, holdout2 5–4 (positive means, 0 severe; holdout2 scorer **98.31**, extra presets **97.60**); official samples at 300x250 / 160x600 now readable; exposed: in a stack the button may outgrow the headline (rows already cap it) - kept on visual review | |
 | v37v | risk fix from the brief: only the brand's colours, fonts, logo and the size catalogue are fixed materials, so hidden designs may reference product art or backgrounds that are not in our container - which the engine used to hide as 'missing'. Now only a small missing image (<= 2% of the canvas: a sticker, the level-3 watermark) is skipped; a large one is laid out as usual | – | 98.63 | no output changes on any test set (pure risk reduction); test_structure covers both sides | |
+| v37w | from the random-design hunt: a panel holding nothing protected (a footer bar with only legal text) may be dropped like its content - a 250x250 showed the legal line as large as the headline in a floating card | – | 98.63 | regular sets unchanged; stress 2–2, random 4–4 (neutral); all 8 changed random tasks better by eye (footers become bottom bars with small print, or give their room to the headline) - kept on visual review | |
 
 **Lesson (v29–v31):** a chain of small A/B wins (+0.06, +0.06, +0.38 on 8
 tasks) hid a real regression. Every few versions, compare against a fixed
