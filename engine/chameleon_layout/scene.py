@@ -336,7 +336,9 @@ def make_block(members: List[Item], children_of: Dict[int, List[Item]], scope: R
     frame = max(frames, key=lambda f: f.box.area) if frames else None
     inner = [m for m in members if m is not frame]
     band = _band(frame, scope) if frame is not None else ""
-    big = frame is not None and (band or frame.box.area >= 0.12 * scope.area and len(inner) >= 2)
+    # a card holds copy (even a single headline); a lone image on a tile stays rigid, scaling as one picture
+    card = len(inner) >= 2 or bool(inner) and inner[0].type == "text"
+    big = frame is not None and (band or frame.box.area >= 0.12 * scope.area and card)
     if big and not any(m.rotation for m in members) and frame.box.contains(bounding([m.bounds for m in inner]), 0.95):
         direct = [m for m in inner if not any(m in children_of.get(o.idx, []) for o in inner)]
         kids = build_blocks(direct, children_of, frame.box)

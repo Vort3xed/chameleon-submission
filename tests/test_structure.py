@@ -113,3 +113,28 @@ def test_group_straddling_a_card_stays_its_own_unit():
     sc = analyze(els, 1200, 628)
     card = next(b for b in sc.blocks + sc.ornaments if any(i.el["id"] == "card" for i in b.items))
     assert {i.el["id"] for i in card.items} == {"card", "headline", "subhead"} and not card.ornament
+
+
+def test_a_card_holding_only_the_headline_is_not_a_badge():
+    """A card with the headline alone in it (its button hanging off the edge)
+    was read as a badge: the headline could be dropped and the legal line
+    became the headline (found by the random-design hunt)."""
+    els = [
+        {"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 1080, "shape_type": "rectangle",
+         "fill_color": "rgba(43,27,46,1)", "z_index": 0},
+        {"id": "card", "type": "shape", "x": 40, "y": 186, "width": 1000, "height": 520, "shape_type": "rectangle",
+         "fill_color": "rgba(245,236,220,1)", "z_index": 2},
+        {"id": "headline", "type": "text", "x": 60, "y": 206, "width": 960, "height": 129, "content": "Stay Golden",
+         "font_family": "Solstice Serif", "font_size": 96, "color": "rgba(35,24,38,1)", "z_index": 3},
+        {"id": "cta_bg", "type": "shape", "x": -51, "y": 362, "width": 440, "height": 70, "shape_type": "rectangle",
+         "fill_color": "rgba(232,106,58,1)", "group_id": "cta", "z_index": 4},
+        {"id": "cta_label", "type": "text", "x": -51, "y": 376, "width": 440, "height": 41, "content": "Discover the Collection",
+         "font_family": "Solstice Sans", "font_size": 28, "color": "rgba(255,255,255,1)", "group_id": "cta", "z_index": 5},
+        {"id": "legal", "type": "text", "x": 60, "y": 1030, "width": 960, "height": 22, "font_family": "Solstice Sans",
+         "content": "Please drink responsibly. Botanical Sparkling Co., 2026.", "font_size": 15,
+         "color": "rgba(35,24,38,0.7)", "z_index": 6},
+    ]
+    src = {"canvas": {"width": 1080, "height": 1080}, "elements": els}
+    for W, H in ((728, 90), (320, 50), (1080, 1920)):
+        out = {e["id"]: e for e in resize(src, {"width": W, "height": H})["elements"]}
+        assert out["headline"].get("opacity", 1) != 0 and out["card"].get("opacity", 1) != 0
