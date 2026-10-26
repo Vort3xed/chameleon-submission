@@ -48,8 +48,11 @@ pairwise logs); `eval/runs/history.jsonl` has every scorer run.
 
 ## Current best
 
-**v37q**: formats 98.58 · fresh holdout2 98.25 · crazy 96.92 (35 designs) · extra presets 97.51 · 0 gate failures.
-(v36r, the previous best: formats 98.52 · holdout2 98.16.)
+**v37y**: formats 98.63 · fresh holdout2 98.31 · crazy 96.99 (35 designs) · random 97.95 · extra presets 97.60 · 0 gate failures.
+Against v36r (start of 2026-10-25): discriminator formats 496–237 (p 10⁻²², 1 severe), fresh holdout2 82–31
+(p 10⁻⁶, 0 severe); VLM on the fresh holdout 33–22 (65 ties, net +0.07 - same direction, not significant on its
+own; the VLM is blind to margin and spacing changes).  Hostile field values (52 cases: fonts of 10000 / -5 /
+"big", rotations of 7200, "inf" widths, zero and negative canvases, duplicate ids...) all absorbed.
 Holdout (never tuned on): v31-era engine beats v12 (start of day 2) 55–19 (+0.29);
 v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 
