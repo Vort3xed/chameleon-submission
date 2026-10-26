@@ -470,9 +470,12 @@ def _panel(b, ctx, max_w, max_h, out, x, y):
 
 
 def _row_gap(b: Block, ctx: Ctx) -> float:
-    """Median source gap between neighbours on the same line (children are in reading order)."""
-    gaps = [c.src.x - p.src.x1 for p, c in zip(b.children, b.children[1:])
-            if min(p.src.y1, c.src.y1) > max(p.src.y, c.src.y) and c.src.x >= p.src.x1]
+    """Median source gap between neighbours on the same line (children are in reading order) - for units of
+    a stat over its label, as drawn: their captions sit centred in boxes as wide as the columns, which nearly
+    touch, while the units are sized by what they draw."""
+    box = (lambda c: c.visible) if all(c.role == "feature" for c in b.children) else (lambda c: c.src)
+    gaps = [box(c).x - box(p).x1 for p, c in zip(b.children, b.children[1:])
+            if min(p.src.y1, c.src.y1) > max(p.src.y, c.src.y) and box(c).x >= box(p).x1]
     g = sorted(gaps)[len(gaps) // 2] if gaps else 0.0
     return max(2.0, g * ctx.ts)
 

@@ -32,6 +32,7 @@ _CTA_WORDS = re.compile(r"^(shop|buy|order|get|learn|discover|try|find|reserve|b
 _PRICE = re.compile(r"^((from|only|just|now)\s+)?[$€£¥]\s?\d[\d.,]*\b.{0,12}$", re.I)
 
 IMPORTANCE = {"headline": 1.0, "cta": 0.85, "logo": 0.85, "hero": 0.75, "subhead": 0.6, "price": 0.6, "text": 0.5,
+              "feature": 0.5,
               "body": 0.4, "image": 0.5, "badge": 0.35, "ribbon": 0.35, "legal": 0.2, "divider": 0.15,
               "shape": 0.2, "panel": 0.8, "row": 0.4, "table": 0.4}
 
@@ -421,24 +422,80 @@ def _band(frame: Item, scope: Rect) -> str:
     return ""
 
 
-def group_rows(blocks: List[Block]) -> List[Block]:  # noqa: C901
-    """Merge side-by-side blocks of similar height (badge rows, product tiles)."""
-    eligible = [b for b in blocks if not b.ornament and b.kind in ("rigid", "image", "text", "shape")]
+def _side_rows(blocks: List[Block], least: int = 2) -> List[List[Block]]:
+    """Runs of side-by-side blocks of one kind and similar height, left to right (at least `least` long)."""
     rows: List[List[Block]] = []
-    for b in sorted(eligible, key=lambda b: b.src.x):
+    for b in sorted(blocks, key=lambda b: b.src.x):
         r = b.src
         for row in rows:
             ref = row[0].src
             ov = min(r.y1, ref.y1) - max(r.y, ref.y)
-            similar = max(r.h, ref.h) / max(1e-6, min(r.h, ref.h)) < 1.6 and row[0].kind == b.kind
-            disjoint = all(r.x >= o.src.x1 - 0.5 or r.x1 <= o.src.x + 0.5 for o in row)
-            if similar and disjoint and ov >= 0.6 * min(r.h, ref.h):
+            if row[0].kind == b.kind and max(r.h, ref.h) / max(1e-6, min(r.h, ref.h)) < 1.6 and \
+                    ov >= 0.6 * min(r.h, ref.h) and all(r.x >= o.src.x1 - 0.5 or r.x1 <= o.src.x + 0.5 for o in row):
                 row.append(b)
                 break
         else:
             rows.append([b])
+    return [sorted(r, key=lambda b: b.src.x) for r in rows if len(r) >= least]
+
+
+def _over(top: Block, cap: Block) -> bool:
+    """The caption sits just below the piece, centred under it."""
+    t, c = top.src, cap.src
+    return 0 <= c.y - t.y1 <= 1.2 * max(t.h, c.h) and abs(t.cx - c.cx) <= 0.3 * max(t.w, c.w)
+
+
+def _font(row: List[Block]) -> float:
+    fonts = sorted(t.font for b in row for t in b.texts)
+    return fonts[len(fonts) // 2] if fonts else 0.0
+
+
+def _captions(top: List[Block], texts: List[Block], used) -> Optional[List[Block]]:
+    """The texts just below each block of a row, one each and alike, set apart in style from the row
+    (a smaller label under a big stat, a detail under its title) - rows that look alike are a table's
+    records, not columns."""
+    caps = [min((c for c in texts if c not in top and id(c) not in used and _over(t, c)),
+                key=lambda c: c.src.y, default=None) for t in top]
+    if None in caps or len({id(c) for c in caps}) < len(caps):
+        return None
+    fonts = [c.items[0].font for c in caps]
+    if max(fonts) > 1.3 * min(fonts):
+        return None
+    up = _font(top)
+    if all(b.kind == "text" for b in top) and not (up >= 1.15 * _font(caps) or _font(caps) >= 1.15 * up):
+        return None
+    return caps
+
+
+def column_units(blocks: List[Block]) -> List[Block]:
+    """A row of pieces each set over its caption - a stat over its label, a numbered step over what it
+    says, a feature title over its detail - is a row of units: each column stays together whatever the
+    canvas (as a price stays beside its item in a table), and a big stat never passes for the headline.
+    (Product tiles keep their own handling: a picture over its name already travels as a tile.)"""
+    texts = [b for b in blocks if b.kind == "text"]
+    pieces = [b for b in blocks if b.kind == "text" or b.kind == "rigid" and not any(i.type == "image" for i in b.items)]
+    used, units = set(), {}
+    for top in sorted(_side_rows(pieces), key=lambda r: r[0].src.y):
+        crowned = all(any(_over(o, t) for o in blocks if o not in top) for t in top)  # a product, an icon above:
+        if crowned or used & {id(b) for b in top} or (caps := _captions(top, texts, used)) is None:
+            continue  # a column of more levels, left to the tiles it belongs to
+        used |= {id(b) for b in top + caps}
+        for t, c in zip(top, caps):
+            units[id(t)] = Block("rigid", t.items + c.items, role="feature")
+    out = []
+    for b in blocks:
+        if id(b) in units:
+            out.append(units[id(b)])
+        elif id(b) not in used:
+            out.append(b)
+    return out
+
+
+def group_rows(blocks: List[Block]) -> List[Block]:  # noqa: C901
+    """Merge side-by-side blocks of similar height (badge rows, product tiles)."""
+    eligible = [b for b in blocks if not b.ornament and b.kind in ("rigid", "image", "text", "shape")]
+    rows = _side_rows(eligible, 1)
     out = [b for b in blocks if b not in eligible]
-    rows = [sorted(r, key=lambda b: b.src.x) for r in rows]
     tiles = [r for r in rows if len(r) >= 2 and r[0].kind in ("rigid", "image")]
     tables = _tables([r for r in rows if len(r) >= 2 and r[0].kind == "text"])
     out += [b for r in rows if r not in tiles and not any(r in t for t in tables) for b in r]
@@ -555,7 +612,9 @@ def assign_roles(blocks: List[Block], W: float, H: float):
             b.role = "divider" if b.items[0].el.get("shape_type") == "line" else "shape"
         elif b.kind == "rigid":
             labels = [t.content.strip() for t in b.texts]
-            if b.rotated:
+            if b.role == "feature":
+                pass
+            elif b.rotated:
                 b.role = "ribbon"
             elif any(it.type == "image" for it in b.items):
                 b.role = "image"
@@ -670,7 +729,7 @@ def analyze(elements: List[dict], W: float, H: float) -> Scene:
     for idx, p in parent.items():
         children_of.setdefault(p.idx, []).append(items[idx])
     top = [it for it in content if it.idx not in parent]
-    blocks = build_blocks(top, children_of, Rect(0, 0, W, H))
+    blocks = column_units(build_blocks(top, children_of, Rect(0, 0, W, H)))
     assign_roles(blocks, W, H)
     mark_ornaments(blocks, W, H)
     flow = [b for b in blocks if not b.ornament]

@@ -52,10 +52,13 @@ semantic labels:
   groups** (shared `group_id`, e.g. button shape + label, rotated ribbons,
   product tiles), **panels** (a container shape such as a card or scrim whose
   children are re-laid out *inside* it, recursively), **rows**
-  (side-by-side runs like a badge strip) and **tables** (three or more
+  (side-by-side runs like a badge strip), **tables** (three or more
   stacked rows of aligned text cells - a menu, a price list - which keep
   their columns, each aligned as in the source; four columns fold to two
-  over two when the canvas is narrow);
+  over two when the canvas is narrow) and **column units** (a row of pieces
+  each set over its caption - a stat over its label, a numbered step over its
+  text, a feature title over its detail: each column travels as one, wrapping
+  as a row of tiles, and a big stat never takes the headline role);
 * *ornaments* – rotated or corner-pinned small blocks, placed last in free corner space.
 
 Roles come from cues a designer would use: largest type → headline (a price
@@ -217,7 +220,8 @@ Development-only tooling, not copied into the image
 * `design_rules.py` – exact design-rule metrics, each relative to the source
   (alignment incl. inside cards, edge crowding, margin balance, newly crammed
   neighbours, headline lead, product and logo share - nested in panels too -,
-  fill, corner pieces, header and footer bars kept on their edges). Roles are
+  fill, corner pieces, header and footer bars kept on their edges, captions
+  kept under the piece they caption). Roles are
   read in the source and followed into the resize by element id (analysed
   afresh, a resize could merge a side panel with its content into 'product
   art'); thresholds ramp in over a band and specks under 3 px are not seen, so
@@ -259,7 +263,8 @@ Development-only tooling, not copied into the image
   reading order; a price list keeps each price with its item; grouped offers
   never outgrow the headline; faint texture type stays decoration, never the
   headline; the logo that headed the copy keeps heading it beside product art;
-  a centred headline stays near the middle of a tall canvas.
+  a centred headline stays near the middle of a tall canvas; each stat and
+  numbered step keeps its caption.
 * `tests/test_discriminator.py` – the discriminator's invariants: a designer's
   original scores 1.0 on every rule against itself, a 1 px move is a tie,
   collisions / shrunk headlines / edge-crowding / a header bar floating loose

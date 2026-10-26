@@ -584,3 +584,23 @@ def test_a_narrowed_row_column_keeps_its_line_breaks():
     out = {e["id"]: e for e in resize(task["source"], task["target_canvas"])["elements"]}
     date = out["date_line"]
     assert date["height"] <= 2.6 * date["font_size"]
+
+
+def _units(name):
+    return json.loads((ROOT / "tests" / "fixtures" / f"{name}.json").read_text())
+
+
+@pytest.mark.parametrize("name,top", [("stats_row", "stat"), ("steps_row", "step_dot")])
+@pytest.mark.parametrize("target", [(1080, 1920), (1920, 1080), (300, 250), (320, 100), (1080, 1080)])
+def test_each_column_keeps_its_caption(name, top, target):
+    """A stat over its label, a numbered step over what it says: each column is one unit whatever the
+    canvas - the number stays just above its own caption, centred on it (they were split into a list of
+    numbers and a list of captions)."""
+    W, H = target
+    out = {e["id"]: e for e in resize(_units(name), {"width": W, "height": H})["elements"]}
+    for k, suffix in enumerate(("", "_2", "_3", "_4")):
+        t, c = out.get(top + suffix), out.get("caption" + suffix)
+        if t is None or c is None or t.get("opacity", 1) == 0 or c.get("opacity", 1) == 0:
+            continue
+        assert t["y"] + t["height"] <= c["y"] + 1 and c["y"] - (t["y"] + t["height"]) <= max(t["height"], c["height"])
+        assert abs((t["x"] + t["width"] / 2) - (c["x"] + c["width"] / 2)) <= 0.3 * max(t["width"], c["width"])
