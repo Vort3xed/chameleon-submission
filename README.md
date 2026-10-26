@@ -32,8 +32,11 @@ semantic labels:
   large image we cannot find is laid out as usual - only the logo is a fixed
   asset, so the scorer's bundle may hold product art we have never seen;
 * *effects* – copies of one text stacked on each other (drop shadows,
-  outlines) are one group; a shape just beneath a card or button of nearly its
-  box is its shadow or outline and stays with it, whatever its opacity;
+  outlines) echo the topmost copy, wrapping as it does; a shape just beneath a
+  card or button of nearly its box is its shadow or outline and stays with it,
+  whatever its opacity; a small icon beside a one-line label is one unit with
+  it, and list items (icons with labels, lines opening with a bullet or a
+  number) keep one left edge when stacked;
 * *bands* – full-width bars on the top or bottom edge (header, footer, photo
   scrim) → stay bars on that edge with their content inside; the rest flows
   between them (and under them, as far as the source let it).  A full-height

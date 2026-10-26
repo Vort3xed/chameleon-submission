@@ -11,7 +11,7 @@ import math
 from dataclasses import replace
 from typing import Dict, List, Optional, Tuple
 
-from .blocks import INF, Ctx, Placement, measure, place
+from .blocks import INF, Ctx, Placement, measure, place, list_item
 from .geometry import Rect, bounding
 from .scene import Block, Scene, num
 
@@ -379,7 +379,7 @@ def snap_alignment(scene: Scene, lay: Layout) -> None:
         room = 0.6 * margin(frame.w, frame.h)  # a gap this wide is comfortable whatever happens to it
         for b in sorted(group, key=lambda b: -b.importance):
             r = ink(b)
-            if r is None:
+            if r is None or list_item(b):  # (list items already share their edge: moving one would break it)
                 continue
             others = [o for o in (ink(o) for o in group if o is not b) if o is not None]
             for axis, size in (("x", W), ("y", H)):

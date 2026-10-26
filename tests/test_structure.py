@@ -346,6 +346,28 @@ def test_icons_stay_beside_their_labels(target):
         assert 0 <= label["x"] - (icon["x"] + icon["width"]) <= 2 * icon["width"]
 
 
+BULLETS = {
+    "canvas": {"width": 1080, "height": 1080},
+    "elements": [
+        {"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 1080, "fill_color": "rgba(42,26,46,1)",
+         "z_index": 0},
+        {"id": "headline", "type": "text", "x": 90, "y": 100, "width": 900, "height": 110, "content": "Why Solstice",
+         "font_size": 90, "font_family": "Lora", "color": "#ffffff", "text_align": "center", "z_index": 1},
+    ] + [{"id": f"item{i}", "type": "text", "x": 300, "y": 300 + 90 * i, "width": 600, "height": 50, "content": f"• {t}",
+          "font_size": 40, "font_family": "Poppins", "color": "#ffffff", "text_align": "left", "z_index": 1}
+         for i, t in enumerate(["Real fruit", "No added sugar", "Small batches", "Recyclable cans"])],
+}
+
+
+@pytest.mark.parametrize("target", [(1080, 1920), (1920, 1080), (300, 600)])
+def test_a_bullet_list_keeps_one_left_edge(target):
+    """Bulleted lines stacked under a centred heading keep their shared left edge (centred as a list)."""
+    W, H = target
+    out = {e["id"]: e for e in resize(BULLETS, {"width": W, "height": H})["elements"]}
+    xs = [out[f"item{i}"]["x"] for i in range(4)]
+    assert max(xs) - min(xs) <= 4
+
+
 SIDE_PANEL = {
     "canvas": {"width": 1080, "height": 1920},
     "elements": [

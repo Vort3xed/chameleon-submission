@@ -392,7 +392,7 @@ def stack_place(blocks: List[Block], ctx: Ctx, region: Rect, out: Dict[int, Plac
 _BULLET = re.compile(r"\s*([•·▪●◦‣⁃–—*✓✔►]|\d{1,2}[.)])\s")
 
 
-def _list_item(b: Block) -> bool:
+def list_item(b: Block) -> bool:
     """An icon with its label, or a text that opens with a bullet or a number ("• Real fruit", "2. Chill")."""
     if b.items and all(str(i.group or "").startswith("icon:") for i in b.items):
         return True
@@ -404,7 +404,7 @@ def _list_runs(blocks: List[Block], sizes, region: Rect) -> Dict[int, float]:
     xs: Dict[int, float] = {}
     run: List[Tuple[Block, float]] = []
     for b, (bw, _) in list(zip(blocks, sizes)) + [(None, (0.0, 0.0))]:
-        if b is not None and _list_item(b):
+        if b is not None and list_item(b):
             run.append((b, bw))
             continue
         if len(run) >= 2:
