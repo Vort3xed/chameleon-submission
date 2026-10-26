@@ -1,6 +1,6 @@
-"""The engine understands structure, not just roles: full-width bars on an
-edge (header, footer, photo scrim) stay bars on that edge, with their content
-inside, whatever the new canvas."""
+"""The engine understands structure, not just roles: bars on an edge (header,
+footer, photo scrim, a colour panel bleeding off one side) stay bars on that
+edge, with their content inside, whatever the new canvas."""
 
 import sys
 from pathlib import Path
@@ -39,6 +39,39 @@ def test_edge_bars_stay_on_their_edges(target):
     assert footer["x"] == 0 and footer["width"] == W and footer["y"] + footer["height"] == H
     for bar, kid in ((header, out["brand"]), (footer, out["legal"])):  # the content stays inside its bar
         assert bar["y"] <= kid["y"] and kid["y"] + kid["height"] <= bar["y"] + bar["height"] + 1
+
+
+SIDE_PANEL = {
+    "canvas": {"width": 1080, "height": 1920},
+    "elements": [
+        {"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 1920, "fill": "#2a1a2e", "z_index": 0},
+        {"id": "panel", "type": "shape", "x": 0, "y": 0, "width": 540, "height": 1920, "fill": "#e8693a", "z_index": 1},
+        {"id": "product", "type": "shape", "x": 120, "y": 760, "width": 300, "height": 400, "fill": "#f4c542",
+         "z_index": 2},
+        {"id": "headline", "type": "text", "x": 605, "y": 480, "width": 410, "height": 181, "content": "Golden Hour",
+         "font_size": 72, "font_family": "Lora", "color": "#ffffff", "text_align": "left", "z_index": 3},
+        {"id": "subhead", "type": "text", "x": 605, "y": 960, "width": 410, "height": 36, "font_size": 24,
+         "content": "Naturally bright, never too sweet.", "font_family": "Poppins", "color": "#ffffff", "z_index": 3},
+        {"id": "cta_bg", "type": "shape", "x": 595, "y": 1305, "width": 220, "height": 58, "fill": "#e8693a",
+         "corner_radius": 29, "group_id": "cta", "z_index": 4},
+        {"id": "cta_label", "type": "text", "x": 595, "y": 1318, "width": 220, "height": 34, "content": "Get 20% Off",
+         "font_size": 24, "font_family": "Poppins", "color": "#ffffff", "text_align": "center", "group_id": "cta",
+         "z_index": 5},
+    ],
+}
+
+
+@pytest.mark.parametrize("target", [(1200, 480), (1920, 1080), (1080, 1080)])
+def test_side_panel_stays_a_full_height_bar(target):
+    """A colour panel bleeding off one side stays on that side at full height,
+    holding the product; the copy sits beside it in its source reading order."""
+    W, H = target
+    out = {e["id"]: e for e in resize(SIDE_PANEL, {"width": W, "height": H})["elements"]}
+    panel, product = out["panel"], out["product"]
+    assert panel["x"] == 0 and panel["y"] == 0 and panel["height"] == H and panel["width"] < W
+    assert panel["x"] <= product["x"] and product["x"] + product["width"] <= panel["x"] + panel["width"] + 1
+    assert all(out[k]["x"] >= panel["width"] for k in ("headline", "subhead", "cta_bg"))
+    assert out["headline"]["y"] < out["subhead"]["y"] < out["cta_bg"]["y"]
 
 
 WATERMARK = {

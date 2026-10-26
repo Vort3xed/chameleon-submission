@@ -84,7 +84,7 @@ MAX_LAYOUTS = 400  # past this many candidates no further drop levels are explor
                    # unlike a time budget: the same input gives the same output on any machine)
 
 
-def _flowing(scene: Scene, ctx0: Ctx, src: Rect, region: Rect, judge: Scope, bands, mx: float) -> List[Layout]:
+def _flowing(scene: Scene, ctx0: Ctx, src: Rect, region: Rect, judge: Scope, bands, mx: float, my: float) -> List[Layout]:
     """The arrangement families at each drop level, with the given bands kept at their edges."""
     from .objective import evaluate
 
@@ -99,7 +99,8 @@ def _flowing(scene: Scene, ctx0: Ctx, src: Rect, region: Rect, judge: Scope, ban
             continue
         for lay in lays:
             lay.hidden += drop
-            _place_bands(lay, bands, scene, mx)
+            lay.region = region
+            _place_bands(lay, bands, scene, mx, my)
             finish(scene, lay, [b for b in scene.ornaments if b not in drop])
         out += lays
         if any(evaluate(lay, judge, scene.items)["legibility"] >= 0.97 for lay in lays):
@@ -109,7 +110,7 @@ def _flowing(scene: Scene, ctx0: Ctx, src: Rect, region: Rect, judge: Scope, ban
     return out
 
 
-def _between(region: Rect, bands, scene: Scene, my: float) -> Rect:
+def _between(region: Rect, bands, scene: Scene, mx: float, my: float) -> Rect:
     """The content region left between the kept bands.  Where the source let
     content run under a bar (product art beneath a photo scrim), it may again,
     as deep into the bar as it went."""
@@ -119,42 +120,65 @@ def _between(region: Rect, bands, scene: Scene, my: float) -> Rect:
                  for r in flow if min(r.x1, f.x1) > max(r.x, f.x)]
         return max(0.0, min(0.6, max(depth, default=0.0) / f.h))
 
-    tops = [r.y1 - under(b) * r.h if under(b) else r.y1 + my for b, r in bands.values() if b.band == "top"]
-    bottoms = [r.y + under(b) * r.h if under(b) else r.y - my for b, r in bands.values() if b.band == "bottom"]
+    def kept(edge):
+        return [(b, r) for b, r in bands.values() if b.band == edge]
+
+    tops = [r.y1 - under(b) * r.h if under(b) else r.y1 + my for b, r in kept("top")]
+    bottoms = [r.y + under(b) * r.h if under(b) else r.y - my for b, r in kept("bottom")]
     y0, y1 = max([region.y] + tops), min([region.y1] + bottoms)
-    return Rect(region.x, y0, region.w, max(1.0, y1 - y0))
+    x0 = max([region.x] + [r.x1 + mx for _, r in kept("left")])
+    x1 = min([region.x1] + [r.x - mx for _, r in kept("right")])
+    return Rect(x0, y0, max(1.0, x1 - x0), max(1.0, y1 - y0))
 
 
 BAND_MIN = 24.0  # px: a band thinner than this cannot hold its content, so on such strips bands flow like any block
 
 
 def _bands(scene: Scene, W: float, H: float) -> Dict[int, Tuple[Block, Rect]]:
-    """Full-width bars (header, footer, photo scrim) keep their edge, the full
-    width and their share of the canvas height - or none do."""
-    s = H / scene.H
-    out = {id(b): (b, Rect(0.0, 0.0 if b.band == "top" else H - b.frame.box.h * s, W, b.frame.box.h * s))
-           for b in scene.blocks if b.band}
-    return out if all(r.h >= BAND_MIN for _, r in out.values()) else {}
+    """Bars on an edge (header, footer, photo scrim, side panel) keep that edge,
+    their full length and their share of the canvas across it - or none do.
+    A side panel does so only on a canvas relatively as wide as the source or wider."""
+    def rect(b: Block) -> Rect:
+        f = b.frame.box
+        if b.band in ("top", "bottom"):
+            h = f.h * H / scene.H
+            return Rect(0.0, 0.0 if b.band == "top" else H - h, W, h)
+        w = f.w * W / scene.W
+        return Rect(0.0 if b.band == "left" else W - w, 0.0, w, H)
+
+    wider = W / H >= scene.W / scene.H  # a side panel keeps its edge only with room beside it; else it flows
+    out = {id(b): (b, rect(b)) for b in scene.blocks if b.band in ("top", "bottom") or b.band and wider}
+    return out if all(min(r.w, r.h) >= BAND_MIN for _, r in out.values()) else {}
 
 
-def _place_bands(lay: Layout, bands: Dict[int, Tuple[Block, Rect]], scene: Scene, mx: float):
-    """Each band's bar at its edge, its content laid out inside it."""
+def _place_bands(lay: Layout, bands: Dict[int, Tuple[Block, Rect]], scene: Scene, mx: float, my: float):
+    """Each band's bar at its edge, its content laid out inside it - free along the bar, in proportion across it."""
     for b, r in bands.values():
         f, inner = b.frame.box, b.inner or b.frame.box
-        s = r.h / f.h
+        if b.band in ("top", "bottom"):
+            s = r.h / f.h
+            box = Rect(r.x + mx, r.y + (inner.y - f.y) * s, r.w - 2 * mx, inner.h * s)
+        else:
+            s = r.w / f.w
+            box = Rect(r.x + (inner.x - f.x) * s, r.y + my, inner.w * s, r.h - 2 * my)
+        if b.kind == "rigid":  # a lone picture on the bar: scaled as one to fit, centred where it was
+            k = min(box.w / inner.w, box.h / inner.h)
+            scale_block(b, k, box.cx - (inner.cx - b.src.x) * k, box.cy - (inner.cy - b.src.y) * k, lay.out)
+        else:
+            lay.out.update(_panel_inner(b.children, inner, box, lay.ctx, scene.items))
         lay.out[b.frame.idx] = Placement(r.x, r.y, r.w, r.h)
-        box = Rect(r.x + mx, r.y + (inner.y - f.y) * s, r.w - 2 * mx, inner.h * s)
-        lay.out.update(_panel_inner(b.children, inner, box, lay.ctx, scene.items))
         lay.placed.append((b, r))
 
 
 def _bleed_bands(lay: Layout, scene: Scene, W: float, H: float):
-    """Keep-the-composition scales a band in place: its bar grows back to the edge and the full width."""
+    """Keep-the-composition scales a band in place: its bar grows back to its edge and its full length."""
     for b in scene.blocks:
         if b.band and b.frame.idx in lay.out:
             p = lay.out[b.frame.idx]
-            lay.out[b.frame.idx] = replace(p, x=0.0, w=W, y=0.0, h=p.y + p.h) if b.band == "top" else \
-                replace(p, x=0.0, w=W, h=H - p.y)
+            lay.out[b.frame.idx] = {"top": replace(p, x=0.0, w=W, y=0.0, h=p.y + p.h),
+                                    "bottom": replace(p, x=0.0, w=W, h=H - p.y),
+                                    "left": replace(p, x=0.0, w=p.x + p.w, y=0.0, h=H),
+                                    "right": replace(p, w=W - p.x, y=0.0, h=H)}[b.band]
 
 
 def candidates(scene: Scene, ctx0: Ctx) -> Tuple[Scope, List[Layout]]:
@@ -184,11 +208,14 @@ def candidates(scene: Scene, ctx0: Ctx) -> Tuple[Scope, List[Layout]]:
         if out and stretch < SAME_SHAPE and evaluate(out[0], judge, scene.items)["legibility"] >= 0.9:
             return judge, out  # the same shape keeps the designer's composition
     bands = _bands(scene, W, H)
-    kept = _flowing(scene, ctx0, src, _between(region, bands, scene, my), judge, bands, mx) if bands else []
+    kept = []
+    if bands:  # the flow is placed between the bands, in proportion to where it sat between them in the source
+        free = _between(src, {k: (b, b.frame.box) for k, (b, _) in bands.items()}, scene, 0.0, 0.0)
+        kept = _flowing(scene, ctx0, free, _between(region, bands, scene, mx, my), judge, bands, mx, my)
     if any(evaluate(lay, judge, scene.items)["legibility"] >= 0.9 for lay in kept):
-        out += kept  # headers, footers and scrims stay at their edges whenever that reads
+        out += kept  # headers, footers, scrims and side panels stay at their edges whenever that reads
     else:
-        out += _flowing(scene, ctx0, src, region, judge, {}, mx)
+        out += _flowing(scene, ctx0, src, region, judge, {}, mx, my)
     if not out:
         out.append(finish(scene, letterbox(scene, ctx0), []))
     return judge, out

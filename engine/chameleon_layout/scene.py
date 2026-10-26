@@ -137,7 +137,7 @@ class Block:
     corner: str = ""  # for ornaments: tl/tr/bl/br
     hero: bool = False  # carries the main product imagery
     inner: Optional[Rect] = None  # panels: where the children sat inside the frame
-    band: str = ""  # panels: "top" / "bottom" when the frame is a full-width bar on that edge (header, footer, scrim)
+    band: str = ""  # panels: the edge a full-width/-height bar sits on (header, footer, scrim, side panel)
 
     @property
     def src(self) -> Rect:
@@ -336,25 +336,34 @@ def make_block(members: List[Item], children_of: Dict[int, List[Item]], scope: R
     frame = max(frames, key=lambda f: f.box.area) if frames else None
     inner = [m for m in members if m is not frame]
     band = _band(frame, scope) if frame is not None else ""
-    # a card holds copy (even a single headline); a lone image on a tile stays rigid, scaling as one picture
+    side = band in ("left", "right")
+    # a card holds copy (even a single headline); a lone image on a tile stays rigid, scaling as one picture -
+    # on a side bar too, where it is fitted into the bar when the bar keeps its edge
     card = len(inner) >= 2 or bool(inner) and inner[0].type == "text"
-    big = frame is not None and (band or frame.box.area >= 0.12 * scope.area and card)
+    big = frame is not None and (band and not side or (side or frame.box.area >= 0.12 * scope.area) and card)
     if big and not any(m.rotation for m in members) and frame.box.contains(bounding([m.bounds for m in inner]), 0.95):
         direct = [m for m in inner if not any(m in children_of.get(o.idx, []) for o in inner)]
         kids = build_blocks(direct, children_of, frame.box)
         return Block("panel", members, children=kids, frame=frame, inner=bounding([k.src for k in kids]), band=band)
+    if side:
+        return Block("rigid", members, frame=frame, inner=bounding([m.box for m in inner]), band=band)
     return Block("rigid", members, frame=frame)
 
 
 def _band(frame: Item, scope: Rect) -> str:
-    """"top" / "bottom" for a full-width bar on that edge of its scope, else ""."""
+    """The edge a full-width (or full-height) bar sits on - "top", "bottom", "left" or "right" - else ""."""
     b = frame.box
-    if frame.rotation or frame.el.get("shape_type", "rectangle") != "rectangle" or b.w < 0.9 * scope.w \
-            or b.h > 0.45 * scope.h:
+    if frame.rotation or frame.el.get("shape_type", "rectangle") != "rectangle":
         return ""
-    if b.y <= scope.y + 0.01 * scope.h:
-        return "top"
-    return "bottom" if b.y1 >= scope.y1 - 0.01 * scope.h else ""
+    if b.w >= 0.9 * scope.w and b.h <= 0.45 * scope.h:
+        if b.y <= scope.y + 0.01 * scope.h:
+            return "top"
+        return "bottom" if b.y1 >= scope.y1 - 0.01 * scope.h else ""
+    if b.h >= 0.9 * scope.h and b.w <= 0.55 * scope.w:  # a side panel, e.g. a colour block bleeding off half the canvas
+        if b.x <= scope.x + 0.01 * scope.w:
+            return "left"
+        return "right" if b.x1 >= scope.x1 - 0.01 * scope.w else ""
+    return ""
 
 
 def group_rows(blocks: List[Block]) -> List[Block]:  # noqa: C901
@@ -404,17 +413,18 @@ def _stack_rows(rows: List[List[Block]]) -> List[List[List[Block]]]:
 
 
 def reading_order(blocks: List[Block]) -> List[Block]:
-    """Top-to-bottom bands, left-to-right within a band."""
-    blocks = sorted(blocks, key=lambda b: b.src.cy)
+    """Top-to-bottom bands, left-to-right within a band.  A full-height side
+    panel spans every band, so it frames the rest instead of joining one."""
+    sides = {e: [b for b in blocks if b.band == e] for e in ("left", "right")}
     bands: List[List[Block]] = []
-    for b in blocks:
+    for b in sorted((b for b in blocks if b.band not in sides), key=lambda b: b.src.cy):
         if bands:
             ref = bounding([x.src for x in bands[-1]])
             if ref.y <= b.src.cy <= ref.y1:
                 bands[-1].append(b)
                 continue
         bands.append([b])
-    return [b for band in bands for b in sorted(band, key=lambda b: b.src.x)]
+    return sides["left"] + [b for band in bands for b in sorted(band, key=lambda b: b.src.x)] + sides["right"]
 
 
 # ---------------------------------------------------------------------------
@@ -552,8 +562,17 @@ def analyze(elements: List[dict], W: float, H: float) -> Scene:
     for b in flow:
         if b.kind == "panel":
             b.children = reading_order(group_rows(b.children))
-    detect_alignment(flow, Rect(0, 0, W, H))
+    sides = [b for b in flow if b.band in ("left", "right")]
+    detect_alignment(sides, Rect(0, 0, W, H))
+    detect_alignment([b for b in flow if b not in sides], _beside(sides, W, H))
     return Scene(W, H, items, bgs, decor, hidden, flow, [b for b in blocks if b.ornament], cover_z(bgs))
+
+
+def _beside(sides: List[Block], W: float, H: float) -> Rect:
+    """The canvas beside full-height side panels: the space the rest of the content is aligned in."""
+    x0 = max([0.0] + [b.frame.box.x1 for b in sides if b.band == "left"])
+    x1 = min([W] + [b.frame.box.x for b in sides if b.band == "right"])
+    return Rect(x0, 0.0, max(1.0, x1 - x0), H)
 
 
 def cover_z(backgrounds: List[Item]) -> Optional[int]:

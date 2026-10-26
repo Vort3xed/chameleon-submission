@@ -71,7 +71,9 @@ pairwise logs); `eval/runs/history.jsonl` has every scorer run.
 
 ## Current best
 
-**v37y**: formats 98.63 · fresh holdout2 98.31 · crazy 96.99 (35 designs) · random 97.95 · extra presets 97.60 · 0 gate failures.
+**v38s**: formats 98.65 · fresh holdout2 98.33 · crazy 96.78 · random 98.15 · strips 99.61 · tall 98.61 · patterns 99.31 · extra presets 97.64 · 0 gate failures, 0 crashes.
+
+Earlier, **v37y**: formats 98.63 · fresh holdout2 98.31 · crazy 96.99 (35 designs) · random 97.95 · extra presets 97.60 · 0 gate failures.
 Against v36r (start of 2026-10-25): discriminator formats 496–237 (p 10⁻²², 1 severe), fresh holdout2 82–31
 (p 10⁻⁶, 0 severe); VLM on the fresh holdout 33–22 (65 ties, net +0.07 - same direction, not significant on its
 own; the VLM is blind to margin and spacing changes).  Hostile field values (52 cases: fonts of 10000 / -5 /
@@ -147,6 +149,7 @@ v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 | v38f | the most frequent rule failure on the format set was newly crammed neighbours (215 of 1638), nearly all copy beside its neighbour in a banner row (headline~product 80, button~headline 62, headline~logo 54). Each row gap is now its own: beside copy at least 0.35 em of its largest text, logo~product unchanged (v37x/y widened every gap by the largest font and starved the copy) | – | 98.63 | formats 165–102 (1 severe) and stress 23–10 improved, holdout2 21–17, random 31–26 - accepted; headlines no longer touch the product tile or the logo | |
 | v38i | from the skyscraper-source set: with no opaque background and no card, no text could be dropped at all. A dropped text now hides beneath its own opaque card or, failing that, the design's biggest opaque button (buttons are never dropped) | – | 98.63 | rare: random 1–0 (+0.87), tall 1–0 (+1.62), nothing else moves; test_structure covers both covers | |
 | v38n | from the gallery (small tiles in a 1000x2100, small cards on a phone wallpaper): the objective's product and coverage terms max out once art keeps its source share, and its headline term once a headline reads at 44 px, so nothing rewarded using a big canvas. Two terms from the human labels' strongest signals: product_share (full at a quarter of the region, 0.04) and headline_share (full at 12% of its short side, 0.06), kept separate so the existing terms keep their contrast (folding share into the headline term - v38l min, v38m mean - compressed it and flipped close cases to small columns) | – | **98.64** | formats 279–62 (0 severe), random 46–7, strips 50–9, stress 23–9 improved; holdout2 25–15, tall 16–15; VLM 10–13 (blind to most of it); cards now fill tall canvases, headlines that read are not traded for product art. Partly circular (the discriminator holds the same two taste features) - checked by eye | |
+| v38s | from a new generator mode (`--patterns`: Z-pattern, 2x2 grid, half-bleed panel): a colour panel bleeding off one side at full height, holding the product, was a rigid tile, so banners shrank it to a sliver with a speck of product. Side bands: on a canvas relatively as wide as the source or wider, the panel keeps its edge, the full height and its share of the width, its picture fitted inside; the copy flows beside it, aligned and anchored within that space (on a narrower canvas it flows like any tile). Also: a side panel no longer joins every reading-order band (it put the button before the subhead); family priors follow the shape of the region a family laid out (a stack beside a band is not a stack on a wide canvas); dropping a panel that holds the product now counts as losing the product | – | 98.65 | patterns 45–7 (0 severe) improved; formats 42–38, holdout2 4–1, crazy 3–2, random 12–10, tall 0–3 (neutral); strips unchanged | |
 
 **Lesson (v29–v31):** a chain of small A/B wins (+0.06, +0.06, +0.38 on 8
 tasks) hid a real regression. Every few versions, compare against a fixed
@@ -208,6 +211,8 @@ does; the judge consistently prefers keeping content and bigger product art.
 | v38p: banner logo at least 30% of the row height (a human note: 'solstice logo is in a terrible spot' - a sliver at the left edge beside a card) | loop: formats 34–182, 32 severe; blocks on 4 sets | a bigger logo takes the row's width from the copy; the note is about the logo's place, not its size - open |
 | v36z: banner logo never outgrows the text relative to the source (1.0x, was 1.5x) | loop: formats 230–88, holdout2 35–16, 0 severe; **VLM 12–39** | the wordmark becomes illegible on 728x90 / 320x50 (VLM: 'logo larger and more readable' x20) |
 | v36z2: banner logo at most 40% of the row height (was 50%) | loop: formats 65–13, holdout2 13–3; VLM 14–21 (62 ties) | parked (patch kept): the headline also loses ~10% when even ends become affordable - waiting on human labels for logo size and balance-vs-size (pairs p080–p109) |
+| v38q: side bands always kept when legible, plus alignment by sibling vote (the edge most siblings share) | loop: patterns 12–44 (18 severe), strips 0–10 | wide sources in tall canvases got a half-width bar and a narrow copy column; the vote left-aligned whole stacks that the old rule centred (mixed anchors centre), and the human notes ask for centring |
+| v38r: side bands competing with the flowing layouts in the objective | loop: patterns 14–40 (13 severe) | a band panel holding only a picture flowed as a layoutable panel and was dropped; in banners the row family prior (+0.20) outweighed every quality term of the band layout - replaced by the geometric rule of v38s |
 | v35l: banner rows also offered with a 0.75× button | discriminator 22–41 (p 0.02), engine 60% slower | the objective picked small buttons where they hurt; reverted |
 | edge bands (full-width header/footer bars) | not built | they scale rigidly and get dropped in banners; needs a band concept — deferred, the official samples have none |
 
@@ -268,6 +273,8 @@ features from the notes (button quieter than the headline, smallest text
 size, fewer headline lines, content coverage) do not raise held-out human
 accuracy (73.4% at best, coverage and line count lower it): with 51 labels
 the model is at what the labels can teach.
+
+**Nested product art (2026-10-26):** the rules counted product art and logos only as top-level blocks, so a product inside a panel (a side panel, a card) was invisible: `rule_hero` passed vacuously and `taste_product` read 0. Counted wherever nested now; the feature cache is also keyed on the engine's scene analysis, which the rules share (an engine change used to leave stale features). Refit on 58 human pairs: by task 90.1%, held-out human 68.9%, unseen 92.2% / 96.8%, bootstrap 89.5% ± 1.7%. A side-gap rule from the notes (side by side closer than 0.75 em reads as crammed; when only one design of a pair is that tight people pick the roomier 9:2) raised held-out human to 70.6% but cost unseen2 3 points: the bench's "good" references are engine outputs with 0.35 em row gaps. Not kept; the engine takes the fix.
 
 **Attack (`eval/attack.py`):** hill-climbing engine outputs on the
 discriminator's score found one hole - it bought margin balance by breaking

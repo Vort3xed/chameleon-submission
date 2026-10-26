@@ -40,6 +40,7 @@ class Layout:
     out: Dict[int, Placement] = field(default_factory=dict)
     placed: List[Tuple[Block, Rect]] = field(default_factory=list)
     hidden: List[Block] = field(default_factory=list)
+    region: Optional[Rect] = None  # where the family laid the flow out, if not the whole content region (beside bands)
 
 
 def margin(W: float, H: float) -> float:

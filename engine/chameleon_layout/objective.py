@@ -41,6 +41,11 @@ WEIGHTS = {"hero": 0.16, "fill": 0.14, "coverage": 0.12, "headline": 0.20, "kept
            "is_split_wide": 0.04, "is_stack_wide": -0.24, "is_row_wide": 0.20}
 
 
+def _holds_hero(b: Block) -> bool:
+    """The block is the product art or holds it (a side panel around the product)."""
+    return b.hero or any(map(_holds_hero, b.children))
+
+
 def leaf_blocks(blocks: List[Block]) -> List[Block]:
     out = []
     for b in blocks:
@@ -81,7 +86,7 @@ def evaluate(lay: Layout, scope: Scope, items) -> Dict[str, float]:
     box = bounding([r for b, r in lay.placed if not b.ornament])
     t["fill"] = min(1.0, (box.intersection(reg) / reg.area) / 0.55) if box else 0.0
 
-    lost = sum(_mass([b]) * (1.5 if b.hero else 1.0) for b in lay.hidden)
+    lost = sum(_mass([b]) * (1.5 if _holds_hero(b) else 1.0) for b in lay.hidden)
     t["kept"] = max(0.0, 1.0 - lost / (_mass(scope.blocks) or 1.0))
 
     vis = visible_inks(lay.out, scope.blocks)
@@ -99,7 +104,7 @@ def evaluate(lay: Layout, scope: Scope, items) -> Dict[str, float]:
     t["product_share"] = min(1.0, sum(h[0] for h in hero) / 0.25) if hero else 1.0  # people reward product art
     # that fills the canvas (human labels), beyond merely keeping its source share
     t["hero"] = min(1.0, math.sqrt(sum(h[0] for h in hero) / sum(h[1] for h in hero))) if hero and \
-        sum(h[1] for h in hero) > 0 else (0.0 if any(b.hero for b in lay.hidden) else 1.0)
+        sum(h[1] for h in hero) > 0 else (0.0 if any(map(_holds_hero, lay.hidden)) else 1.0)
     mass = sum(o.area for _, o, _ in content)
     if mass > 0:
         cx = sum(o.area * o.cx for _, o, _ in content) / mass
@@ -116,7 +121,8 @@ def evaluate(lay: Layout, scope: Scope, items) -> Dict[str, float]:
     t["faithful"] = _wavg(dist)
 
     family = lay.name.split()[0].rstrip("0123456789.")
-    stretch = max(reg.w / reg.h, reg.h / reg.w) if reg.w > 0 and reg.h > 0 else 1.0
+    fr = lay.region or reg  # the family's prior follows the shape it was laid out in
+    stretch = max(fr.w / fr.h, fr.h / fr.w) if fr.w > 0 and fr.h > 0 else 1.0
     band = "near" if stretch < 1.5 else ("mid" if stretch < 2.5 else "wide")
     for f in FAMILIES:
         for b in BANDS:
