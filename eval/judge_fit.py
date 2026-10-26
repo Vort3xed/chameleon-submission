@@ -39,8 +39,10 @@ SCORER = ("overlap", "cutoff", "text_fit", "readability", "hierarchy", "prominen
 FEATURES = tuple(f"rule_{k}" for k in RULES) + tuple(f"taste_{k}" for k in TASTE) + tuple(f"score_{k}" for k in SCORER)
 HUMAN_WEIGHT = 5  # a human label counts as much as five synthetic pairs: they are few, and they are the yardstick
 
-# cache keyed by the metric code too: editing the rules or the scorer invalidates it
-_CODE = hashlib.sha1(b"".join((ROOT / "eval" / f).read_bytes() for f in ("design_rules.py", "score.py", "judge_fit.py"))).hexdigest()[:12]
+# cache keyed by the metric code too: editing the rules, the scorer or the scene analysis they share invalidates it
+_SOURCES = [ROOT / "eval" / f for f in ("design_rules.py", "score.py", "judge_fit.py")] + \
+    [ROOT / "engine" / "chameleon_layout" / f for f in ("scene.py", "geometry.py", "text_metrics.py", "assets.py")]
+_CODE = hashlib.sha1(b"".join(f.read_bytes() for f in _SOURCES)).hexdigest()[:12]
 _cache_path = BENCH / f"features_{_CODE}.json"
 _cache = json.loads(_cache_path.read_text()) if _cache_path.exists() else {}
 

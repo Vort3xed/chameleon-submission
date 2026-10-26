@@ -188,11 +188,23 @@ def hierarchy(src: dict, out: dict, src_scene) -> float:
     return 1.0 if want <= 1.0 else _clamp((r_out - 1.0) / (want - 1.0))
 
 
-def _role_frac(d: dict, scene, ink, role: str) -> float:
+def _drawn_area(scene, pick) -> float:
+    """Area drawn by the outermost blocks `pick` selects, nested ones included
+    (product art inside a side panel, a logo on a header bar)."""
+    area, todo = 0.0, list(scene.blocks + scene.ornaments)
+    while todo:
+        b = todo.pop()
+        if not pick(b):
+            todo += b.children
+        elif (r := bounding([i.ink for i in b.items])) is not None:
+            area += r.area
+    return area
+
+
+def _role_frac(d: dict, scene, role: str) -> float:
     """Share of the canvas drawn by blocks of `role` (product art, logo)."""
     W, H = float(d["canvas"]["width"]), float(d["canvas"]["height"])
-    blocks = [b for b in scene.blocks + scene.ornaments if b.role == role and ink[id(b)] is not None]
-    return sum(ink[id(b)].area for b in blocks) / (W * H)
+    return _drawn_area(scene, lambda b: b.role == role) / (W * H)
 
 
 def _ids_inks(sc, ink):
@@ -261,9 +273,9 @@ def evaluate(source: dict, output: dict) -> Dict[str, float]:
     m["margins"] = _clamp(1 - max(0.0, ox - sx) / 0.08) * _clamp(1 - max(0.0, oy - sy) / 0.2) ** 0.5
     m["spacing"] = cramming(_ids_inks(ssc, sink), _ids_inks(sc, ink), sW, sH, W, H)
     m["hierarchy"] = hierarchy(source, output, ssc)
-    hs, ho = _role_frac(source, ssc, sink, "hero"), _role_frac(output, sc, ink, "hero")
+    hs, ho = _role_frac(source, ssc, "hero"), _role_frac(output, sc, "hero")
     m["hero"] = 1.0 if hs <= 0 else _clamp(ho / (0.85 * hs))
-    ls, lo = _role_frac(source, ssc, sink, "logo"), _role_frac(output, sc, ink, "logo")
+    ls, lo = _role_frac(source, ssc, "logo"), _role_frac(output, sc, "logo")
     m["logo"] = 1.0 if ls <= 0 else _clamp(math.sqrt(lo / ls) / 0.8)  # linear size, 20% grace
     src_fill = bounding(sall).area / (sW * sH) if sall else 0.0
     out_fill = bounding(allr).area / (W * H) if allr else 0.0
@@ -325,10 +337,10 @@ def taste(design: dict) -> Dict[str, float]:
     labels): a headline that is large for its canvas - full credit at 12% of the
     short side, the brief's own example is ~14% - and product art that fills it,
     full at 25% of the area.  Absolute, so an original does not score 1 here."""
-    W, H, sc, ink = _scene(design)
+    W, H, sc, _ = _scene(design)
     head = max((float(e.get("font_size") or 0) for e in design["elements"]
                 if e.get("type") == "text" and _opacity(e) > 0.01), default=0.0)
-    hero = sum(ink[id(b)].area for b in sc.blocks if ink[id(b)] is not None and (b.hero or b.role == "hero"))
+    hero = _drawn_area(sc, lambda b: b.hero or b.role == "hero")
     return {"headline": _clamp(head / min(W, H) / 0.12), "product": _clamp(hero / (W * H) / 0.25)}
 
 
