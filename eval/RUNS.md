@@ -328,6 +328,8 @@ not in the main catalogue, incl. 120×600, 300×1050, 468×60, 234×60,
 
 **Fresh seeds (v38x3 vs v38o, 2026-10-26):** the day's structural changes (side bands, halved family priors, edge stripes) were found on the patterns and skeleton sets, so both generators were run again with an unseen seed (2027, 60 designs x 2 targets each) and v38o rebuilt from its commit: patterns 27–8 (mean +0.70), skeletons 36–11 (+0.33), 0 severe; scorer 98.91 -> 99.02 and 97.59 -> 97.69; 0 gate failures, 0 crashes.
 
+**Submission check (v38z, 2026-10-26):** image rebuilt; `eval.docker_parity` 67/67 byte-identical to native (the preview renderer still segfaults under qemu once, isolated as designed).
+
 **Submission check (v38u, 2026-10-26):** `python -m eval.docker_parity` (new: a fixed sample of every test set plus the official samples, run in the amd64 image exactly as stage one runs it, `--network none`): 67/67 outputs byte-identical to native `resize()`.
 
 **Submission check (v38f, 2026-10-25):** rebuilt amd64 image byte-identical to
