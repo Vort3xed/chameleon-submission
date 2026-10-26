@@ -541,12 +541,12 @@ SHRINKS = (1.0, 0.82)
 
 
 def best_layout(scope: Scope, ctx0: Ctx, items, allow_preserve: bool = True) -> Optional[Layout]:
-    from .objective import evaluate
+    from .objective import evaluate, rank
 
     lays = arrangements(scope, ctx0, items, allow_preserve)
     if not lays:
         return None
-    return max(lays, key=lambda lay: evaluate(lay, scope, items)["total"])
+    return max(lays, key=lambda lay: rank(evaluate(lay, scope, items)))
 
 
 def _panel_inner(children: List[Block], src: Rect, region: Rect, ctx: Ctx, items) -> Dict[int, Placement]:

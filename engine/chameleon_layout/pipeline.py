@@ -9,7 +9,7 @@ from typing import Tuple
 from .arrange import candidates, settle_decor, snap_alignment
 from .blocks import Ctx
 from .finalize import finalize
-from .objective import evaluate
+from .objective import evaluate, rank
 from .scene import analyze, num
 
 
@@ -45,9 +45,9 @@ def _candidates(source: dict, target_canvas: dict):
 
 def retarget(source: dict, target_canvas: dict) -> dict:
     elements, W, H, scene, scored = _candidates(source, target_canvas)
-    best_terms, best = max(scored, key=lambda t: t[0]["total"])
+    best_terms, best = max(scored, key=lambda t: rank(t[0]))
     if os.environ.get("CHAMELEON_DEBUG"):
-        for terms, lay in sorted(scored, key=lambda t: -t[0]["total"]):
+        for terms, lay in sorted(scored, key=lambda t: rank(t[0]), reverse=True):
             print(f"  {terms['total']:.3f} {lay.name:24s} " + " ".join(f"{k}={v:.2f}" for k, v in terms.items()
                                                                        if k != "total" and not k.startswith("is_")),
                   file=sys.stderr)

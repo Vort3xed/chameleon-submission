@@ -21,7 +21,7 @@ the ranking score (fitted to AI-judge preferences by eval/fit_prefs.py).
 from __future__ import annotations
 
 import math
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from .arrange import Layout, Scope
 from .blocks import SMALL_ROLES
@@ -117,6 +117,15 @@ def evaluate(lay: Layout, scope: Scope, items) -> Dict[str, float]:
             t[f"is_{f}_{b}"] = 1.0 if (f, b) == (family, band) else 0.0
     t["total"] = sum(WEIGHTS.get(k, 0.0) * v for k, v in t.items())
     return t
+
+
+CLEAN = 0.9  # overlap term at or above this: no collision worth the name
+
+
+def rank(terms: Dict[str, float]) -> Tuple[bool, float]:
+    """Sort key for candidates: any clean layout before any that collides
+    ("no collisions" comes first in the brief), then by total score."""
+    return terms["overlap"] >= CLEAN, terms["total"]
 
 
 def _hierarchy(lay: Layout, vis) -> float:
