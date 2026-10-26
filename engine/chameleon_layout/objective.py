@@ -177,18 +177,34 @@ def visible_inks(out, blocks: List[Block]):
     return vis
 
 
-def new_overlap(vis) -> float:
+def new_overlap(vis, among=None) -> float:
     """Sum of visible overlap between elements of different blocks beyond
-    what those two elements already had in the source."""
-    excess = 0.0
-    for i, (ba, a, oa, sa) in enumerate(vis):
-        for bb, b, ob, sb in vis[i + 1:]:
-            if ba is bb:
-                continue
-            o = oa.intersection(ob) / max(1.0, min(oa.area, ob.area))
-            s = sa.intersection(sb) / max(1.0, min(sa.area, sb.area))
-            excess += max(0.0, o - s - 0.02)
-    return excess
+    what those two elements already had in the source - with `among` (item
+    indices), only the pairs with exactly one element among them, which is
+    all that moving those elements can change.  A sweep along x skips the
+    pairs that cannot touch (a dense design has hundreds of elements); the
+    rest are summed in pair order, so the result is the plain loop's."""
+    if among is not None:
+        mine = [v for v in vis if v[1].idx in among]
+        return sum(_excess(m, o) for m in mine for o in vis if o[1].idx not in among)
+    order = sorted(range(len(vis)), key=lambda i: vis[i][2].x)
+    parts = []
+    for n, i in enumerate(order):
+        for j in order[n + 1:]:
+            if vis[j][2].x >= vis[i][2].x1:
+                break  # sorted by x: nothing further along can overlap
+            parts.append((min(i, j), max(i, j), _excess(vis[i], vis[j])))
+    return sum(v for _, _, v in sorted(parts))
+
+
+def _excess(a, b) -> float:
+    """How much more two elements of different blocks overlap than they did in the source."""
+    (ba, _, oa, sa), (bb, _, ob, sb) = a, b
+    if ba is bb or ob.x >= oa.x1 or oa.x >= ob.x1 or ob.y >= oa.y1 or oa.y >= ob.y1:
+        return 0.0
+    o = oa.intersection(ob) / max(1.0, min(oa.area, ob.area))
+    s = sa.intersection(sb) / max(1.0, min(sa.area, sb.area))
+    return max(0.0, o - s - 0.02)
 
 
 def _mass(blocks: List[Block]) -> float:

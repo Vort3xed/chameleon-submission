@@ -395,3 +395,34 @@ def test_typography_variants_pass_gate(style, target):
     out = resize(copy.deepcopy(src), tc)
     assert_valid(src, tc, out)
     assert gate(src, tc, out) == []
+
+
+def _dense(n: int, seed: int = 1) -> dict:
+    """A design with n scattered small texts, chips and dots over a headline."""
+    rng = random.Random(seed)
+    els = [{"id": "bg", "type": "shape", "shape_type": "rectangle", "x": 0, "y": 0, "width": 1080, "height": 1080,
+            "fill_color": "#2a1a2e", "z_index": 0},
+           {"id": "headline", "type": "text", "x": 90, "y": 60, "width": 900, "height": 100, "content": "Stay Golden",
+            "font_size": 80, "font_family": "Lora", "color": "#ffffff", "z_index": 1}]
+    for i in range(n):
+        x, y, kind = rng.uniform(0, 1000), rng.uniform(180, 1040), i % 3
+        if kind == 0:
+            els.append({"id": f"t{i}", "type": "text", "x": x, "y": y, "width": rng.uniform(60, 300), "height": 24,
+                        "content": "Small batch", "font_size": 18, "font_family": "Poppins", "color": "#ffffff", "z_index": 2})
+        else:
+            w = 6 if kind == 2 else rng.uniform(20, 160)
+            els.append({"id": f"s{i}", "type": "shape", "shape_type": "rectangle", "x": x, "y": y, "width": w, "height": w,
+                        "fill_color": "#e8693a", "z_index": 1 + kind % 2})
+    return {"canvas": {"width": 1080, "height": 1080}, "elements": els}
+
+
+@pytest.mark.parametrize("target", [(728, 90), (1920, 1080)])
+def test_dense_designs_stay_fast(target):
+    """Hundreds of elements must not blow up quadratically (the overlap checks
+    once took 20 s here); the bound is generous, the engine takes ~2 s."""
+    import time
+
+    t0 = time.time()
+    out = resize(_dense(300), {"width": target[0], "height": target[1]})
+    assert time.time() - t0 < 20
+    assert not gate(_dense(300), {"width": target[0], "height": target[1]}, out)

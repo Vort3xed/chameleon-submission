@@ -335,6 +335,8 @@ not in the main catalogue, incl. 120×600, 300×1050, 468×60, 234×60,
 
 **Fresh seeds (v38x3 vs v38o, 2026-10-26):** the day's structural changes (side bands, halved family priors, edge stripes) were found on the patterns and skeleton sets, so both generators were run again with an unseen seed (2027, 60 designs x 2 targets each) and v38o rebuilt from its commit: patterns 27–8 (mean +0.70), skeletons 36–11 (+0.33), 0 severe; scorer 98.91 -> 99.02 and 97.59 -> 97.69; 0 gate failures, 0 crashes.
 
+**Speed on dense designs (2026-10-26):** a design with 400 scattered texts, chips and dots took 19.7 s at 728x90 - the final alignment snapping recomputed every pair's overlap ~600 times. Overlap is now a sweep along x (pairs that cannot touch are skipped) and snapping compares only the pairs involving the block it moves: 2.3 s (800 elements: under 9 s). Outputs byte-identical on 1,363 tasks across seven sets; test_robustness keeps a 300-element design under a generous 20 s.
+
 **VLM on the fresh holdout (v39d vs v38o, 2026-10-26):** the day's changes judged by the other judge on holdout2 (never tuned on): 26 differing tasks, v39d 14 - v38o 6 (6 ties), net +0.31 - same direction as the discriminator, beyond the judge's noise. Its reasons for v38o: two centred scrim layouts and a split card it found more balanced.
 
 **Submission check (v39c3, 2026-10-26):** image rebuilt; `eval.docker_parity` 67/67 byte-identical to native.

@@ -306,8 +306,8 @@ def snap_alignment(scene: Scene, lay: Layout) -> None:
         return {it.idx: replace(lay.out[it.idx], x=lay.out[it.idx].x + dx, y=lay.out[it.idx].y + dy)
                 for it in b.items if it.idx in lay.out}
 
-    def overlap() -> float:
-        return new_overlap(visible_inks(lay.out, every))
+    def overlap(b: Block) -> float:  # all that moving b can change
+        return new_overlap(visible_inks(lay.out, every), {it.idx for it in b.items})
 
     def snap(group: List[Block], frame: Rect):
         def clearance(b: Block) -> float:
@@ -340,9 +340,9 @@ def snap_alignment(scene: Scene, lay: Layout) -> None:
                 if any(p.x < frame.x - 0.5 or p.y < frame.y - 0.5 or p.x + p.w > frame.x1 + 0.5 or
                        p.y + p.h > frame.y1 + 0.5 for p in new.values()):
                     continue
-                before, gap, side, old = overlap(), clearance(b), lopsided(), {i: lay.out[i] for i in new}
+                before, gap, side, old = overlap(b), clearance(b), lopsided(), {i: lay.out[i] for i in new}
                 lay.out.update(new)
-                if overlap() > before + 1e-6 or clearance(b) < min(0.75 * gap, room) or \
+                if overlap(b) > before + 1e-6 or clearance(b) < min(0.75 * gap, room) or \
                         lopsided() > side + 0.005 * frame.w:
                     lay.out.update(old)  # no new collision, no crammed neighbour, no lopsided margins
                 else:
