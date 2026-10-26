@@ -117,6 +117,9 @@ def _between(region: Rect, bands, scene: Scene, mx: float, my: float) -> Rect:
     """The content region left between the kept bands.  Where the source let
     content run under a bar (product art beneath a photo scrim), it may again,
     as deep into the bar as it went."""
+    if not bands:
+        return region
+
     def under(b: Block) -> float:
         f, flow = b.frame.box, [o.src for o in scene.blocks if o is not b and not o.band]
         depth = [min(r.y1, f.y1) - f.y if b.band == "bottom" else f.y1 - max(r.y, f.y)
@@ -216,6 +219,28 @@ def _bleed_bands(lay: Layout, scene: Scene, W: float, H: float):
                                     "right": replace(p, w=W - p.x, y=0.0, h=H)}[b.band]
 
 
+def _with_bands(scene: Scene, ctx0: Ctx, src: Rect, region: Rect, judge: Scope, mx: float, my: float) -> List[Layout]:
+    """The flowing layouts with the bands kept at their edges whenever that reads - or reads no worse
+    than flowing them as cards behind their content.  Stripes keep their edges either way."""
+    from .objective import evaluate
+
+    def flow(bands, stripes):  # the flow sits between the bands, in proportion to where it sat in the source
+        free = _between(src, {k: (b, b.frame.box) for k, (b, _) in bands.items()}, scene, 0.0, 0.0)
+        return _flowing(scene, ctx0, free, _between(region, bands, scene, mx, my), judge, bands, stripes, mx, my)
+
+    def legibility(lays):
+        return max((evaluate(lay, judge, scene.items)["legibility"] for lay in lays), default=0.0)
+
+    bg = backdrop(scene)
+    bands = {k: (b, kr) for k, (b, r) in _bands(scene, ctx0.W, ctx0.H).items() if (kr := _kept(b, r, bg, ctx0.H)) is not None}
+    thin = {k: v for k, v in bands.items() if min(v[1].w, v[1].h) < BAND_MIN}
+    kept = flow(bands, set(thin)) if bands else []
+    if legibility(kept) >= 0.9:
+        return kept
+    cards = flow(thin, set(thin))
+    return cards if not kept or legibility(cards) > legibility(kept) + 0.02 else kept
+
+
 def candidates(scene: Scene, ctx0: Ctx) -> Tuple[Scope, List[Layout]]:
     """All candidate layouts, plus the scope they should be judged in."""
     from .objective import evaluate
@@ -242,22 +267,7 @@ def candidates(scene: Scene, ctx0: Ctx) -> Tuple[Scope, List[Layout]]:
                 break
         if out and stretch < SAME_SHAPE and evaluate(out[0], judge, scene.items)["legibility"] >= 0.9:
             return judge, out  # the same shape keeps the designer's composition
-    def between(bands, stripes):  # the flow sits between the bands, in proportion to where it sat in the source
-        free = _between(src, {k: (b, b.frame.box) for k, (b, _) in bands.items()}, scene, 0.0, 0.0)
-        return _flowing(scene, ctx0, free, _between(region, bands, scene, mx, my), judge, bands, stripes, mx, my)
-
-    bg = backdrop(scene)
-    bands = {k: (b, kr) for k, (b, r) in _bands(scene, W, H).items() if (kr := _kept(b, r, bg, H)) is not None}
-    thin = {k: v for k, v in bands.items() if min(v[1].w, v[1].h) < BAND_MIN}
-    def legibility(lays):
-        return max((evaluate(lay, judge, scene.items)["legibility"] for lay in lays), default=0.0)
-
-    kept = between(bands, set(thin)) if bands else []
-    if legibility(kept) >= 0.9:
-        out += kept  # headers, footers, scrims and side panels stay at their edges whenever that reads
-    else:  # else they flow as cards (the stripes still keep their edges) - if that reads better
-        flowing = between(thin, set(thin)) if thin else _flowing(scene, ctx0, src, region, judge, {}, set(), mx, my)
-        out += flowing if not kept or legibility(flowing) > legibility(kept) + 0.02 else kept
+    out += _with_bands(scene, ctx0, src, region, judge, mx, my)
     if not out:
         out.append(finish(scene, letterbox(scene, ctx0), []))
     return judge, out
