@@ -83,6 +83,7 @@ class Item:
     z: float
     group: Optional[str]
     missing: bool = False
+    echo_of: Optional[int] = None  # a copy stacked beneath another text (its shadow, its outline): follows it
     font: float = 0.0
     _layouts: Dict = field(default_factory=dict, repr=False)
 
@@ -285,6 +286,9 @@ def classify(items: List[Item], W: float, H: float):
     shapes = [s for s in content if s.type == "shape" and not s.rotation]
     rest = []
     for it in content:
+        if it.echo_of is not None:  # laid out with the text it echoes
+            decor.append(it)
+            continue
         if it.type == "shape" and not it.group and it.idx not in holders and _shadows(it, shapes):
             decor.append(it)  # a shadow or outline of the shape above it, at any opacity: it follows that shape
             continue
@@ -614,21 +618,22 @@ def mark_ornaments(blocks: List[Block], W: float, H: float):
             b.corner = ("t" if r.cy < H / 2 else "b") + ("l" if r.cx < W / 2 else "r")
 
 
-def overlay_groups(items: List[Item]):
+def mark_echoes(items: List[Item]):
     """Copies of one text stacked on each other (a drop shadow, an outline, a duplicate) read as one
-    piece of type: they become one group, so no layout pulls them apart."""
+    piece of type: the topmost copy is laid out, the others echo it - same width and wrap, scaled offset."""
     texts = [it for it in items if it.type == "text" and str(it.el.get("content") or "").strip()]
-    for i, a in enumerate(texts):
-        for b in texts[i + 1:]:
-            same = str(a.el.get("content")).strip() == str(b.el.get("content")).strip()
-            if same and a.bounds.intersection(b.bounds) >= 0.5 * min(a.bounds.area, b.bounds.area) > 0:
-                if not (a.group and b.group):
-                    a.group = b.group = a.group or b.group or f"overlay:{a.idx}"
+    for a in texts:
+        stack = [b for b in texts if str(b.el.get("content")).strip() == str(a.el.get("content")).strip()
+                 and b.group == a.group  # (two buttons' labels are not one text's copies)
+                 and a.bounds.intersection(b.bounds) >= 0.5 * min(a.bounds.area, b.bounds.area) > 0]
+        top = max(stack, key=lambda b: (b.z, b.idx))
+        if top is not a:
+            a.echo_of = top.idx
 
 
 def analyze(elements: List[dict], W: float, H: float) -> Scene:
     items = make_items(elements)
-    overlay_groups(items)
+    mark_echoes(items)
     bgs, decor, hidden, content, parent = classify(items, W, H)
     children_of: Dict[int, List[Item]] = {}
     for idx, p in parent.items():

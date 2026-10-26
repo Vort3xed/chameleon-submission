@@ -217,7 +217,7 @@ def finish(scene: Scene, lay: Layout, ornaments: List[Block]) -> Layout:
     frames = [b.frame for b in _panels(scene.blocks) if b.frame is not None and b.frame.idx in lay.out
               and not lay.out[b.frame.idx].hidden]
     shapes = [f for f in _frames(scene.blocks) if f.idx in lay.out and not lay.out[f.idx].hidden]
-    for it in scene.decor:
+    for it in (d for d in scene.decor if d.echo_of is None):  # echoes follow their text, at the end
         visible = it.bounds.intersection(canvas_src) / max(1e-6, it.bounds.area)
         c = it.bounds
         twin = _twin(it, shapes)
@@ -249,7 +249,20 @@ def finish(scene: Scene, lay: Layout, ornaments: List[Block]) -> Layout:
                 p = _proportional(it, scene, W, H, m)
             p.hidden = True
             lay.out[it.idx] = p
+    follow_echoes(scene, lay)
     return lay
+
+
+def follow_echoes(scene: Scene, lay: Layout) -> None:
+    """Each echo (a text's shadow or outline copy) takes its text's box, font and fate, at the source offset
+    scaled with the font: it wraps exactly as its text does and moves with it."""
+    for it in scene.decor:
+        top = scene.items[it.echo_of] if it.echo_of is not None else None
+        p = lay.out.get(top.idx) if top is not None else None
+        if p is not None:
+            k = (p.font or top.font) / max(top.font, 1e-6)
+            lay.out[it.idx] = replace(p, x=p.x + (it.box.x - top.box.x) * k, y=p.y + (it.box.y - top.box.y) * k,
+                                      font=p.font and it.font * k)
 
 
 def _opaque(it) -> bool:
@@ -302,8 +315,8 @@ def settle_decor(scene: Scene, lay: Layout) -> None:
     frames = _frames(scene.blocks)
     for d in scene.decor:
         p = lay.out.get(d.idx)
-        if p is None or p.hidden or _is_frame(d, scene) or _twin(d, frames):
-            continue  # (a shadow or outline stays with its shape)
+        if p is None or p.hidden or _is_frame(d, scene) or _twin(d, frames) or d.echo_of is not None:
+            continue  # (a shadow or outline stays with its shape or text)
 
         def cost(r: Rect) -> float:
             return sum(max(0.0, _overlap(r, ink) - _overlap(d.bounds, it.ink) - 0.02) for it, ink in content)
@@ -394,3 +407,4 @@ def snap_alignment(scene: Scene, lay: Layout) -> None:
                 snap(b.children, lay.out[b.frame.idx].rect)
 
     snap([b for b in every if b not in scene.ornaments], Rect(0, 0, W, H))
+    follow_echoes(scene, lay)

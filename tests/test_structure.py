@@ -293,6 +293,29 @@ def test_a_button_keeps_its_shadow_whatever_its_opacity(target):
     assert abs(shadow["x"] - btn["x"] - 8 * k) <= 1.5 and abs(shadow["y"] - btn["y"] - 8 * k) <= 1.5
 
 
+def _long_headline(shadow: bool) -> dict:
+    copy_ = {"content": "The Botanical Sparkling Collection Crafted for Golden Hour", "font_size": 64, "width": 900,
+             "height": 220, "font_family": "Lora", "text_align": "center", "type": "text"}
+    els = [{"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 1080, "fill_color": "rgba(42,26,46,1)",
+            "z_index": 0}]
+    if shadow:
+        els.append({**copy_, "id": "shadow", "x": 96, "y": 306, "color": "#000000", "z_index": 1})
+    els.append({**copy_, "id": "headline", "x": 90, "y": 300, "color": "#ffffff", "z_index": 2})
+    return {"canvas": {"width": 1080, "height": 1080}, "elements": els}
+
+
+@pytest.mark.parametrize("target", [(160, 600), (728, 90), (1920, 1080)])
+def test_a_shadowed_headline_rewraps_like_a_plain_one(target):
+    """The shadow follows its text; it must not freeze the text's wrap (as a rigid group would)."""
+    W, H = target
+    plain = {e["id"]: e for e in resize(_long_headline(False), {"width": W, "height": H})["elements"]}
+    shadowed = {e["id"]: e for e in resize(_long_headline(True), {"width": W, "height": H})["elements"]}
+    head, shadow = shadowed["headline"], shadowed["shadow"]
+    assert head["font_size"] == plain["headline"]["font_size"] and head["width"] == plain["headline"]["width"]
+    k = head["font_size"] / 64
+    assert shadow["font_size"] == head["font_size"] and abs(shadow["x"] - head["x"] - 6 * k) <= 1.5
+
+
 SIDE_PANEL = {
     "canvas": {"width": 1080, "height": 1920},
     "elements": [
