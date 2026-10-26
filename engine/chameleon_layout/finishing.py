@@ -172,6 +172,23 @@ def _panels(blocks: List[Block]) -> List[Block]:
     return out
 
 
+def _frames(blocks: List[Block]) -> List:
+    """The frame shapes of every card and button, at any depth."""
+    out = []
+    for b in blocks:
+        out += ([b.frame] if b.frame is not None else []) + _frames(b.children)
+    return out
+
+
+def _mirror(it, frame, p: Placement) -> Placement:
+    """A card's shadow or outline: offset and size relative to the card, kept as the card moves and resizes
+    (an offset is a distance, so it scales uniformly)."""
+    f = frame.box
+    k = min(p.w / max(f.w, 1e-6), p.h / max(f.h, 1e-6))
+    return Placement(p.x + (it.box.x - f.x) * k, p.y + (it.box.y - f.y) * k,
+                     p.w + (it.box.w - f.w) * k, p.h + (it.box.h - f.h) * k)
+
+
 def _on_frame(it, frame, p: Placement) -> Placement:
     """Keep an item where it sat on its card: same relative centre, scaled with the card."""
     f = frame.box
@@ -190,12 +207,17 @@ def finish(scene: Scene, lay: Layout, ornaments: List[Block]) -> Layout:
     canvas_src = Rect(0, 0, scene.W, scene.H)
     frames = [b.frame for b in _panels(scene.blocks) if b.frame is not None and b.frame.idx in lay.out
               and not lay.out[b.frame.idx].hidden]
+    shapes = [f for f in _frames(scene.blocks) if f.idx in lay.out and not lay.out[f.idx].hidden]
     for it in scene.decor:
         visible = it.bounds.intersection(canvas_src) / max(1e-6, it.bounds.area)
         c = it.bounds
+        twin = next((f for f in shapes if not it.rotation and it.type == "shape" and
+                     c.intersection(f.box) >= 0.7 * (c.area + f.box.area - c.intersection(f.box))), None)
         card = next((f for f in frames if f.box.x <= c.cx <= f.box.x1 and f.box.y <= c.cy <= f.box.y1
                      and c.area < 0.5 * f.box.area), None)
-        if card is not None:  # decoration on a card moves with the card
+        if twin is not None:  # a card's or button's shadow or outline stays with it
+            lay.out[it.idx] = _mirror(it, twin, lay.out[twin.idx])
+        elif card is not None:  # decoration on a card moves with the card
             lay.out[it.idx] = _on_frame(it, card, lay.out[card.idx])
         else:
             lay.out[it.idx] = _anchored(it, scene, W, H, m) if _is_frame(it, scene) else \

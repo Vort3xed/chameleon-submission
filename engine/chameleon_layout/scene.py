@@ -237,7 +237,8 @@ def find_containers(content: List[Item]) -> Dict[int, Item]:
             if s is c or s.box.area <= c.bounds.area * 1.1:
                 continue
             if _paints_above(c, s) and s.box.contains(c.ink, 0.85):
-                if best is None or s.box.area < best.box.area:
+                # the innermost; of two alike (a card and its shadow) the one painted just beneath
+                if best is None or s.box.area < 0.98 * best.box.area or s.box.area < 1.02 * best.box.area and s.z > best.z:
                     best = s
         if best is not None:
             parent[c.idx] = best

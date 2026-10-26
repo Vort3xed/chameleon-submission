@@ -212,6 +212,36 @@ def test_a_drop_shadow_stays_with_its_text_and_off_canvas_copy_stays_unseen(targ
     assert out["parked"].get("opacity") == 0 and out["parked"]["z_index"] < out["bg"]["z_index"]
 
 
+CARD_SHADOW = {
+    "canvas": {"width": 1080, "height": 1080},
+    "elements": [
+        {"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 1080, "fill_color": "rgba(42,26,46,1)",
+         "z_index": 0},
+        {"id": "shadow", "type": "shape", "x": 190, "y": 330, "width": 720, "height": 460,
+         "fill_color": "rgba(0,0,0,0.35)", "corner_radius": 24, "z_index": 1},
+        {"id": "card", "type": "shape", "x": 180, "y": 320, "width": 720, "height": 460,
+         "fill_color": "rgba(245,235,220,1)", "corner_radius": 24, "z_index": 2},
+        {"id": "headline", "type": "text", "x": 230, "y": 380, "width": 620, "height": 90, "content": "Golden Hour",
+         "font_size": 72, "font_family": "Lora", "color": "rgba(35,24,38,1)", "text_align": "center", "z_index": 3},
+        {"id": "sub", "type": "text", "x": 230, "y": 500, "width": 620, "height": 40, "content": "Small-batch.",
+         "font_size": 30, "font_family": "Poppins", "color": "rgba(35,24,38,1)", "text_align": "center", "z_index": 3},
+    ],
+}
+
+
+@pytest.mark.parametrize("target", [(1920, 1080), (1080, 1920), (728, 90), (300, 250)])
+def test_a_card_keeps_its_shadow(target):
+    """A translucent copy of a card just behind it is its shadow, not the card: the copy stays the
+    card's size and keeps its small offset, and the copy is what holds the text."""
+    W, H = target
+    out = {e["id"]: e for e in resize(CARD_SHADOW, {"width": W, "height": H})["elements"]}
+    card, shadow, head = out["card"], out["shadow"], out["headline"]
+    k = min(card["width"] / 720, card["height"] / 460)  # an offset is a distance: it scales uniformly
+    assert abs(shadow["width"] - card["width"]) <= 1 and abs(shadow["height"] - card["height"]) <= 1
+    assert abs(shadow["x"] - card["x"] - 10 * k) <= 1.5 and abs(shadow["y"] - card["y"] - 10 * k) <= 1.5
+    assert card["x"] <= head["x"] and head["x"] + head["width"] <= card["x"] + card["width"] + 1
+
+
 SIDE_PANEL = {
     "canvas": {"width": 1080, "height": 1920},
     "elements": [
