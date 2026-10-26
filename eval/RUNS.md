@@ -71,7 +71,7 @@ pairwise logs); `eval/runs/history.jsonl` has every scorer run.
 
 ## Current best
 
-**v39v**: formats 98.73 · fresh holdout2 98.51 · crazy 96.81 · random 98.29 · strips 99.63 · tall 98.70 · patterns 99.34 · skeletons 98.08 · wild 98.79 · effects 98.47 · extra presets 97.78 · 0 gate failures, 0 crashes.
+**v39v2**: formats 98.73 · fresh holdout2 98.51 · crazy 96.81 · random 98.29 · strips 99.63 · tall 98.70 · patterns 99.34 · skeletons 98.08 · wild 98.79 · effects 98.47 · extra presets 97.78 · 0 gate failures, 0 crashes.
 
 Earlier, **v37y**: formats 98.63 · fresh holdout2 98.31 · crazy 96.99 (35 designs) · random 97.95 · extra presets 97.60 · 0 gate failures.
 Against v36r (start of 2026-10-25): discriminator formats 496–237 (p 10⁻²², 1 severe), fresh holdout2 82–31
@@ -176,7 +176,7 @@ v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 | v39u2 | the slack part alone | – | 98.73 | ACCEPT: formats 64–34, crazy 36–14, patterns 17–2, effects 12–2 improved, the rest neutral; VLM 8–9 (63 ties) on 80 changed formats; ornaments keep their corners (the full source share let content reach them) | `599cdb9` |
 | (pre-screen) | v39q2's gap floor for copy pairs only, bands kept unless cards read 0.06 better (the bands-or-cards choice compared the best legibility of any candidate: a card candidate gaining 0.05 flipped a scrim band; comparing the candidates that would win instead flipped footers into cards) | – | – | formats 27–25, skeletons fixed, but strips 25–43: the extra air made stacks taller and a split with a small headline won. Dropped | |
 | v39v | banner-row copy columns narrow to their lines and the width they free is shared between all the row's items (people: 'needs better spacing between components on the horizontal axis', 'product photo is out of place' - logo and product clumped left of copy floating in a wide column) | – | 98.73 | ACCEPT: formats 70–39, the rest neutral; VLM 15–15 (50 ties) | `cc3edc4` |
-| v39v2 | a row column narrows only where nothing in it re-wraps (spaced type wraps narrower than it measures: an event date broke into three lines) | – | 98.73 | 2 outputs change: the billboard date keeps its two lines, a 320x100 falls back to the full column and its button grows past the headline (-1.16) - kept on visual review for the rule (copy never re-wraps by accident); a test pins the date | |
+| v39v2 | a row column narrows only where nothing in it re-wraps (spaced type wraps narrower than it measures: an event date broke into three lines) | – | 98.73 | 2 outputs change: the billboard date keeps its two lines, a 320x100 falls back to the full column and its button grows past the headline (-1.16) - kept on visual review for the rule (copy never re-wraps by accident); a test pins the date | `fc21bc7` |
 | (pre-screen) | preserve: a boost may not crush the gaps between bands below 60% of theirs (the official core sample at 1080x1080: body text touching the button) | – | – | formats 13–64, skeletons 1–13: the bigger boosted type wins. Dropped | |
 
 **Lesson (v29–v31):** a chain of small A/B wins (+0.06, +0.06, +0.38 on 8
@@ -379,6 +379,10 @@ not in the main catalogue, incl. 120×600, 300×1050, 468×60, 234×60,
 **VLM on the format set (v39f2 vs v38o, 2026-10-26):** 80 differing tasks, v39f2 31 - v38o 16 (33 ties), net +0.17 (before the scrim fix, v39d vs v38o was -0.07, almost all of it on scrim designs).
 
 **VLM on the fresh holdout (v39d vs v38o, 2026-10-26):** the day's changes judged by the other judge on holdout2 (never tuned on): 26 differing tasks, v39d 14 - v38o 6 (6 ties), net +0.31 - same direction as the discriminator, beyond the judge's noise. Its reasons for v38o: two centred scrim layouts and a split card it found more balanced.
+
+**Submission check (v39v2, 2026-10-26):** image rebuilt; `eval.docker_parity` 83/83 byte-identical to native.
+
+**Generalisation of the evening's steps (v39p -> v39v2, 2026-10-26):** fresh-seed generator sets, never tuned on, rebuilt from git: patterns_fresh 14–1 (p 0.001), skeletons_fresh2 17–6 (p 0.03), wild_fresh 10–10; the VLM on holdout2 18–16 (46 ties), net +0.05.
 
 **Submission check (v39u2, 2026-10-26):** image rebuilt; `eval.docker_parity` 83/83 byte-identical to native.
 
