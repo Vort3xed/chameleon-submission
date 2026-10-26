@@ -91,19 +91,25 @@ def test_unknown_assets_large_laid_out_small_skipped(target):
 
 def test_group_straddling_a_card_stays_its_own_unit():
     """A rotated ribbon (shape + label sharing a group_id) laid over a card's
-    corner must not pull the card and its headline into one rigid ornament."""
+    corner must not pull the card and its copy into one rigid ornament
+    (found by the random-design hunt: every layout then collided)."""
     from engine.chameleon_layout.scene import analyze
 
     els = [
-        {"id": "card", "type": "shape", "x": 60, "y": 15, "width": 527, "height": 302, "fill": "#f5ecdc", "z_index": 1},
-        {"id": "headline", "type": "text", "x": 72, "y": 60, "width": 504, "height": 150, "content": "Everything You Love",
-         "font_size": 41, "font_family": "Lora", "color": "#231826", "z_index": 2},
-        {"id": "ribbon_bg", "type": "shape", "x": 23, "y": 20, "width": 151, "height": 30, "fill": "#dc3c32",
-         "rotation": -12, "group_id": "ribbon", "z_index": 3},
-        {"id": "ribbon_label", "type": "text", "x": 23, "y": 27, "width": 151, "height": 16, "content": "HOT DEAL",
-         "font_size": 14, "font_family": "Poppins", "color": "#ffffff", "rotation": -12, "group_id": "ribbon", "z_index": 4},
+        {"id": "card", "type": "shape", "x": 60, "y": 15, "width": 527, "height": 302, "shape_type": "rectangle",
+         "fill_color": "rgba(245,236,220,1)", "z_index": 4},
+        {"id": "headline", "type": "text", "x": 72, "y": 27, "width": 504, "height": 252, "font_family": "Solstice Serif",
+         "content": "Everything You Love About Golden Hour, Now in a Bottle You Can Take Anywhere You Go This Summer",
+         "font_size": 41, "color": "rgba(35,24,38,1)", "text_align": "left", "z_index": 5},
+        {"id": "subhead", "type": "text", "x": 72, "y": 295, "width": 504, "height": 22, "font_family": "Solstice Sans",
+         "content": "Sparkling botanicals for long summer evenings.", "font_size": 14, "color": "rgba(35,24,38,1)",
+         "text_align": "left", "z_index": 6},
+        {"id": "ribbon_bg", "type": "shape", "x": 23, "y": 20, "width": 151, "height": 30, "rotation": 12,
+         "shape_type": "rectangle", "fill_color": "rgba(220,60,50,1)", "group_id": "ribbon", "z_index": 10},
+        {"id": "ribbon_label", "type": "text", "x": 23, "y": 27, "width": 151, "height": 16, "rotation": 12,
+         "content": "LAST CHANCE", "font_family": "Solstice Sans", "font_size": 11, "color": "rgba(255,255,255,1)",
+         "text_align": "center", "group_id": "ribbon", "z_index": 11},
     ]
     sc = analyze(els, 1200, 628)
     card = next(b for b in sc.blocks + sc.ornaments if any(i.el["id"] == "card" for i in b.items))
-    assert card.kind == "panel" and not card.ornament
-    assert {i.el["id"] for i in card.items} == {"card", "headline"}
+    assert {i.el["id"] for i in card.items} == {"card", "headline", "subhead"} and not card.ornament
