@@ -263,6 +263,16 @@ targets.
 not in the main catalogue, incl. 120×600, 300×1050, 468×60, 234×60,
 1128×191): v36l 0 gate failures, 0 crashes, scorer 97.54, max 1.3 s.
 
+**Submission check (v37w, 2026-10-25):** the amd64 image rebuilt; `resize()`
+inside it is byte-identical to native on 53 tasks (the 3 official samples, 40
+format / holdout tasks, 10 stress tasks with bands, faint text and unknown
+assets).  Under qemu the preview renderer (skia) segfaults - which used to kill
+`engine.main` after the first task, so every later task would have had no
+output.  `main.py` now writes every output JSON first and draws each preview
+in its own process (a crash costs only that picture, replaced by a box
+preview).  The scoring machine's emulation is likely not affected, but the
+order makes it impossible either way.
+
 **Submission check (v36l):** the official amd64 image builds (920 MB) and
 `resize()` inside it, under emulation, is byte-identical to native on the 3
 official samples and on 40 random format / fresh-holdout tasks.  The engine

@@ -4,7 +4,9 @@ Orchestrator — you shouldn't need to edit this file. It:
   2. Calls your resize() from resize.py
   3. Runs a quick self-check (structural only — NOT the official scoring;
      see RULES.md for what the judge actually checks)
-  4. Writes <task>_output.json and <task>_output.png to /app/output
+  4. Writes <task>_output.json for every task, then <task>_output.png (each
+     preview drawn in its own process, so a renderer crash costs only that
+     picture) to /app/output
 
 Mirrors the same input/ -> output/ convention as the earlier India-program
 challenges: drop task files in, get one JSON + one PNG out per task, no
@@ -105,6 +107,22 @@ def _fallback_render(design: dict, png_path: Path) -> None:
     img.save(png_path)
 
 
+def render_isolated(design: dict, assets_dir: Path, png_path: Path) -> bool:
+    """render_to_png in a child process: a native crash in the renderer then
+    costs only this preview (a plain box preview replaces it), never the run."""
+    import multiprocessing
+
+    proc = multiprocessing.Process(target=render_to_png, args=(design, assets_dir, png_path))
+    proc.start()
+    proc.join(timeout=120)
+    if proc.is_alive():
+        proc.kill()
+    if proc.exitcode == 0 and png_path.exists():
+        return True
+    _fallback_render(design, png_path)
+    return False
+
+
 def main() -> int:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     task_files = sorted(INPUT_DIR.glob("*.json"))
@@ -113,9 +131,15 @@ def main() -> int:
         return 1
 
     exit_code = 0
-    for task_path in task_files:
-        task = json.loads(task_path.read_text())
-        source, target_canvas = task["source"], task["target_canvas"]
+    done = []
+    for task_path in task_files:  # every output JSON first: drawing previews can never cost one
+        try:
+            task = json.loads(task_path.read_text())
+            source, target_canvas = task["source"], task["target_canvas"]
+        except Exception as e:  # one malformed task must not stop the others
+            print(f"[{task_path.name}] unreadable task: {e}", file=sys.stderr)
+            exit_code = 1
+            continue
 
         t0 = time.time()
         output = resize(source, target_canvas)
@@ -124,13 +148,16 @@ def main() -> int:
         problems = self_check(source, output)
         stem = task_path.stem
         (OUTPUT_DIR / f"{stem}_output.json").write_text(json.dumps(output, indent=2))
-        render_to_png(output, ASSETS_DIR, OUTPUT_DIR / f"{stem}_output.png")
+        done.append((stem, output))
 
         status = "OK" if not problems else f"{len(problems)} self-check warning(s)"
-        print(f"[{task_path.name}] {status} in {elapsed:.2f}s "
-              f"-> {stem}_output.json, {stem}_output.png")
+        print(f"[{task_path.name}] {status} in {elapsed:.2f}s -> {stem}_output.json")
         for p in problems:
             print(f"    - {p}")
+
+    for stem, output in done:  # then the previews, each in its own process
+        ok = render_isolated(output, ASSETS_DIR, OUTPUT_DIR / f"{stem}_output.png")
+        print(f"[{stem}] preview -> {stem}_output.png" + ("" if ok else " (renderer failed: box preview)"))
 
     return exit_code
 
