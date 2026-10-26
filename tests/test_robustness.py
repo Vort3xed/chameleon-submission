@@ -510,3 +510,29 @@ def test_junk_fields_stay_on_the_main_pipeline(junk):
     src["elements"].append(copy.deepcopy(src["elements"][-1]) | {"id": "copy", "width": 0})
     tc = {"width": 728, "height": 90}
     assert_valid(src, tc, retarget(copy.deepcopy(src), tc))
+
+
+EXTREMES = {  # valid but extreme designs (from a 3000-case fuzz campaign): each must stay on the layout engine
+    "line_height": lambda e: e.update(line_height=50) if e.get("type") == "text" else None,
+    "letter_spacing": lambda e: e.update(letter_spacing=200) if e.get("type") == "text" else None,
+    "long_copy": lambda e: e.update(content="word " * 1000) if e.get("type") == "text" else None,
+    "scripts": lambda e: e.update(content="😀🍹 مرحبا 夏の夕暮れ Ünïcödé\tCRLF\r\n") if e.get("type") == "text" else None,
+    "blank": lambda e: e.update(content="  \n ") if e.get("type") == "text" else None,
+    "bad_runs": lambda e: e.update(style_runs=[{"start": -5, "end": 999, "color": "#f00"}, {"start": 50, "end": 2}])
+    if e.get("type") == "text" else None,
+    "one_spot": lambda e: e.update(x=100, y=100),
+    "rotated": lambda e: e.update(rotation=270),
+    "huge_type": lambda e: e.update(font_size=2000) if e.get("type") == "text" else None,
+}
+
+
+@pytest.mark.parametrize("kind", sorted(EXTREMES))
+@pytest.mark.parametrize("target", [(5000, 50), (37, 913), (1, 1)])
+def test_extreme_designs_stay_on_the_main_pipeline(kind, target):
+    from engine.chameleon_layout.pipeline import retarget
+
+    src = copy.deepcopy(load(SAMPLES[2])["source"])
+    for e in src["elements"]:
+        EXTREMES[kind](e)
+    tc = {"width": target[0], "height": target[1]}
+    assert_valid(src, tc, retarget(copy.deepcopy(src), tc))
