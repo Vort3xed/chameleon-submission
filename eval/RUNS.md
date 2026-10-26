@@ -71,7 +71,7 @@ pairwise logs); `eval/runs/history.jsonl` has every scorer run.
 
 ## Current best
 
-**v39u2**: formats 98.73 · fresh holdout2 98.51 · crazy 96.83 · random 98.29 · strips 99.63 · tall 98.68 · patterns 99.33 · skeletons 98.08 · wild 98.75 · effects 98.47 · extra presets 97.80 · 0 gate failures, 0 crashes.
+**v39v**: formats 98.73 · fresh holdout2 98.51 · crazy 96.81 · random 98.29 · strips 99.63 · tall 98.70 · patterns 99.34 · skeletons 98.08 · wild 98.79 · effects 98.47 · extra presets 97.78 · 0 gate failures, 0 crashes.
 
 Earlier, **v37y**: formats 98.63 · fresh holdout2 98.31 · crazy 96.99 (35 designs) · random 97.95 · extra presets 97.60 · 0 gate failures.
 Against v36r (start of 2026-10-25): discriminator formats 496–237 (p 10⁻²², 1 severe), fresh holdout2 82–31
@@ -173,7 +173,9 @@ v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 | v39t3 | the same at two thirds | – | 98.72 | ACCEPT: formats 10–2 (+0.17), tall 8–1 (+0.27), the rest neutral | `30753d6` |
 | v39r | from the official core sample at 300x250: a label lifted to its legibility floor (4.7 -> 10 px) ballooned its button with it (a 200x43 pill, 2/3 of the canvas, over a 12 px headline); a lifted button now hugs its label (padding follows the layout, at least 1 em / 0.45 em) | – | – | the loop run was contaminated (it carried v39q2's gap floor); re-judged clean on formats / crazy / skeletons: lifted 1.5x+ only, formats 86–84, crazy 27–34, skeletons 5–10 - near-tie layout flips both ways (a card switched to a tiny-text stack); drawn snug inside its old slot instead: formats 31–110. Parked | |
 | v39u | stack slack drawn halfway to where the source left its space (the warm-up sample's headline sank to 70% of every tall canvas: one group gap took half the slack), with faint texture type left behind the content | – | 98.73 | formats 64–34, patterns 17–2, effects 12–2 improved, but crazy blocks: 6 severe, all the watermark design - left in place, the faint SUMMER sat behind the headline (settle_decor moves it clear). Texture part dropped | |
-| v39u2 | the slack part alone | – | 98.73 | ACCEPT: formats 64–34, crazy 36–14, patterns 17–2, effects 12–2 improved, the rest neutral; VLM 8–9 (63 ties) on 80 changed formats; ornaments keep their corners (the full source share let content reach them) | |
+| v39u2 | the slack part alone | – | 98.73 | ACCEPT: formats 64–34, crazy 36–14, patterns 17–2, effects 12–2 improved, the rest neutral; VLM 8–9 (63 ties) on 80 changed formats; ornaments keep their corners (the full source share let content reach them) | `599cdb9` |
+| (pre-screen) | v39q2's gap floor for copy pairs only, bands kept unless cards read 0.06 better (the bands-or-cards choice compared the best legibility of any candidate: a card candidate gaining 0.05 flipped a scrim band; comparing the candidates that would win instead flipped footers into cards) | – | – | formats 27–25, skeletons fixed, but strips 25–43: the extra air made stacks taller and a split with a small headline won. Dropped | |
+| v39v | banner-row copy columns narrow to their lines and the width they free is shared between all the row's items (people: 'needs better spacing between components on the horizontal axis', 'product photo is out of place' - logo and product clumped left of copy floating in a wide column) | – | 98.73 | ACCEPT: formats 70–39, the rest neutral; VLM 15–15 (50 ties) | |
 | (pre-screen) | preserve: a boost may not crush the gaps between bands below 60% of theirs (the official core sample at 1080x1080: body text touching the button) | – | – | formats 13–64, skeletons 1–13: the bigger boosted type wins. Dropped | |
 
 **Lesson (v29–v31):** a chain of small A/B wins (+0.06, +0.06, +0.38 on 8
@@ -376,6 +378,8 @@ not in the main catalogue, incl. 120×600, 300×1050, 468×60, 234×60,
 **VLM on the format set (v39f2 vs v38o, 2026-10-26):** 80 differing tasks, v39f2 31 - v38o 16 (33 ties), net +0.17 (before the scrim fix, v39d vs v38o was -0.07, almost all of it on scrim designs).
 
 **VLM on the fresh holdout (v39d vs v38o, 2026-10-26):** the day's changes judged by the other judge on holdout2 (never tuned on): 26 differing tasks, v39d 14 - v38o 6 (6 ties), net +0.31 - same direction as the discriminator, beyond the judge's noise. Its reasons for v38o: two centred scrim layouts and a split card it found more balanced.
+
+**Submission check (v39u2, 2026-10-26):** image rebuilt; `eval.docker_parity` 83/83 byte-identical to native.
 
 **Submission check (v39p, 2026-10-26):** image rebuilt; `eval.docker_parity` 83/83 byte-identical to native.
 

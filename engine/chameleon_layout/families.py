@@ -484,7 +484,10 @@ def _row_layout(c: Ctx, fixed, tail, parts, widths, inset, reg: Rect, gaps: List
                 name: str) -> Layout:
     cf = c.with_scale(min(c.ts, hi0), min(c.ts, hi0))
     lay = Layout(name, c)
-    seq = [(b, wh[0]) for b, wh in fixed] + [(p, w) for p, w in zip(parts, widths)] + [(b, wh[0]) for b, wh in tail]
+    # each copy column narrows to its lines (they wrap as fitted), and the width it frees is shared out
+    # between all the row's items: even gaps, not copy floating in a wide column of its own
+    snug = [min(w, stack_measure(p, c, w, reg.h)[0] + 1.0) for p, w in zip(parts, widths)]
+    seq = [(b, wh[0]) for b, wh in fixed] + list(zip(parts, snug)) + [(b, wh[0]) for b, wh in tail]
     free = reg.w - sum(inset) - sum(w for _, w in seq) - sum(gaps)
     extra = max(0.0, free) / max(1, len(seq) - 1)
     x = reg.x + inset[0]
