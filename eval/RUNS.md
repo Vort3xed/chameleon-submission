@@ -294,6 +294,8 @@ the model is at what the labels can teach.
 
 **Edge bars (2026-10-26):** a new rule, `bars`: the share of the source's header and footer bars still full-width on their edge, still a card behind all of their (visible, not speck-sized) content, or hidden - a bar floating loose from what it held reads as a stray box, and the discriminator preferred such slabs over stripes. The bench has no bar defects, so the rule sits at its prior weight; the audit is unchanged (by task 90.1%, held-out human 68.9%, unseen 92.2% / 96.8%, bootstrap 89.5% ± 1.7%).
 
+**Leakage check (2026-10-26):** the same 5-fold-by-task audit with each pair's good side chosen at random: held-out 50.0% ± 1.7% over 10 shuffles (max 52.3%), against 90.1% with the real labels - the folds share nothing that lets the fit read the answer.
+
 **Attack (`eval/attack.py`):** hill-climbing engine outputs on the
 discriminator's score found one hole - it bought margin balance by breaking
 button labels onto two lines ("Learn / More"), because text re-wrapping
