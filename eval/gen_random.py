@@ -9,8 +9,8 @@ structures someone thought of; this searches for the rest.  `python -m
 eval.hunt` ranks the engine's outputs on it and shows the worst.
 
     python -m eval.gen_random --out eval/testsets/random --n 150
-    python -m eval.gen_random --out eval/testsets/strips --n 80 --strips   # banner sources -> tall / square
-    python -m eval.gen_random --out eval/testsets/tall --n 80 --tall       # skyscraper sources -> wide / square
+    python -m eval.gen_random --out eval/testsets/strips --n 80 --kind strips   # banner sources -> tall / square
+    python -m eval.gen_random --out eval/testsets/tall --n 80 --kind tall       # skyscraper sources -> wide / square
 """
 
 from __future__ import annotations
@@ -364,18 +364,83 @@ def effects_design(rng: random.Random) -> Design:
     return d
 
 
-def generate(out_dir: Path, n: int, seed: int, strips: bool = False, tall: bool = False, patterns: bool = False,
-             skeletons: bool = False, wild: bool = False, effects: bool = False):
+STATS = [("100%", "natural"), ("0g", "added sugar"), ("4", "flavors"), ("12", "botanicals"), ("5★", "rated")]
+STEPS = ["Pick a flavor", "Chill it", "Pour over ice", "Share the sunset"]
+
+
+def marketing_design(rng: random.Random) -> Design:
+    """Marketing furniture the other sets lack: a row of stats (big number over caption), numbered steps
+    (a number in a circle over a caption), a coupon code box, a star rating line, a QR code in a corner."""
+    W, H = rng.choice(SOURCES)
+    d, u = Design(W, H, rng), min(W, H) / 1080
+    d.bg_solid(rng.choice((PLUM, DEEP)))
+    d.logo(W / 2, 50 * u, 220 * u)
+    kind = rng.choice(("stats", "steps", "coupon", "rating", "qr"))
+    y = H * 0.16 + d.text("headline", rng.choice(HEAD_SHORT), SERIF, 84 * u, rgba(*WHITE), W * 0.08, H * 0.16, W * 0.84,
+                          weight="bold")["height"]
+    if kind in ("stats", "steps"):
+        n = rng.choice((3, 4))
+        cw = W * 0.84 / n
+        for k in range(n):
+            cx = W * 0.08 + cw * (k + 0.5)
+            if kind == "stats":
+                number, caption = STATS[k]
+                h = d.text("stat", number, SERIF, 96 * u, rgba(*GOLD), cx - cw / 2, y + 60 * u, cw, weight="bold")["height"]
+            else:
+                number, caption, r = str(k + 1), STEPS[k], 44 * u
+                d.shape("step_dot", cx - r, y + 60 * u, 2 * r, 2 * r, ORANGE, kind="ellipse", group=f"step{k}")
+                d.text("step_no", number, SANS, 40 * u, rgba(*WHITE), cx - r, y + 60 * u + r - 26 * u, 2 * r, weight="bold",
+                       group=f"step{k}")
+                h = 2 * r
+            d.text("caption", caption, SANS, 26 * u, rgba(*WHITE), cx - cw / 2 + 8 * u, y + 76 * u + h, cw - 16 * u)
+    elif kind == "coupon":
+        bw, bh = W * 0.5, 170 * u
+        bx, by = (W - bw) / 2, y + 60 * u
+        d.shape("coupon", bx, by, bw, bh, CREAM, radius=16 * u)
+        d.text("coupon_label", "USE CODE", SANS, 24 * u, rgba(*INK), bx, by + 26 * u, bw, ls=4 * u, weight="bold")
+        d.text("coupon_code", rng.choice(("SUNSET20", "GOLDEN15", "SIPSLOW")), SANS, 64 * u, rgba(*ORANGE), bx,
+               by + 62 * u, bw, weight="bold")
+        size = min(W, H) * 0.24
+        d.image("product", BOTTLE, (W - size) / 2, by + bh + 40 * u, size, size)
+    else:
+        size = min(W, H) * 0.3
+        d.image("product", BOTTLE, (W - size) / 2, y + 40 * u, size, size)
+        if kind == "rating":
+            d.text("stars", "★★★★★", SANS, 48 * u, rgba(*GOLD), W * 0.2, y + 70 * u + size, W * 0.6)
+            d.text("reviews", "4.9 from 2,000 reviews", SANS, 24 * u, rgba(*WHITE), W * 0.2, y + 130 * u + size, W * 0.6)
+        else:
+            q = 150 * u
+            qx, qy = W - q - 50 * u, H - q - 90 * u
+            d.shape("qr", qx, qy, q, q, WHITE, radius=8 * u, group="qr")
+            for fx, fy in ((0, 0), (1, 0), (0, 1)):
+                d.shape("qr_mark", qx + 14 * u + fx * (q - 70 * u), qy + 14 * u + fy * (q - 70 * u), 42 * u, 42 * u, INK,
+                        group="qr")
+            d.text("qr_caption", "Scan to order", SANS, 22 * u, rgba(*WHITE), qx - 40 * u, qy + q + 12 * u, q + 80 * u)
+    _cta(d, rng.choice(CTAS), W / 2, H * 0.84, 26 * u)
+    return d
+
+
+KINDS = {  # test set: (design maker, which catalogue targets suit it)
+    "random": (lambda r: design(r, SOURCES), lambda f: True),
+    "strips": (strip_design, lambda f: f[2] >= 0.6 * f[1]),
+    "tall": (lambda r: design(r, TALL), lambda f: f[1] >= f[2]),
+    "patterns": (pattern_design, lambda f: True),
+    "skeletons": (skeleton_design, lambda f: True),
+    "wild": (wild_design, lambda f: True),
+    "effects": (effects_design, lambda f: True),
+    "marketing": (marketing_design, lambda f: True),
+}
+
+
+def generate(out_dir: Path, n: int, seed: int, kind: str = "random"):
     tasks_dir = Path(out_dir) / "tasks"
     tasks_dir.mkdir(parents=True, exist_ok=True)
     rng, manifest = random.Random(seed), []
+    make, wanted = KINDS[kind]
     for i in range(n):
         r = random.Random(rng.random())
-        src = (strip_design(r) if strips else pattern_design(r) if patterns else skeleton_design(r) if skeletons else
-               wild_design(r) if wild else effects_design(r) if effects else
-               design(r, TALL if tall else SOURCES)).to_source()
+        src = make(r).to_source()
         sw, sh = src["canvas"]["width"], src["canvas"]["height"]
-        wanted = (lambda f: f[2] >= 0.6 * f[1]) if strips else (lambda f: f[1] >= f[2]) if tall else (lambda f: True)
         targets = [f for f in FORMATS if (f[1], f[2]) != (sw, sh) and wanted(f)]
         for name, tw, th in rng.sample(targets, 2):
             tid = f"random_{i:03d}__{name.lower().replace(' ', '_')}"
@@ -395,17 +460,14 @@ def main():
     ap.add_argument("--out", default=str(ROOT / "eval" / "testsets" / "random"))
     ap.add_argument("--n", type=int, default=150)
     ap.add_argument("--seed", type=int, default=7)
-    ap.add_argument("--strips", action="store_true", help="banner-shaped sources, resized to square and tall formats")
-    ap.add_argument("--tall", action="store_true", help="skyscraper sources, resized to square and wide formats")
-    ap.add_argument("--patterns", action="store_true", help="Z-pattern, 2x2 product grid and half-bleed panel designs")
-    ap.add_argument("--skeletons", action="store_true",
-                    help="copy in a colour block, scrim band, feature columns, partner footer, card overlap designs")
-    ap.add_argument("--wild", action="store_true",
-                    help="full-bleed photo, dense menu, grouped duo offers, badge ring, testimonial designs")
-    ap.add_argument("--effects", action="store_true",
-                    help="card and text shadows, outlined type, two-tone backgrounds, bare colour strips")
+    ap.add_argument("--kind", default="random", choices=sorted(KINDS),
+                    help="strips: banner sources -> tall / square; tall: skyscraper sources -> wide / square; "
+                         "patterns: Z-pattern, 2x2 grid, half-bleed panel; skeletons: colour block, scrim band, "
+                         "feature columns, partner footer, card overlap; wild: full-bleed photo, dense menu, duo "
+                         "offers, badge ring, testimonial; effects: shadows, outlined type, two-tone, colour strips; "
+                         "marketing: stats row, numbered steps, coupon code, star rating, QR corner")
     a = ap.parse_args()
-    generate(Path(a.out), a.n, a.seed, a.strips, a.tall, a.patterns, a.skeletons, a.wild, a.effects)
+    generate(Path(a.out), a.n, a.seed, a.kind)
 
 
 if __name__ == "__main__":

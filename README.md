@@ -196,12 +196,13 @@ Development-only tooling, not copied into the image
   targets including 10:1 strips, 64 px squares and 4K.
 * `gen_random.py` – random plausible designs (the pieces real designs are made
   of, combined at random in four skeletons) × random catalogue targets, plus
-  modes for banner and skyscraper sources (`--strips`, `--tall`) and further
-  skeletons (`--patterns`: Z-pattern, product grid, half-bleed panel;
-  `--skeletons`: copy in a colour block, scrim, feature columns, partner
-  footer, card overlap; `--wild`: full-bleed photo, menu, grouped offers,
-  badge ring, testimonial; `--effects`: card and text shadows, outlined type,
-  two-tone backgrounds, bare colour strips); `hunt.py` ranks the engine's outputs on any set by the source-relative part
+  kinds (`--kind`) for banner and skyscraper sources (`strips`, `tall`) and
+  further skeletons (`patterns`: Z-pattern, product grid, half-bleed panel;
+  `skeletons`: copy in a colour block, scrim, feature columns, partner
+  footer, card overlap; `wild`: full-bleed photo, menu, grouped offers,
+  badge ring, testimonial; `effects`: card and text shadows, outlined type,
+  two-tone backgrounds, bare colour strips; `marketing`: stats row, numbered
+  steps, coupon code, star rating, QR corner); `hunt.py` ranks the engine's outputs on any set by the source-relative part
   of the discriminator and shows the worst - where new weaknesses come from.
 * `score.py` – a hard structural gate (schema, ids, frozen content/fonts/assets,
   bounds, aspect, renderability) plus 17 rubric metrics computed from real font
