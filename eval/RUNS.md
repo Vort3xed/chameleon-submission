@@ -71,7 +71,7 @@ pairwise logs); `eval/runs/history.jsonl` has every scorer run.
 
 ## Current best
 
-**v39z**: formats 98.73 · fresh holdout2 98.51 · crazy 96.81 · random 98.29 · strips 99.63 · tall 98.70 · patterns 99.34 · skeletons 98.08 · wild 98.79 · effects 98.47 · marketing 99.17 · offers 99.15 · extra presets 97.78 · 0 gate failures, 0 crashes.
+**v40b**: formats 98.73 · fresh holdout2 98.51 · crazy 96.81 · random 98.29 · strips 99.63 · tall 98.70 · patterns 99.34 · skeletons 98.08 · wild 98.79 · effects 98.47 · marketing 99.17 · offers 99.15 · compare 97.63 · extra presets 97.78 · 0 gate failures, 0 crashes.
 
 Earlier, **v37y**: formats 98.63 · fresh holdout2 98.31 · crazy 96.99 (35 designs) · random 97.95 · extra presets 97.60 · 0 gate failures.
 Against v36r (start of 2026-10-25): discriminator formats 496–237 (p 10⁻²², 1 severe), fresh holdout2 82–31
@@ -185,7 +185,8 @@ v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 | v39y | on a strip (3:1 or more) a row of product cards may shed what it says (name, price, button) and keep every picture (hunt: illegible names on 970x90 cards; first version emptied button pills, all-canvas version dropped legible captions at 250x250) | – | 98.77 | loop neutral (formats 11–7, wild 4–0) but the VLM 0–8 (10 ties) against: it keeps preferring content kept, however small. Dropped | |
 | v39z | another generated set (`--kind offers`: was/now price, countdown, store badges, social proof): a was and a now price set side by side split apart, the old one ending larger than the new; two prices a word apart on one line are now one price unit (the countdown already held: digit boxes over units are column units) | – | 98.73 | offers 12–8 (+0.11), the rest unchanged - kept on VLM 16–2 and visual review. First judged 7–17: the judge read outputs with the old scene analysis, two loose prices whose edges align with nothing; read with the new one, the pair is one centred block. A change to scene analysis is judged with its own | `de2539e` |
 | v40a | a third generated set (`--kind compare`: two pricing cards, each a title, a price, three bullets, a button): inside a card the banner row split the bullet list across columns; a row now never cuts inside a list | – | 98.73 | neutral (crazy 0–2, compare 3–7); VLM compare 7–2 for it ('bullets aligned in a single column') but crazy_bullets 0–2 against: on a 728x90 or 2000x200 strip a list across columns is how it fits | |
-| v40b | a row keeps a list in one column unless splitting it buys the type over 25% (strips keep their multi-column lists) | – | 98.73 | crazy back unchanged, compare 3–7 on the judge (the one-column list is smaller) and VLM 7–2 for it - kept on the VLM and visual review | |
+| v40b | a row keeps a list in one column unless splitting it buys the type over 25% (strips keep their multi-column lists) | – | 98.73 | crazy back unchanged, compare 3–7 on the judge (the one-column list is smaller) and VLM 7–2 for it - kept on the VLM and visual review | `99eda0f` |
+| v40c | the compare set at 320x100: one card kept, empty but for its 'Choose' button - with no call to action of its own the design's biggest pill became one, and a card holding the CTA is never dropped; a label repeated on several buttons is the items', never promoted | – | 98.73 | ACCEPT: compare 25–7 (+0.10, one severe), the rest unchanged; VLM 6–8 (26 ties) - neutral | |
 | (pre-screen) | preserve: a boost may not crush the gaps between bands below 60% of theirs (the official core sample at 1080x1080: body text touching the button) | – | – | formats 13–64, skeletons 1–13: the bigger boosted type wins. Dropped | |
 
 **Lesson (v29–v31):** a chain of small A/B wins (+0.06, +0.06, +0.38 on 8

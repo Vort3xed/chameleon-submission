@@ -628,3 +628,15 @@ def test_a_bullet_list_is_never_split_across_columns(target):
     for card in (("point", "point_2", "point_3"), ("point_4", "point_5", "point_6")):
         shown = [out[k] for k in card if out[k].get("opacity", 1) > 0]
         assert len({round(e["x"]) for e in shown}) <= 1
+
+
+def test_no_card_stands_empty_round_its_button():
+    """Buttons repeated on every card ("Choose") are the items', not the call to action: no card is kept
+    for its button alone once its plan, price and points are dropped (320x100)."""
+    task = json.loads((ROOT / "tests" / "fixtures" / "pricing_strip.json").read_text())
+    out = {e["id"]: e for e in resize(task["source"], task["target_canvas"])["elements"]}
+    for card, btn in (("card", "plan_btn"), ("card_2", "plan_btn_2")):
+        if out[card].get("opacity", 1) > 0:
+            inside = [k for k, e in out.items() if k.startswith(("plan", "point")) and not k.startswith("plan_btn")
+                      and e.get("opacity", 1) > 0]
+            assert inside, f"{card} holds nothing but its button"

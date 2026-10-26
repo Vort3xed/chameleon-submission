@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Dict, List, Optional, Tuple
@@ -652,7 +653,9 @@ def assign_roles(blocks: List[Block], W: float, H: float):
         hero = max(heroes, key=image_area)
         hero.role = "hero" if hero.kind != "row" else "row"
         hero.hero = True
-    chips = [b for b in flat if b.kind == "rigid" and b.role in ("badge", "cta")]
+    said = Counter(t.content.strip().lower() for b in flat if b.kind == "rigid" for t in b.texts)
+    chips = [b for b in flat if b.kind == "rigid" and b.role in ("badge", "cta")
+             and not any(said[t.content.strip().lower()] > 1 for t in b.texts)]  # a label on every card is the item's
     if chips and not any(b.role == "cta" for b in flat):
         # biggest label, lowest on the page = the call to action
         best = max(chips, key=lambda b: max(t.font for t in b.texts) * (1 + 0.3 * b.src.cy / H) if b.texts else 0)
