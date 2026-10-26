@@ -71,7 +71,7 @@ pairwise logs); `eval/runs/history.jsonl` has every scorer run.
 
 ## Current best
 
-**v40b**: formats 98.73 · fresh holdout2 98.51 · crazy 96.81 · random 98.29 · strips 99.63 · tall 98.70 · patterns 99.34 · skeletons 98.08 · wild 98.79 · effects 98.47 · marketing 99.17 · offers 99.15 · compare 97.63 · extra presets 97.78 · 0 gate failures, 0 crashes.
+**v40c**: formats 98.73 · fresh holdout2 98.51 · crazy 96.81 · random 98.29 · strips 99.63 · tall 98.70 · patterns 99.34 · skeletons 98.08 · wild 98.79 · effects 98.47 · marketing 99.17 · offers 99.15 · compare 97.89 · extra presets 97.78 · 0 gate failures, 0 crashes.
 
 Earlier, **v37y**: formats 98.63 · fresh holdout2 98.31 · crazy 96.99 (35 designs) · random 97.95 · extra presets 97.60 · 0 gate failures.
 Against v36r (start of 2026-10-25): discriminator formats 496–237 (p 10⁻²², 1 severe), fresh holdout2 82–31
@@ -393,6 +393,8 @@ not in the main catalogue, incl. 120×600, 300×1050, 468×60, 234×60,
 **VLM on the format set (v39f2 vs v38o, 2026-10-26):** 80 differing tasks, v39f2 31 - v38o 16 (33 ties), net +0.17 (before the scrim fix, v39d vs v38o was -0.07, almost all of it on scrim designs).
 
 **VLM on the fresh holdout (v39d vs v38o, 2026-10-26):** the day's changes judged by the other judge on holdout2 (never tuned on): 26 differing tasks, v39d 14 - v38o 6 (6 ties), net +0.31 - same direction as the discriminator, beyond the judge's noise. Its reasons for v38o: two centred scrim layouts and a split card it found more balanced.
+
+**Submission check (v40c, 2026-10-26):** image rebuilt; `eval.docker_parity` (now with the compare set) 107/107 byte-identical to native.
 
 **Submission check (v39z, 2026-10-26):** image rebuilt; `eval.docker_parity` (now with the offers set) 99/99 byte-identical to native.
 
