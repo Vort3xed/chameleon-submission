@@ -32,7 +32,7 @@ from .scene import Block
 # (eval/fit_prefs.py).  Guard terms keep their earlier weights: the judge only
 # ever saw candidates these already screened (narrow shattered columns, tiny
 # text, overlaps), so the data cannot price them.
-WEIGHTS = {"hero": 0.16, "fill": 0.14, "coverage": 0.12, "headline": 0.20, "kept": 0.18, "legibility": 0.16,
+WEIGHTS = {"hero": 0.16, "fill": 0.14, "coverage": 0.12, "headline": 0.20, "kept": 0.18, "legibility": 0.28,
            "balance": 0.07, "faithful": 0.06, "wrap": 0.12, "overlap": 0.12, "hierarchy": 0.08,
            "is_preserve_near": 0.06, "is_stack_near": 0.05, "is_split_near": -0.05,
            "is_preserve_mid": 0.10, "is_split_mid": 0.13, "is_stack_mid": -0.09, "is_row_mid": -0.14,
