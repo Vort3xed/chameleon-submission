@@ -354,13 +354,14 @@ def row(scope: Scope, ctx0: Ctx, shrink: float = 1.0) -> List[Layout]:
                      _edge_inset(tail[-1], 2, c.W - reg.x1) if tail else 0.0)
             if even:  # a padded end sets the drawn margin on both ends
                 inset = (max(inset),) * 2
-            used = sum(inset) + sum(w for _, (w, _) in fixed + tail) + gap * (len(fixed) + len(tail) + len(parts) - 1)
+            gaps = _row_gaps([b for b, _ in fixed] + list(parts) + [b for b, _ in tail], ts, gap)
+            used = sum(inset) + sum(w for _, (w, _) in fixed + tail) + sum(gaps)
             weights = [_text_weight(p) for p in parts]
             widths = [(reg.w - used) * w / sum(weights) for w in weights] if parts else []
-            return c, fixed, tail, widths, inset
+            return c, fixed, tail, widths, inset, gaps
 
         def fits(ts, relax, even):
-            c, fixed, tail, widths, _ = columns(ts, relax, even)
+            c, fixed, tail, widths, _, _ = columns(ts, relax, even)
             if any(w <= 4 for w in widths) or any(h > reg.h for _, (_, h) in fixed + tail):
                 return False
             if parts and sum(widths) < TEXT_SHARE * reg.w:
@@ -380,8 +381,8 @@ def row(scope: Scope, ctx0: Ctx, shrink: float = 1.0) -> List[Layout]:
                     break
             if ts is None:
                 break
-            c, fixed, tail, widths, inset = columns(ts * shrink, relax, even)
-            made.append((ts, _row_layout(c, fixed, tail, parts, widths, inset, reg, gap, cta, blocks, hi0,
+            c, fixed, tail, widths, inset, gaps = columns(ts * shrink, relax, even)
+            made.append((ts, _row_layout(c, fixed, tail, parts, widths, inset, reg, gaps, cta, blocks, hi0,
                                          f"row {len(parts)}col s={shrink}")))
             if inset[0] == inset[1]:
                 break  # the ends are already even
@@ -392,6 +393,17 @@ def row(scope: Scope, ctx0: Ctx, shrink: float = 1.0) -> List[Layout]:
 
 
 EVEN_COST = 0.9  # even end margins may cost a banner's type up to 10%, never a line break
+TEXT_GAP_EM = 0.35  # copy keeps at least this many em of its largest text from its neighbours in a row
+
+
+def _row_gaps(seq, ts: float, base: float) -> List[float]:
+    """Gap after each item of a banner row: the usual gap, widened where copy
+    sits beside something (a headline must not touch the product or the button)."""
+    def em(obj) -> float:
+        blocks = obj if isinstance(obj, list) else [obj]
+        return max((i.font for b in blocks if b.role != "cta" for i in b.texts), default=0.0) * ts
+
+    return [max(base, TEXT_GAP_EM * max(em(a), em(b))) for a, b in zip(seq, seq[1:])]
 
 
 def _lines(lay: Layout) -> Dict[int, int]:
@@ -400,26 +412,26 @@ def _lines(lay: Layout) -> Dict[int, int]:
             if (p := lay.out.get(it.idx)) is not None and not p.hidden and p.font}
 
 
-def _row_layout(c: Ctx, fixed, tail, parts, widths, inset, reg: Rect, gap: float, cta, blocks, hi0: float,
+def _row_layout(c: Ctx, fixed, tail, parts, widths, inset, reg: Rect, gaps: List[float], cta, blocks, hi0: float,
                 name: str) -> Layout:
     cf = c.with_scale(min(c.ts, hi0), min(c.ts, hi0))
     lay = Layout(name, c)
     seq = [(b, wh[0]) for b, wh in fixed] + [(p, w) for p, w in zip(parts, widths)] + [(b, wh[0]) for b, wh in tail]
-    free = reg.w - sum(inset) - sum(w for _, w in seq) - gap * (len(seq) - 1)
+    free = reg.w - sum(inset) - sum(w for _, w in seq) - sum(gaps)
     extra = max(0.0, free) / max(1, len(seq) - 1)
     x = reg.x + inset[0]
-    for obj, w in seq:
+    for (obj, w), g in zip(seq, gaps + [0.0]):
         if isinstance(obj, Block):
             bc = _slot_ctx(obj, cf, reg)
             bw, bh = measure(obj, bc, reg.w / 3)
             lay.placed.append((obj, place(obj, bc, x, reg.y + (reg.h - bh) / 2, reg.w / 3, INF, lay.out)))
         else:
             lay.placed += stack_place(obj, c, Rect(x, reg.y, w, reg.h), lay.out, valign="center")
-        x += w + gap + extra
+        x += w + g + extra
     if cta:
         _cta_below_headline(lay, cta[0], cf, reg)
     _centre_columns(lay, [obj if isinstance(obj, list) else [obj] for obj, _ in seq], reg.cy)
-    _center_ink(lay, blocks, reg, gap)
+    _center_ink(lay, blocks, reg, min(gaps, default=0.0))
     return lay
 
 
