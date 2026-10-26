@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from eval.design_rules import RULES, TASTE, evaluate, taste  # noqa: E402
+from eval.design_rules import RULES, TASTE, evaluate, role_groups, taste  # noqa: E402
 
 BENCH = ROOT / "eval" / "judge_bench"
 WEIGHTS = ROOT / "eval" / "judge_weights.json"
@@ -69,7 +69,7 @@ def features(source: dict, target: dict, design: dict) -> dict:
         src_scene, src_prep = _sources[digest]
         scene = _scene(design)
         f = {f"rule_{k}": v for k, v in evaluate(source, design, (src_scene, scene)).items()}
-        f.update({f"taste_{k}": v for k, v in taste(design, scene).items()})
+        f.update({f"taste_{k}": v for k, v in taste(design, scene, role_groups(src_scene[2], "hero")).items()})
         r = score_task(source, target, design, src_prep, do_render=False, schema=False)
         failed = bool(r.get("gate"))  # a design that breaks the hard rules scores nothing
         f.update({f"score_{k}": 0.0 if failed else float(r["metrics"].get(k, 1.0)) for k in SCORER})
@@ -83,7 +83,7 @@ def save_cache():
 
 def load(which: str):
     path = BENCH / {"synthetic": "pairs.jsonl", "human": "human_pairs.jsonl", "unseen": "unseen_pairs.jsonl",
-                    "unseen2": "unseen2_pairs.jsonl"}[which]
+                    "unseen2": "unseen2_pairs.jsonl", "unseen3": "unseen3_pairs.jsonl"}[which]
     return [json.loads(l) for l in path.read_text().splitlines()] if path.exists() else []
 
 
@@ -185,7 +185,8 @@ def audit(vlm: str = "", l2: float = 0.01):
         print(f"  fit synthetic + other human -> held-out human: {np.mean(accs):.1%}")
     w = fit(np.vstack([Xs] + [Xh] * HUMAN_WEIGHT) if len(hum) else Xs, l2)
     for name, title in (("unseen", "defect kinds never used in fitting (other tasks, newer engine)"),
-                        ("unseen2", "a second unseen set, built after the rules were last changed")):
+                        ("unseen2", "a second unseen set, built after the rules were last changed"),
+                        ("unseen3", "a third: failures the engine could make (cropped art, text off its card, ...)")):
         unseen, Xu = design_matrix(load(name), vlm)
         if len(unseen):
             print(f"  {title}:")

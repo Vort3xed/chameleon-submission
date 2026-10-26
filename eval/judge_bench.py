@@ -6,6 +6,7 @@ blocks crammed together, lopsided margins, ...), plus identical pairs that
 should tie.  A judge that cannot tell these apart cannot steer the engine.
 
     python -m eval.judge_bench build --run v35f_allformats --n 40
+    python -m eval.judge_bench build --set unseen3 --run v39p_allformats --seed 3   # held-out kinds
     python -m eval.judge_bench run --judge holistic
     python -m eval.judge_bench report
 """
@@ -368,6 +369,99 @@ UNSEEN2_FNS = {"widow": widow, "stranded_cta": stranded_cta, "logo_drift": logo_
                "badge_on_headline": badge_on_headline, "tilt": tilt, "squeeze": squeeze}
 
 
+def _shown(d, b) -> bool:
+    """The block is drawn (the engine hides dropped content at opacity 0)."""
+    return all(d["elements"][i].get("opacity", 1) > 0.5 for i in _idxs(b))
+
+
+def uneven_gaps(d, sev, rng):
+    """A stack's rhythm broken: its first gap mostly closes and its last widens by as much."""
+    W, H, sc = _blocks(d)
+    bs = sorted(sc.blocks, key=lambda b: b.src.y)
+    stacked = [k for k in range(1, len(bs)) if bs[k].src.y - bs[k - 1].src.y1 > 0.01 * H
+               and min(bs[k].src.x1, bs[k - 1].src.x1) > max(bs[k].src.x, bs[k - 1].src.x)]
+    if len(stacked) < 2:
+        return None
+    first, last = stacked[0], stacked[-1]
+    shift = sev * (bs[first].src.y - bs[first - 1].src.y1)
+    for b in bs[first:last]:
+        _move(d, _idxs(b), 0, -shift)
+    return d
+
+
+def off_card(d, sev, rng):
+    """A text lifted off the card it sat on, onto the background beside the card."""
+    W, H, sc = _blocks(d)
+    cards = [b for b in sc.blocks if b.kind == "panel" and b.frame is not None and any(c.texts for c in b.children)]
+    if not cards:
+        return None
+    card = rng.choice(cards)
+    texts = [c for c in card.children if c.texts and _shown(d, c)]
+    if not texts:
+        return None
+    t, f = rng.choice(texts), card.frame.box
+    if max(H - f.y1, f.y) < t.src.h + 4:
+        return None
+    _move(d, _idxs(t), 0, f.y1 + 4 - t.src.y if H - f.y1 >= f.y else f.y - 4 - t.src.y1)
+    return d
+
+
+def align_break(d, sev, rng):
+    """A centred text switched to ragged left: its lines leave the axis the rest share."""
+    W, H, sc = _blocks(d)
+    cands = [it for b in sc.blocks if b.kind == "text" and _shown(d, b) for it in b.texts  # its lines moving visibly
+             if d["elements"][it.idx].get("text_align") == "center" and it.box.w - it.ink.w > 0.04 * W]
+    if not cands:
+        return None
+    d["elements"][rng.choice(cands).idx]["text_align"] = "left"
+    return d
+
+
+def hero_crop(d, sev, rng):
+    """The product art pushed part-way off the nearer canvas edge."""
+    W, H, sc = _blocks(d)
+    b = _pick(sc.blocks, ("hero",), rng)
+    if b is None:
+        return None
+    r = b.src
+    dx = W + sev * r.w - r.x1 if r.cx > W / 2 else -sev * r.w - r.x
+    for i in _idxs(b):
+        d["elements"][i]["x"] = round(d["elements"][i]["x"] + dx, 2)
+    return d
+
+
+def band_float(d, sev, rng):
+    """A header or footer bar pulled off its edge, a strip of background beyond it."""
+    W, H, sc = _blocks(d)
+    bars = [b for b in sc.blocks if b.band in ("top", "bottom")]
+    if not bars:
+        return None
+    b = rng.choice(bars)
+    _, dy = _move(d, _idxs(b), 0, sev * H if b.band == "top" else -sev * H)
+    return d if abs(dy) >= 0.5 * sev * H else None
+
+
+def overflow(d, sev, rng):
+    """A text box narrowed without growing taller: its lines spill out below it."""
+    W, H, sc = _blocks(d)
+    b = _pick([b for b in sc.blocks if _shown(d, b)], ("headline", "subhead", "body"), rng)
+    if b is None or b.kind != "text":
+        return None
+    it = b.items[0]
+    e = d["elements"][it.idx]
+    w = e["width"] * sev
+    if it.text_layout(e["font_size"], w).n_lines <= it.text_layout(e["font_size"], e["width"]).n_lines:
+        return None
+    e["x"], e["width"] = e["x"] + (e["width"] - w) / 2, w
+    return d
+
+
+UNSEEN3 = {"uneven_gaps": (0.67,), "off_card": (1,), "align_break": (1,), "hero_crop": (0.35,), "band_float": (0.06,),
+           "overflow": (0.6,)}
+UNSEEN3_FNS = {"uneven_gaps": uneven_gaps, "off_card": off_card, "align_break": align_break, "hero_crop": hero_crop,
+               "band_float": band_float, "overflow": overflow}
+
+
 UNSEEN = {  # kinds never used to fit the discriminator: a check of how it generalises
     "swap_order": (1,), "text_on_art": (0.5,), "tiny_logo": (0.5,), "huge_cta": (1.6,), "shrink_all": (0.75,),
     "drift": (0.08,), "halve_gaps": (0.5,),
@@ -386,7 +480,15 @@ FNS = {"same": same, "invisible": invisible, "nudge": nudge, "cramp": cramp, "lo
        "flat_hierarchy": flat_hierarchy, "jitter": jitter, "text_small": text_small, "collide": collide}
 
 
-def build(run: str, tasks: str, n: int, seed: int, unseen: bool = False):
+SETS = {"synthetic": "pairs.jsonl", "human": "human_pairs.jsonl", "unseen": "unseen_pairs.jsonl",
+        "unseen2": "unseen2_pairs.jsonl", "unseen3": "unseen3_pairs.jsonl"}
+KINDS = {  # defect set: (kind -> severities, kind -> defect); unseen sets are never used in fitting
+    "synthetic": (DEFECTS, FNS), "unseen": (UNSEEN, UNSEEN_FNS), "unseen2": (UNSEEN2, UNSEEN2_FNS),
+    "unseen3": (UNSEEN3, UNSEEN3_FNS),
+}
+
+
+def build(run: str, tasks: str, n: int, seed: int, which: str = "synthetic"):
     outs = ROOT / "eval" / "runs" / run / "outputs"
     ids = sorted(p.stem for p in outs.glob("*.json"))
     rng = random.Random(seed)
@@ -395,18 +497,18 @@ def build(run: str, tasks: str, n: int, seed: int, unseen: bool = False):
     for tid in ids[:n]:
         task = json.loads((Path(tasks) / "tasks" / f"{tid}.json").read_text())
         good = json.loads((outs / f"{tid}.json").read_text())
-        for kind, sevs in (UNSEEN if unseen else DEFECTS).items():
+        kinds, fns = KINDS[which]
+        for kind, sevs in kinds.items():
             for sev in sevs:
                 if kind in FROM_SOURCE:
                     bad = FROM_SOURCE[kind](task, sev)
                 else:
-                    fn = (UNSEEN_FNS if unseen else FNS)[kind]
-                    bad = fn(copy.deepcopy(good), sev, random.Random(f"{tid}:{kind}:{sev}"))
+                    bad = fns[kind](copy.deepcopy(good), sev, random.Random(f"{tid}:{kind}:{sev}"))
                 if bad is not None and (kind in TIES or bad != good):
                     pairs.append({"id": f"{tid}|{kind}|{sev}", "task_id": tid, "kind": kind, "sev": sev,
                                   "source": task["source"], "target": task["target_canvas"], "good": good, "bad": bad})
     BENCH.mkdir(parents=True, exist_ok=True)
-    (BENCH / ("unseen_pairs.jsonl" if unseen else "pairs.jsonl")).write_text("\n".join(json.dumps(p) for p in pairs))
+    (BENCH / SETS[which]).write_text("\n".join(json.dumps(p) for p in pairs))
     counts = defaultdict(int)
     for p in pairs:
         counts[(p["kind"], p["sev"])] += 1
@@ -437,8 +539,7 @@ def prerender(designs, procs: int = 6):
             pool.map(_render_one, todo, chunksize=4)
 
 
-SETS = {"synthetic": "pairs.jsonl", "human": "human_pairs.jsonl", "unseen": "unseen_pairs.jsonl",
-        "unseen2": "unseen2_pairs.jsonl"}
+
 
 
 def run(judge_name: str, workers: int, limit: int, which: str = "synthetic"):
@@ -509,7 +610,7 @@ def main():
     b.add_argument("--tasks", default=str(ROOT / "eval" / "testsets" / "formats"))
     b.add_argument("--n", type=int, default=40)
     b.add_argument("--seed", type=int, default=0)
-    b.add_argument("--unseen", action="store_true", help="build the held-out defect kinds instead")
+    b.add_argument("--set", default="synthetic", choices=sorted(KINDS), help="which defect kinds to build")
     r = sub.add_parser("run")
     r.add_argument("--judge", required=True)
     r.add_argument("--workers", type=int, default=8)
@@ -519,7 +620,7 @@ def main():
     rep.add_argument("names", nargs="*")
     a = ap.parse_args()
     if a.cmd == "build":
-        build(a.run, a.tasks, a.n, a.seed, a.unseen)
+        build(a.run, a.tasks, a.n, a.seed, a.set)
     elif a.cmd == "run":
         run(a.judge, a.workers, a.limit, a.set)
     else:

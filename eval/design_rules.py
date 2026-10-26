@@ -188,23 +188,32 @@ def hierarchy(src: dict, out: dict, src_scene) -> float:
     return 1.0 if want <= 1.0 else _clamp((r_out - 1.0) / (want - 1.0))
 
 
-def _drawn_area(scene, pick) -> float:
-    """Area drawn by the outermost blocks `pick` selects, nested ones included
-    (product art inside a side panel, a logo on a header bar)."""
-    area, todo = 0.0, list(scene.blocks + scene.ornaments)
+def role_groups(scene, role: str) -> List[Tuple[str, ...]]:
+    """Element ids of each outermost block of `role`, nested ones included (product art inside a side panel,
+    a logo on a header bar); product art also counts blocks marked as the hero."""
+    pick = (lambda b: b.hero or b.role == "hero") if role == "hero" else (lambda b: b.role == role)
+    groups, todo = [], list(scene.blocks + scene.ornaments)
     while todo:
         b = todo.pop()
-        if not pick(b):
+        if pick(b):
+            groups.append(tuple(i.el.get("id") for i in b.items))
+        else:
             todo += b.children
-        elif (r := bounding([i.ink for i in b.items])) is not None:
-            area += r.area
-    return area
+    return groups
 
 
-def _role_frac(d: dict, scene, role: str) -> float:
-    """Share of the canvas drawn by blocks of `role` (product art, logo)."""
+def _drawn_area(scene, groups) -> float:
+    """Area the element groups draw in a scene, each group as the extent of its drawn elements.  Roles are
+    read in the source, where the designer's structure is clear, and followed into a resize by element id:
+    analysed afresh, a resize can merge a side panel with what it holds into one 'product'."""
+    ink = {i.el.get("id"): i.ink for i in scene.items}
+    return sum(r.area for g in groups if (r := bounding([ink[k] for k in g if k in ink])) is not None)
+
+
+def _role_frac(d: dict, scene, groups) -> float:
+    """Share of the canvas drawn by the element groups (product art, logo)."""
     W, H = float(d["canvas"]["width"]), float(d["canvas"]["height"])
-    return _drawn_area(scene, lambda b: b.role == role) / (W * H)
+    return _drawn_area(scene, groups) / (W * H)
 
 
 def _ids_inks(sc, ink):
@@ -272,9 +281,10 @@ def evaluate(source: dict, output: dict, scenes=None) -> Dict[str, float]:
     m["margins"] = _clamp(1 - max(0.0, ox - sx) / 0.08) * _clamp(1 - max(0.0, oy - sy) / 0.2) ** 0.5
     m["spacing"] = cramming(_ids_inks(ssc, sink), _ids_inks(sc, ink), sW, sH, W, H)
     m["hierarchy"] = hierarchy(source, output, ssc)
-    hs, ho = _role_frac(source, ssc, "hero"), _role_frac(output, sc, "hero")
+    hero, logo = role_groups(ssc, "hero"), role_groups(ssc, "logo")
+    hs, ho = _role_frac(source, ssc, hero), _role_frac(output, sc, hero)
     m["hero"] = 1.0 if hs <= 0 else _clamp(ho / (0.85 * hs))
-    ls, lo = _role_frac(source, ssc, "logo"), _role_frac(output, sc, "logo")
+    ls, lo = _role_frac(source, ssc, logo), _role_frac(output, sc, logo)
     m["logo"] = 1.0 if ls <= 0 else _clamp(math.sqrt(lo / ls) / 0.8)  # linear size, 20% grace
     src_fill = bounding(sall).area / (sW * sH) if sall else 0.0
     out_fill = bounding(allr).area / (W * H) if allr else 0.0
@@ -331,8 +341,8 @@ def _corners(ssc, sc, sW, sH, W, H) -> float:
 
 def _bars(ssc, output: dict, W: float, H: float) -> float:
     """Share of the source's header and footer bars that are still bars on their edge (full width, touching
-    it), still cards behind all of their visible content, or hidden: a bar that floats loose from what it held
-    reads as a stray box."""
+    it), still cards (inset) behind all of their visible content, or hidden: a bar that floats loose from what
+    it held reads as a stray box, and one still full width but pulled off its edge, as a mistake."""
     bars = [b for b in ssc.blocks if b.band in ("top", "bottom")]
     if not bars:
         return 1.0
@@ -347,8 +357,8 @@ def _bars(ssc, output: dict, W: float, H: float) -> float:
         if e is None or _opacity(e) <= 0.01:
             return True
         r = box(e)
-        if r.x <= tol and r.x1 >= W - tol and (r.y <= tol if b.band == "top" else r.y1 >= H - tol):
-            return True
+        if r.x <= tol and r.x1 >= W - tol:
+            return r.y <= tol if b.band == "top" else r.y1 >= H - tol
         held = [els[i.el.get("id")] for i in b.items if i is not b.frame and i.el.get("id") in els]
         held = [box(c) for c in held if _opacity(c) > 0.01]
         held = [c for c in held if min(c.w, c.h) >= 3]  # content shrunk to a speck is not held
@@ -360,15 +370,16 @@ def _bars(ssc, output: dict, W: float, H: float) -> float:
 TASTE = ("headline", "product")
 
 
-def taste(design: dict, scene=None) -> Dict[str, float]:
+def taste(design: dict, scene=None, hero=None) -> Dict[str, float]:
     """What people reward beyond the source-relative rules (found in the human
     labels): a headline that is large for its canvas - full credit at 12% of the
     short side, the brief's own example is ~14% - and product art that fills it,
-    full at 25% of the area.  Absolute, so an original does not score 1 here."""
+    full at 25% of the area.  Absolute, so an original does not score 1 here.
+    `hero`: the product art's element groups as read in the source (else read here)."""
     W, H, sc, _ = scene or _scene(design)
     head = max((float(e.get("font_size") or 0) for e in design["elements"]
                 if e.get("type") == "text" and _opacity(e) > 0.01), default=0.0)
-    hero = _drawn_area(sc, lambda b: b.hero or b.role == "hero")
+    hero = _drawn_area(sc, role_groups(sc, "hero") if hero is None else hero)
     return {"headline": _clamp(head / min(W, H) / 0.12), "product": _clamp(hero / (W * H) / 0.25)}
 
 

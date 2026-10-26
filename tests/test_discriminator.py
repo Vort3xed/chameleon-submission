@@ -131,3 +131,23 @@ def test_bar_floating_from_its_content_scores_lower():
     gone = copy.deepcopy(loose)
     element(gone, "header")["opacity"] = 0
     assert evaluate(BARS, gone)["bars"] == pytest.approx(1.0)
+
+
+def test_a_full_width_bar_pulled_off_its_edge_scores_lower():
+    """Still spanning the canvas but a strip of background beyond it: not a card, a header that slipped."""
+    W, H = 1920, 1080
+    out = resize(BARS, {"width": W, "height": H})
+    slipped = copy.deepcopy(out)
+    for el_id in ("header", "brand"):
+        element(slipped, el_id)["y"] += 0.06 * H
+    assert evaluate(BARS, out)["bars"] == pytest.approx(1.0)
+    assert evaluate(BARS, slipped)["bars"] < 1.0
+
+
+def test_roles_are_read_in_the_source():
+    """Product art is the source's product, followed by id: a resize that merely nudges a side panel must not
+    flip what reads as the product (analysed afresh, the panel and all it holds once became 'product art')."""
+    task = json.loads((ROOT / "eval" / "testsets" / "crazy" / "tasks" / "crazy_sidebar__728x90.json").read_text())
+    runs = [json.loads((ROOT / "tests" / "fixtures" / f"sidebar_{k}.json").read_text()) for k in ("a", "b")]
+    a, b = (quality(task["source"], task["target_canvas"], d) for d in runs)
+    assert abs(a - b) < 0.2
