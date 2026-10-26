@@ -9,8 +9,10 @@ every hard rule before it returns.
 ```
 source design + target canvas
   └─ scene.py      structure inference  (backgrounds, decor, groups, containers, rows, roles)
-  └─ arrange.py    candidate layouts    (preserve / stack / split / row, per drop level)
+  └─ arrange.py    candidate layouts    (every family, per drop level; bands kept at their edges)
+       └─ families.py preserve / stack / split / row
        └─ blocks.py   measure + place    (exact renderer text wrapping, aspect-locked images)
+       └─ finishing.py decoration, corner ornaments, alignment snapping
   └─ objective.py  rank candidates      (legibility, headline & product size, coverage, overlap…)
   └─ finalize.py   enforce hard rules   (ids, order, bounds, aspect, ints, finite numbers)
 ```
@@ -52,7 +54,7 @@ centring inside buttons are exact. Letter spacing is scaled with font size.
 Fallbacks: Pillow/FreeType advances, then a per-font heuristic — the engine
 still works with no fonts or assets present.
 
-**3. Generate candidate layouts (`arrange.py`).**
+**3. Generate candidate layouts (`arrange.py`, `families.py`).**
 
 * **preserve** – nearby aspect ratios: uniform scale; blocks whose drawn content
   overlaps move together and only the space between them stretches (corner
@@ -76,7 +78,7 @@ fills two lines of the row, and the button never outshines the headline.
 Strips get wider end margins (a 320×50 button no longer sits 2 px from the
 edge); sparse designs may scale up to 2× more into a bigger canvas.
 
-**3b. Finish like a designer.** One alignment per column (mixed columns
+**3b. Finish like a designer (`finishing.py`).** One alignment per column (mixed columns
 centre); a column keeps its groups compact - the widest gaps of the original
 separate groups, a gap inside a group stays between half and 1.2 em of the
 text beside it, and spare height goes only between groups and to the margins; side-by-side columns and

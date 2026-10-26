@@ -6,7 +6,8 @@ import os
 import sys
 from typing import Tuple
 
-from .arrange import candidates, settle_decor, snap_alignment
+from .arrange import candidates
+from .finishing import settle_decor, snap_alignment
 from .blocks import Ctx
 from .finalize import finalize
 from .objective import evaluate, rank

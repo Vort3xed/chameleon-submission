@@ -28,7 +28,7 @@ SMALL_ROLES = {"legal", "badge", "ribbon", "divider"}
 MAX_MEASURE = 1.6  # text may grow at most this much wider than its scaled source box,
 LINE_EM = 20.0  # or to a comfortable line of ~40 characters, whichever is wider (long copy re-wraps to the room)
 
-# Set by arrange.py: (children, source frame, target region, ctx) -> placements.
+# Set by families.py: (children, source frame, target region, ctx) -> placements.
 # Lets a panel give its children their own best arrangement.
 panel_layout_hook = None
 

@@ -23,7 +23,7 @@ from __future__ import annotations
 import math
 from typing import Dict, List, Tuple
 
-from .arrange import Layout, Scope
+from .families import Layout, Scope
 from .blocks import SMALL_ROLES
 from .geometry import bounding
 from .scene import Block

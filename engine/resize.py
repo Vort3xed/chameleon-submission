@@ -8,7 +8,9 @@ of stretching it.  The work lives in `engine/chameleon_layout/`:
                 containers, rows, ornaments and roles (headline, CTA, logo...)
   blocks.py     measure/place each layout unit (text re-wrapped exactly like
                 the renderer wraps it, images aspect-locked, groups rigid)
-  arrange.py    candidate layouts: preserve composition, stack, split, row
+  families.py   the arrangement families: preserve composition, stack, split, row
+  arrange.py    every candidate: families x drop levels, header/footer bands kept
+  finishing.py  decoration, corner ornaments, alignment snapping
   objective.py  rank candidates on legibility, size, fill, overlap, fidelity
   finalize.py   enforce every hard rule on the chosen layout
 
