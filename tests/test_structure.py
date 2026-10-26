@@ -618,3 +618,13 @@ def test_a_was_and_now_price_stay_side_by_side(target):
     assert now["font_size"] > was["font_size"]
     assert min(was["y"] + was["height"], now["y"] + now["height"]) > max(was["y"], now["y"])  # one line
     assert was["x"] < now["x"]
+
+
+@pytest.mark.parametrize("target", [(3508, 2480), (1080, 1080), (1920, 1080)])
+def test_a_bullet_list_is_never_split_across_columns(target):
+    """A pricing card's three bullet points keep one left edge: a row of columns never cuts inside a list."""
+    src = json.loads((ROOT / "tests" / "fixtures" / "pricing_cards.json").read_text())
+    out = {e["id"]: e for e in resize(src, {"width": target[0], "height": target[1]})["elements"]}
+    for card in (("point", "point_2", "point_3"), ("point_4", "point_5", "point_6")):
+        shown = [out[k] for k in card if out[k].get("opacity", 1) > 0]
+        assert len({round(e["x"]) for e in shown}) <= 1

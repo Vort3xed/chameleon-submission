@@ -85,7 +85,7 @@ still works with no fonts or assets present.
   lives in). The same shape (aspect within 8%) always keeps the composition;
 * **stack** – a single column in reading order (tall/square canvases); groups stay compact and the spare height goes to the margins and the gaps between groups, drawn halfway to how the source spaced them (a headline the designer centred does not sink to the bottom of a tall canvas);
 * **split** – product imagery in one column, everything else stacked beside it;
-* **row** – banners: logo | product | text columns | CTA, with text partitioned into 1–3 columns; beside product art on a banner (not a strip), a logo that headed the copy stays at the head of the headline's column when that costs the type under 20% (set apart by the product, it reads as a stray); copy columns narrow to their lines and the spare width is shared between the row's items, so the gaps are even.
+* **row** – banners: logo | product | text columns | CTA, with text partitioned into 1–3 columns (a list kept in one, unless splitting it buys the type over 25%); beside product art on a banner (not a strip), a logo that headed the copy stays at the head of the headline's column when that costs the type under 20% (set apart by the product, it reads as a stray); copy columns narrow to their lines and the spare width is shared between the row's items, so the gaps are even.
 
 Each arrangement binary-searches the largest text scale that fits (and a
 calmer 0.82× variant), for several image-to-text ratios. Text never drops
@@ -207,7 +207,8 @@ Development-only tooling, not copied into the image
   badge ring, testimonial; `effects`: card and text shadows, outlined type,
   two-tone backgrounds, bare colour strips; `marketing`: stats row, numbered
   steps, coupon code, star rating, QR corner; `offers`: was/now price,
-  countdown, store badges, social proof); `hunt.py` ranks the engine's outputs on any set by the source-relative part
+  countdown, store badges, social proof; `compare`: two pricing cards with
+  bullet lists); `hunt.py` ranks the engine's outputs on any set by the source-relative part
   of the discriminator and shows the worst - where new weaknesses come from.
 * `score.py` – a hard structural gate (schema, ids, frozen content/fonts/assets,
   bounds, aspect, renderability) plus 17 rubric metrics computed from real font
