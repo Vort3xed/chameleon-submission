@@ -44,7 +44,7 @@ from engine.chameleon_layout.geometry import Rect, bounding  # noqa: E402
 from engine.chameleon_layout.scene import analyze  # noqa: E402
 
 RULES = ("alignment", "edge", "margins", "spacing", "hierarchy", "hero", "logo", "fill", "presence", "wrap",
-         "corners")
+         "corners", "bars")
 
 
 def _clamp(v: float) -> float:
@@ -283,6 +283,7 @@ def evaluate(source: dict, output: dict) -> Dict[str, float]:
     m["presence"] = presence(_ids_inks(ssc, sink), _ids_inks(sc, ink), ssc, sW * sH, W * H)
     m["wrap"] = wrapping(ssc, sc)
     m["corners"] = _corners(ssc, sc, sW, sH, W, H)
+    m["bars"] = _bars(ssc, output, W, H)
     return m
 
 
@@ -327,6 +328,24 @@ def _corners(ssc, sc, sW, sH, W, H) -> float:
             corner = ("t" if r.cy < H / 2 else "b") + ("l" if r.cx < W / 2 else "r")
             kept += corner == src[key] and near(r, W, H)
     return kept / len(src)
+
+
+def _bars(ssc, output: dict, W: float, H: float) -> float:
+    """Share of the source's header and footer bars that are still bars on their edge (full width, touching
+    it) or hidden: a bar that floats loose reads as a stray box."""
+    bars = {b.frame.el.get("id"): b.band for b in ssc.blocks if b.band in ("top", "bottom")}
+    if not bars:
+        return 1.0
+    els = {e.get("id"): e for e in output["elements"] if isinstance(e, dict)}
+    tol = 0.01 * max(W, H) + 1
+
+    def kept(e, edge) -> bool:
+        if e is None or _opacity(e) <= 0.01:
+            return True
+        x, y, w, h = (float(e.get(k) or 0) for k in ("x", "y", "width", "height"))
+        return x <= tol and x + w >= W - tol and (y <= tol if edge == "top" else y + h >= H - tol)
+
+    return sum(kept(els.get(i), edge) for i, edge in bars.items()) / len(bars)
 
 
 TASTE = ("headline", "product")
