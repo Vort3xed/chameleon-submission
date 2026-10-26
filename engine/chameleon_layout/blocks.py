@@ -16,6 +16,7 @@ at most `max_w` x `max_h`, and where each of its elements lands.
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, replace
 from typing import Dict, List, Optional, Tuple
 
@@ -381,20 +382,29 @@ def stack_place(blocks: List[Block], ctx: Ctx, region: Rect, out: Dict[int, Plac
         y += g * (stretch if brk else 1.0)
         x = lists.get(id(b), {"left": region.x, "right": region.x1 - bw}.get(axis, region.x + (region.w - bw) / 2))
         r = place(b, ctx, x, y, region.w, INF, out)
-        if axis == "center" and b.kind == "text":
+        if axis == "center" and b.kind == "text" and id(b) not in lists:
             r = _centre_snug(b, r, out)
         placed.append((b, r))
         y += bh
     return placed
 
 
+_BULLET = re.compile(r"\s*([•·▪●◦‣⁃–—*✓✔►]|\d{1,2}[.)])\s")
+
+
+def _list_item(b: Block) -> bool:
+    """An icon with its label, or a text that opens with a bullet or a number ("• Real fruit", "2. Chill")."""
+    if b.items and all(str(i.group or "").startswith("icon:") for i in b.items):
+        return True
+    return b.kind == "text" and bool(_BULLET.match(str(b.items[0].el.get("content") or "")))
+
+
 def _list_runs(blocks: List[Block], sizes, region: Rect) -> Dict[int, float]:
-    """Consecutive list items (an icon with its label) keep one left edge, the list centred as a whole:
-    x of each, by id."""
+    """Consecutive list items keep one left edge, the list centred as a whole: x of each, by id."""
     xs: Dict[int, float] = {}
     run: List[Tuple[Block, float]] = []
     for b, (bw, _) in list(zip(blocks, sizes)) + [(None, (0.0, 0.0))]:
-        if b is not None and b.items and all(str(i.group or "").startswith("icon:") for i in b.items):
+        if b is not None and _list_item(b):
             run.append((b, bw))
             continue
         if len(run) >= 2:
