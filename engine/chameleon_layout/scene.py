@@ -106,8 +106,8 @@ class Item:
                                                 self.letter_spacing(key[0]))
         return self._layouts[key]
 
-    @property
-    def ink(self) -> Rect:
+    @cached_property
+    def ink(self) -> Rect:  # (an item's box and font never change once made)
         return self.ink_at(self.box, self.font)
 
     def ink_at(self, b: Rect, font=None) -> Rect:
