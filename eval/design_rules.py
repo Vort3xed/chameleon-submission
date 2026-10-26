@@ -332,20 +332,30 @@ def _corners(ssc, sc, sW, sH, W, H) -> float:
 
 def _bars(ssc, output: dict, W: float, H: float) -> float:
     """Share of the source's header and footer bars that are still bars on their edge (full width, touching
-    it) or hidden: a bar that floats loose reads as a stray box."""
-    bars = {b.frame.el.get("id"): b.band for b in ssc.blocks if b.band in ("top", "bottom")}
+    it), still cards behind all of their visible content, or hidden: a bar that floats loose from what it held
+    reads as a stray box."""
+    bars = [b for b in ssc.blocks if b.band in ("top", "bottom")]
     if not bars:
         return 1.0
     els = {e.get("id"): e for e in output["elements"] if isinstance(e, dict)}
     tol = 0.01 * max(W, H) + 1
 
-    def kept(e, edge) -> bool:
+    def box(e) -> Rect:
+        return Rect(*(float(e.get(k) or 0) for k in ("x", "y", "width", "height")))
+
+    def kept(b) -> bool:
+        e = els.get(b.frame.el.get("id"))
         if e is None or _opacity(e) <= 0.01:
             return True
-        x, y, w, h = (float(e.get(k) or 0) for k in ("x", "y", "width", "height"))
-        return x <= tol and x + w >= W - tol and (y <= tol if edge == "top" else y + h >= H - tol)
+        r = box(e)
+        if r.x <= tol and r.x1 >= W - tol and (r.y <= tol if b.band == "top" else r.y1 >= H - tol):
+            return True
+        held = [els[i.el.get("id")] for i in b.items if i is not b.frame and i.el.get("id") in els]
+        held = [box(c) for c in held if _opacity(c) > 0.01]
+        held = [c for c in held if min(c.w, c.h) >= 3]  # content shrunk to a speck is not held
+        return bool(held) and all(r.contains(c, 0.95) for c in held)
 
-    return sum(kept(els.get(i), edge) for i, edge in bars.items()) / len(bars)
+    return sum(map(kept, bars)) / len(bars)
 
 
 TASTE = ("headline", "product")
