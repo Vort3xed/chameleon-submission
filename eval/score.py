@@ -803,19 +803,21 @@ def score_task(source: dict, target: dict, output, src_prep: Optional[Prep] = No
             issues.append(f"{cid} left container {pid}")
     m["groups"] = wavg(gs) if gs else 1.0
 
-    # ---- distortion (circles/pills stretched) -----------------------------------
+    # ---- distortion (circles stretched) -----------------------------------------
+    # corners are drawn at a fixed radius, so a card or a pill of another aspect is not distorted; an ellipse
+    # is, and so is a rounded square drawn as a circle (radius near half its longer side) turned capsule
     ds = []
     for v in O.vis:
         sv = S.by_id.get(v.id)
         if not sv or v.type != "shape" or not v.visible:
             continue
         el = sv.el
-        round_ish = el.get("shape_type") == "ellipse" or num(el.get("corner_radius"), 0) > 0
-        if not round_ish:
-            continue
         sw, sh = sv.box[2] - sv.box[0], sv.box[3] - sv.box[1]
         ow, oh = v.box[2] - v.box[0], v.box[3] - v.box[1]
         if min(sw, sh, ow, oh) <= 1:
+            continue
+        round_ish = el.get("shape_type") == "ellipse" or num(el.get("corner_radius"), 0) >= 0.45 * max(sw, sh)
+        if not round_ish:
             continue
         lr = abs(math.log((ow / oh) / (sw / sh)))
         tol = 0.05 if el.get("shape_type") == "ellipse" else 0.6
