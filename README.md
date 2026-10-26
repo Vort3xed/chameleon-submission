@@ -192,12 +192,13 @@ Development-only tooling, not copied into the image
 * `judges.py` – VLM judge variants measured on the bench; `label_app.py` – a
   local page for human A/B labels, the yardstick for every judge.
 * `sheets.py`, `format_sheet.py` – contact sheets for eyeballing results.
-* `tests/test_robustness.py` – 322 tests: samples pass the gate at many sizes,
+* `tests/test_robustness.py` – the bulk of the suite: samples pass the gate at many sizes,
   fuzzed/malformed inputs never crash or break invariants (and are absorbed
   by the main engine, not just the fallback), outputs render,
   determinism, no-fonts/no-assets operation, import from any cwd or as a
-  top-level module, `python -m engine.main` end to end, and every stress
-  design at five targets.
+  top-level module, `python -m engine.main` end to end, every stress
+  design at five targets and 20 random designs at three - each passing the
+  gate with its headline shown.
 * `tests/test_structure.py` – structure survives any canvas: header and footer
   bars stay full-width on their edges with their content inside; faint
   texture type stays decoration, never the headline.

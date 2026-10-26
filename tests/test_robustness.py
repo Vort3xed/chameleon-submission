@@ -355,3 +355,21 @@ def test_crazy_designs_render(arch):
     from eval.render import render
 
     render(resize(_crazy(arch), {"width": 1200, "height": 628}), max_size=600)
+
+
+# ---------------------------------------------------------------------------
+# random plausible designs (eval/gen_random.py): structures nobody wrote a builder for
+
+
+@pytest.mark.parametrize("seed", range(20))
+@pytest.mark.parametrize("target", [(1080, 1920), (728, 90), (300, 250)])
+def test_random_designs_pass_gate(seed, target):
+    from eval.gen_random import design
+
+    src = design(random.Random(seed)).to_source()
+    tc = {"width": target[0], "height": target[1]}
+    out = resize(copy.deepcopy(src), tc)
+    assert_valid(src, tc, out)
+    assert gate(src, tc, out) == []
+    shown = {e["id"] for e in out["elements"] if (1 if e.get("opacity") is None else e["opacity"]) > 0.01}
+    assert set(_headlines(src)) <= shown, "the headline is never hidden"
