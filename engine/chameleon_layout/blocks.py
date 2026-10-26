@@ -493,9 +493,10 @@ def _table(b, ctx, max_w, max_h, out, x, y):
     if sum(widths) > room:
         widths = [w * room / sum(widths) for w in widths]
     rows = [b.children[i:i + cols] for i in range(0, len(b.children), cols)]
-    pitch = max(0.35 * em, _row_spacing(rows) * ctx.ts)
+    record = 2 // cols if cols < 2 and b.cols % 2 == 0 else 1  # folded to one column, an item and its price
+    pitch = max(0.6 * em if record > 1 else 0.35 * em, _row_spacing(rows[::record]) * ctx.ts)  # stay a pair
     yy = y
-    for r in rows:
+    for k, r in enumerate(rows):
         sizes = [measure(c, ctx, w) for c, w in zip(r, widths)]
         rh = max(h for _, h in sizes)
         if out is not None:
@@ -503,9 +504,11 @@ def _table(b, ctx, max_w, max_h, out, x, y):
             for j, (c, (cw, ch)) in enumerate(zip(r, sizes)):
                 side = _column_align(b.children[j::cols]) if cols > 1 else "center"
                 dx = {"left": 0.0, "right": widths[j] - cw}.get(side, (widths[j] - cw) / 2)
-                place(c, ctx, xx + dx, yy + (rh - ch) / 2, widths[j] + 0.01, INF, out)
+                r_ = place(c, ctx, xx + dx, yy + (rh - ch) / 2, cw + 0.01, INF, out)  # its own width: the text's
+                if side == "center" and c.kind == "text":  # alignment inside a wider box would undo the column's
+                    _centre_snug(c, r_, out)
                 xx += widths[j] + gap
-        yy += rh + pitch
+        yy += rh + (pitch if k % record == record - 1 else 0.15 * em)
     return sum(widths) + gap * (cols - 1), yy - y - pitch
 
 

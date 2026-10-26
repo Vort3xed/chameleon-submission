@@ -72,7 +72,8 @@ def scale_bounds(scope: Scope) -> Tuple[float, float]:
     sx, sy = scope.region.w / scope.src.w, scope.region.h / scope.src.h
     m, M = min(sx, sy), max(sx, sy)
     # a sparse design (little drawn on its canvas) may grow up to 2x more into the new space
-    drawn = sum(b.visible.area for b in scope.blocks) / max(1.0, scope.src.area)
+    drawn = sum(sum(c.visible.area for c in b.children) if b.kind == "table" else b.visible.area
+                for b in scope.blocks) / max(1.0, scope.src.area)  # a table draws its cells, not its gaps
     sparse = min(2.0, max(1.0, math.sqrt(0.3 / max(drawn, 1e-6))))
     return 0.02, m ** 0.3 * M ** 0.7 * 1.15 * sparse  # leans to the long side: banners keep short text large
 

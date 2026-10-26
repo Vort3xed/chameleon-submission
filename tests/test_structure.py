@@ -169,7 +169,7 @@ MENU = {
 @pytest.mark.parametrize("target", [(1080, 1080), (300, 250), (160, 600), (1080, 1920)])
 def test_a_table_keeps_its_rows(target):
     """A price list keeps each price with its item - on the item's row, or under it before the next
-    item - and on a roomy canvas its item column keeps one left edge."""
+    item - and on a roomy canvas its items keep one left edge (a column) or one centre line (folded)."""
     W, H = target
     out = {e["id"]: e for e in resize(MENU, {"width": W, "height": H})["elements"] if e.get("opacity", 1) > 0}
     items = [k for k in out if k.startswith("item")]
@@ -178,7 +178,8 @@ def test_a_table_keeps_its_rows(target):
             p, nxt = out[f"price{i}"], out.get(f"item{i + 1}", {"y": H})
             assert out[f"item{i}"]["y"] - 1 <= p["y"] + p["height"] / 2 <= nxt["y"] + 1
     if W >= 1000:
-        assert max(out[k]["x"] for k in items) - min(out[k]["x"] for k in items) <= 1
+        spread = lambda f: max(map(f, items)) - min(map(f, items))  # noqa: E731
+        assert min(spread(lambda k: out[k]["x"]), spread(lambda k: out[k]["x"] + out[k]["width"] / 2)) <= 1
 
 
 SIDE_PANEL = {
