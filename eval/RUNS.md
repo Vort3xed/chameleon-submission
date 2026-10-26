@@ -217,6 +217,7 @@ does; the judge consistently prefers keeping content and bigger product art.
 | v38t: row gaps beside copy 0.75 em (was 0.35; the human notes: side by side under 0.75 em, people pick the roomier design 9:2) and stack groups at least 0.5 em apart | loop: formats 213–269 (2 severe), strips 40–72, skeletons 17–45 (all blocking, means ~0) | rule_spacing +16 over the format set, but headline size -12 and product size -5: the air comes out of the type again (as v36x/y); people also pick size over padding when they compete |
 | v38v: banner rows also offered with 0.75 em gaps, plus a small objective term (0.05) for blocks side by side 0.75 em apart | loop: skeletons 5–19 (blocks, mean -0.01), formats 97–106, others neutral | the banners the notes flag got their air, but the term also pulled buttons away from headlines inside cards on tall canvases, shrinking type that was not yet big |
 | v38v2: as v38v, the term counting only pairs beside type already at the rewarded headline size (12% of the short side) | loop: skeletons 5–18 (blocks, mean +0.003), formats 89–86, others neutral | card interiors are chosen by the same objective against the card's own region, where a headline counts as big - buttons still moved away from headlines inside cards; the banner rows the notes flag (p090, p091) did get their air. Parked: needs the air limited to the canvas-level row |
+| v38w: landscape canvases keep 7% of the height clear top and bottom (human notes: "need better padding for the top and bottom", five of them, all landscape) | loop: formats 278–558 (4 severe), crazy, strips, patterns, skeletons blocking | the room comes out of the type; as with spacing (v38t, v38v), what people pick is size, whatever the notes ask for |
 | v35l: banner rows also offered with a 0.75× button | discriminator 22–41 (p 0.02), engine 60% slower | the objective picked small buttons where they hurt; reverted |
 | edge bands (full-width header/footer bars) | not built | they scale rigidly and get dropped in banners; needs a band concept — deferred, the official samples have none |
 
@@ -318,6 +319,8 @@ targets.
 **Extra presets** (`eval/testsets/formats_extra`, 546 tasks: 14 real presets
 not in the main catalogue, incl. 120×600, 300×1050, 468×60, 234×60,
 1128×191): v36l 0 gate failures, 0 crashes, scorer 97.54, max 1.3 s.
+
+**Submission check (v38u, 2026-10-26):** `python -m eval.docker_parity` (new: a fixed sample of every test set plus the official samples, run in the amd64 image exactly as stage one runs it, `--network none`): 67/67 outputs byte-identical to native `resize()`.
 
 **Submission check (v38f, 2026-10-25):** rebuilt amd64 image byte-identical to
 native on 56 tasks (the earlier 53 plus the three random-design failures fixed
