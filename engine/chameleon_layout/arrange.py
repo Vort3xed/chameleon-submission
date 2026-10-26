@@ -84,13 +84,16 @@ MAX_LAYOUTS = 400  # past this many candidates no further drop levels are explor
                    # unlike a time budget: the same input gives the same output on any machine)
 
 
-def _flowing(scene: Scene, ctx0: Ctx, src: Rect, region: Rect, judge: Scope, bands, mx: float, my: float) -> List[Layout]:
-    """The arrangement families at each drop level, with the given bands kept at their edges."""
+def _flowing(scene: Scene, ctx0: Ctx, src: Rect, region: Rect, judge: Scope, bands, stripes,
+             mx: float, my: float) -> List[Layout]:
+    """The arrangement families at each drop level, with the given bands kept at their edges
+    (the content of a stripe - a bar that cannot hold it - flows with the rest)."""
     from .objective import evaluate
 
     out: List[Layout] = []
     for drop in drop_levels(scene):
         flow = [prune(b, drop) for b in scene.blocks if b not in drop and id(b) not in bands]
+        flow += [prune(c, drop) for k in stripes for c in bands[k][0].children if c not in drop]
         if flow:
             lays = arrangements(Scope(flow, src, region), ctx0, scene.items, allow_preserve=False)
         elif bands:  # nothing but bars: they are the layout
@@ -100,7 +103,7 @@ def _flowing(scene: Scene, ctx0: Ctx, src: Rect, region: Rect, judge: Scope, ban
         for lay in lays:
             lay.hidden += drop
             lay.region = region
-            _place_bands(lay, bands, scene, mx, my)
+            _place_bands(lay, bands, stripes, scene, mx, my)
             finish(scene, lay, [b for b in scene.ornaments if b not in drop])
         out += lays
         if any(evaluate(lay, judge, scene.items)["legibility"] >= 0.97 for lay in lays):
@@ -131,13 +134,14 @@ def _between(region: Rect, bands, scene: Scene, mx: float, my: float) -> Rect:
     return Rect(x0, y0, max(1.0, x1 - x0), max(1.0, y1 - y0))
 
 
-BAND_MIN = 24.0  # px: a band thinner than this cannot hold its content, so on such strips bands flow like any block
+BAND_MIN = 24.0  # px: a band thinner than this cannot hold its content; it stays a stripe on its edge
 
 
 def _bands(scene: Scene, W: float, H: float) -> Dict[int, Tuple[Block, Rect]]:
     """Bars on an edge (header, footer, photo scrim, side panel) keep that edge,
-    their full length and their share of the canvas across it - or none do.
-    A side panel does so only on a canvas relatively as wide as the source or wider."""
+    their full length and their share of the canvas across it.  A side panel
+    does so only on a canvas relatively as wide as the source or wider, and
+    only wide enough to hold its content."""
     def rect(b: Block) -> Rect:
         f = b.frame.box
         if b.band in ("top", "bottom"):
@@ -146,14 +150,27 @@ def _bands(scene: Scene, W: float, H: float) -> Dict[int, Tuple[Block, Rect]]:
         w = f.w * W / scene.W
         return Rect(0.0 if b.band == "left" else W - w, 0.0, w, H)
 
-    wider = W / H >= scene.W / scene.H  # a side panel keeps its edge only with room beside it; else it flows
-    out = {id(b): (b, rect(b)) for b in scene.blocks if b.band in ("top", "bottom") or b.band and wider}
-    return out if all(min(r.w, r.h) >= BAND_MIN for _, r in out.values()) else {}
+    wider = W / H >= scene.W / scene.H  # a side panel keeps its edge only with room beside it, and
+    side = lambda b: wider and rect(b).w >= BAND_MIN  # noqa: E731  # room inside it; else it flows
+    return {id(b): (b, rect(b)) for b in scene.blocks if b.band in ("top", "bottom") or b.band and side(b)}
 
 
-def _place_bands(lay: Layout, bands: Dict[int, Tuple[Block, Rect]], scene: Scene, mx: float, my: float):
-    """Each band's bar at its edge, its content laid out inside it - free along the bar, in proportion across it."""
-    for b, r in bands.values():
+KEY_ROLES = ("headline", "cta", "hero", "price")
+
+
+def _holds_key(b: Block) -> bool:
+    """The block is, or holds, part of the message (headline, button, product...)."""
+    return b.role in KEY_ROLES or b.hero or any(map(_holds_key, b.children))
+
+
+def _place_bands(lay: Layout, bands: Dict[int, Tuple[Block, Rect]], stripes, scene: Scene, mx: float, my: float):
+    """Each band's bar at its edge, its content laid out inside it - free along the bar, in proportion across
+    it - unless the bar is a stripe, whose content flows with the rest."""
+    for k, (b, r) in bands.items():
+        lay.placed.append((b, r))
+        if k in stripes:
+            lay.out[b.frame.idx] = Placement(r.x, r.y, r.w, r.h)
+            continue
         f, inner = b.frame.box, b.inner or b.frame.box
         if b.band in ("top", "bottom"):
             s = r.h / f.h
@@ -162,12 +179,11 @@ def _place_bands(lay: Layout, bands: Dict[int, Tuple[Block, Rect]], scene: Scene
             s = r.w / f.w
             box = Rect(r.x + (inner.x - f.x) * s, r.y + my, inner.w * s, r.h - 2 * my)
         if b.kind == "rigid":  # a lone picture on the bar: scaled as one to fit, centred where it was
-            k = min(box.w / inner.w, box.h / inner.h)
-            scale_block(b, k, box.cx - (inner.cx - b.src.x) * k, box.cy - (inner.cy - b.src.y) * k, lay.out)
+            fit = min(box.w / inner.w, box.h / inner.h)
+            scale_block(b, fit, box.cx - (inner.cx - b.src.x) * fit, box.cy - (inner.cy - b.src.y) * fit, lay.out)
         else:
             lay.out.update(_panel_inner(b.children, inner, box, lay.ctx, scene.items))
         lay.out[b.frame.idx] = Placement(r.x, r.y, r.w, r.h)
-        lay.placed.append((b, r))
 
 
 def _bleed_bands(lay: Layout, scene: Scene, W: float, H: float):
@@ -207,15 +223,19 @@ def candidates(scene: Scene, ctx0: Ctx) -> Tuple[Scope, List[Layout]]:
                 break
         if out and stretch < SAME_SHAPE and evaluate(out[0], judge, scene.items)["legibility"] >= 0.9:
             return judge, out  # the same shape keeps the designer's composition
-    bands = _bands(scene, W, H)
-    kept = []
-    if bands:  # the flow is placed between the bands, in proportion to where it sat between them in the source
+    def between(bands, stripes):  # the flow sits between the bands, in proportion to where it sat in the source
         free = _between(src, {k: (b, b.frame.box) for k, (b, _) in bands.items()}, scene, 0.0, 0.0)
-        kept = _flowing(scene, ctx0, free, _between(region, bands, scene, mx, my), judge, bands, mx, my)
+        return _flowing(scene, ctx0, free, _between(region, bands, scene, mx, my), judge, bands, stripes, mx, my)
+
+    # a bar too thin to hold its content stays a stripe on its edge (never a floating box) when what it
+    # holds is peripheral (a logo, small print); a thin bar holding the message flows as a card behind it
+    bands = {k: v for k, v in _bands(scene, W, H).items() if min(v[1].w, v[1].h) >= BAND_MIN or not _holds_key(v[0])}
+    thin = {k: v for k, v in bands.items() if min(v[1].w, v[1].h) < BAND_MIN}
+    kept = between(bands, set(thin)) if bands else []
     if any(evaluate(lay, judge, scene.items)["legibility"] >= 0.9 for lay in kept):
         out += kept  # headers, footers, scrims and side panels stay at their edges whenever that reads
-    else:
-        out += _flowing(scene, ctx0, src, region, judge, {}, mx, my)
+    else:  # else they flow as cards - the stripes still keep their edges
+        out += between(thin, set(thin)) if thin else _flowing(scene, ctx0, src, region, judge, {}, set(), mx, my)
     if not out:
         out.append(finish(scene, letterbox(scene, ctx0), []))
     return judge, out

@@ -35,7 +35,9 @@ semantic labels:
   between them (and under them, as far as the source let it).  A full-height
   panel on a side edge (a colour block bleeding off half the canvas) does the
   same on a canvas relatively as wide as the source or wider; on a narrower
-  one it flows like any block;
+  one it flows like any block.  A bar too thin to hold its content stays a
+  stripe on its edge while its logo or small print flows with the rest (a thin
+  bar holding the message flows as a card behind it);
 * *blocks* – the units that get laid out: single texts and images, **rigid
   groups** (shared `group_id`, e.g. button shape + label, rotated ribbons,
   product tiles), **panels** (a container shape such as a card or scrim whose
@@ -220,7 +222,8 @@ Development-only tooling, not copied into the image
   design at five targets and 20 random designs at three - each passing the
   gate with its headline shown.
 * `tests/test_structure.py` – structure survives any canvas: header and footer
-  bars stay full-width on their edges with their content inside, a side panel
+  bars stay full-width on their edges with their content inside (as stripes
+  when too thin for it), a side panel
   stays a full-height bar holding the product with the copy beside it in
   reading order; faint texture type stays decoration, never the headline.
 * `tests/test_discriminator.py` – the discriminator's invariants: a designer's

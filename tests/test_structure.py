@@ -41,6 +41,17 @@ def test_edge_bars_stay_on_their_edges(target):
         assert bar["y"] <= kid["y"] and kid["y"] + kid["height"] <= bar["y"] + bar["height"] + 1
 
 
+@pytest.mark.parametrize("target", [(728, 90), (600, 200), (970, 90)])
+def test_thin_bars_stay_on_their_edges(target):
+    """A bar too thin to hold its content on a strip stays a stripe on its edge
+    (its content flows with the rest) - it never floats as a box."""
+    W, H = target
+    out = {e["id"]: e for e in resize(BARS, {"width": W, "height": H})["elements"]}
+    header, footer = out["header"], out["footer"]
+    assert header["x"] == 0 and header["width"] == W and header["y"] == 0
+    assert footer["x"] == 0 and footer["width"] == W and footer["y"] + footer["height"] == H
+
+
 SIDE_PANEL = {
     "canvas": {"width": 1080, "height": 1920},
     "elements": [
