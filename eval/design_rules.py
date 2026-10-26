@@ -255,11 +255,10 @@ def _bleeding_panels(sc, ink, W: float, H: float) -> frozenset:
                      and min(ink[id(b)].x, ink[id(b)].y, W - ink[id(b)].x1, H - ink[id(b)].y1) <= 1.0 for i in b.items)
 
 
-def evaluate(source: dict, output: dict) -> Dict[str, float]:
+def evaluate(source: dict, output: dict, scenes=None) -> Dict[str, float]:
     """Each rule compares the resize with its own source: a designer's original
     scores 1 everywhere against itself, and only what got worse is penalised."""
-    sW, sH, ssc, sink = _scene(source)
-    W, H, sc, ink = _scene(output)
+    (sW, sH, ssc, sink), (W, H, sc, ink) = scenes or (_scene(source), _scene(output))
     sflow = [sink[id(b)] for b in ssc.blocks if sink[id(b)] is not None]
     flow = [ink[id(b)] for b in sc.blocks if ink[id(b)] is not None]
     sall = sflow + [sink[id(b)] for b in ssc.ornaments if sink[id(b)] is not None]
@@ -361,12 +360,12 @@ def _bars(ssc, output: dict, W: float, H: float) -> float:
 TASTE = ("headline", "product")
 
 
-def taste(design: dict) -> Dict[str, float]:
+def taste(design: dict, scene=None) -> Dict[str, float]:
     """What people reward beyond the source-relative rules (found in the human
     labels): a headline that is large for its canvas - full credit at 12% of the
     short side, the brief's own example is ~14% - and product art that fills it,
     full at 25% of the area.  Absolute, so an original does not score 1 here."""
-    W, H, sc, _ = _scene(design)
+    W, H, sc, _ = scene or _scene(design)
     head = max((float(e.get("font_size") or 0) for e in design["elements"]
                 if e.get("type") == "text" and _opacity(e) > 0.01), default=0.0)
     hero = _drawn_area(sc, lambda b: b.hero or b.role == "hero")

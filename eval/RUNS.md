@@ -295,6 +295,8 @@ the model is at what the labels can teach.
 
 **Edge bars (2026-10-26):** a new rule, `bars`: the share of the source's header and footer bars still full-width on their edge, still a card behind all of their (visible, not speck-sized) content, or hidden - a bar floating loose from what it held reads as a stray box, and the discriminator preferred such slabs over stripes. The bench has no bar defects, so the rule sits at its prior weight; the audit is unchanged (by task 90.1%, held-out human 68.9%, unseen 92.2% / 96.8%, bootstrap 89.5% ± 1.7%).
 
+**Discriminator speed (2026-10-26):** 3.8 ms -> 1.3 ms per uncached design, features identical on 480 bench and run designs: each source is analysed (scene and scorer preparation) once for all its designs, the design's scene is shared by the rules and the taste features, and the scorer skips JSON-schema validation (half its time; every design here is a schema-valid source with new geometry, and the gate's own checks still run). A full audit from a cold cache: 5.6 s.
+
 **Leakage check (2026-10-26):** the same 5-fold-by-task audit with each pair's good side chosen at random: held-out 50.0% ± 1.7% over 10 shuffles (max 52.3%), against 90.1% with the real labels - the folds share nothing that lets the fit read the answer.
 
 **Attack (`eval/attack.py`):** hill-climbing engine outputs on the

@@ -388,7 +388,7 @@ FROZEN = ["type", "content", "font_family", "asset_id", "shape_type", "color", "
           "font_weight", "font_style", "style_runs"]
 
 
-def gate(source: dict, target: dict, output) -> List[str]:
+def gate(source: dict, target: dict, output, schema: bool = True) -> List[str]:
     errs = []
     if not isinstance(output, dict):
         return ["output is not an object"]
@@ -403,7 +403,7 @@ def gate(source: dict, target: dict, output) -> List[str]:
         return errs + ["bad canvas"]
     if (cw, ch) != (int(target["width"]), int(target["height"])):
         errs.append(f"canvas {cw}x{ch} != target")
-    v = _schema_validator()
+    v = _schema_validator() if schema else None
     if v:
         for e in list(v.iter_errors(output))[:3]:
             errs.append("schema: " + e.message[:120])
@@ -608,8 +608,9 @@ def wavg(pairs) -> Optional[float]:
     return sum(s * w for s, w in pairs) / sum(w for _, w in pairs)
 
 
-def score_task(source: dict, target: dict, output, src_prep: Optional[Prep] = None, do_render: bool = True) -> dict:
-    errs = gate(source, target, output)
+def score_task(source: dict, target: dict, output, src_prep: Optional[Prep] = None, do_render: bool = True,
+               schema: bool = True) -> dict:
+    errs = gate(source, target, output, schema)
     if errs:
         return {"score": 0.0, "gate": errs, "metrics": {}, "issues": errs[:5]}
     try:

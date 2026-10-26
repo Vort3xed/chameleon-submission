@@ -48,15 +48,29 @@ _cache_path = BENCH / f"features_{_CODE}.json"
 _cache = json.loads(_cache_path.read_text()) if _cache_path.exists() else {}
 
 
-def features(source: dict, target: dict, design: dict) -> dict:
-    """Every feature of one design (cached: the scorer is the slow part)."""
-    from eval.score import score_task
+_sources: dict = {}  # source digest -> (scene, scorer prep): every comparison scores several designs of one source
 
-    key = hashlib.sha1((json.dumps(source, sort_keys=True) + json.dumps(design, sort_keys=True)).encode()).hexdigest()
+
+def features(source: dict, target: dict, design: dict) -> dict:
+    """Every feature of one design (cached).  The source is analysed once, the
+    design's scene is shared by the rules and the taste features, and the scorer
+    skips JSON-schema validation - every design here is a schema-valid source
+    with new geometry, and the gate's own checks (ids, frozen fields, numbers,
+    bounds, aspect) still run."""
+    from eval.design_rules import _scene
+    from eval.score import prepare, score_task
+
+    src = json.dumps(source, sort_keys=True)
+    key = hashlib.sha1((src + json.dumps(design, sort_keys=True)).encode()).hexdigest()
     if key not in _cache:
-        f = {f"rule_{k}": v for k, v in evaluate(source, design).items()}
-        f.update({f"taste_{k}": v for k, v in taste(design).items()})
-        r = score_task(source, target, design, do_render=False)
+        digest = hashlib.sha1(src.encode()).hexdigest()
+        if digest not in _sources:
+            _sources[digest] = (_scene(source), prepare(source, False))
+        src_scene, src_prep = _sources[digest]
+        scene = _scene(design)
+        f = {f"rule_{k}": v for k, v in evaluate(source, design, (src_scene, scene)).items()}
+        f.update({f"taste_{k}": v for k, v in taste(design, scene).items()})
+        r = score_task(source, target, design, src_prep, do_render=False, schema=False)
         failed = bool(r.get("gate"))  # a design that breaks the hard rules scores nothing
         f.update({f"score_{k}": 0.0 if failed else float(r["metrics"].get(k, 1.0)) for k in SCORER})
         _cache[key] = f
