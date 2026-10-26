@@ -360,6 +360,7 @@ TEXT_SHARE = 0.25  # a banner row gives its copy at least this share of the widt
 
 
 LOGO_COST = 0.8  # a logo that headed the copy keeps heading it in a banner row if that costs the type under 20%
+LOGO_KEPT = 0.65  # and the logo two thirds of the height it has leading the row (a small source logo stays legible)
 STRIP = 5.0  # rows this much wider than tall are strips: too low for a logo above the copy
 
 
@@ -380,7 +381,16 @@ def row(scope: Scope, ctx0: Ctx, shrink: float = 1.0) -> List[Layout]:
         return lead
     topped = _row(scope, ctx0, shrink, logo, True)
     scale = lambda lays: max((lay.ctx.ts for lay in lays), default=0.0)  # noqa: E731
-    return topped if scale(topped) >= LOGO_COST * scale(lead) else lead
+    keeps = scale(topped) >= LOGO_COST * scale(lead) and _drawn_h(topped, logo) >= LOGO_KEPT * _drawn_h(lead, logo)
+    return topped if keeps else lead
+
+
+def _drawn_h(lays: List[Layout], b: Block) -> float:
+    """The largest height block b is given in any of the layouts."""
+    def h(lay):
+        ps = [lay.out[it.idx] for it in b.items if it.idx in lay.out]
+        return max(p.y + p.h for p in ps) - min(p.y for p in ps) if ps else 0.0
+    return max(map(h, lays), default=0.0)
 
 
 def _row(scope: Scope, ctx0: Ctx, shrink: float, logo: Optional[Block], topped: bool) -> List[Layout]:
