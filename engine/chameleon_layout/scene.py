@@ -259,6 +259,15 @@ def find_containers(content: List[Item]) -> Dict[int, Item]:
 MISSING_HIDE = 0.02  # an image whose asset is not in our bundle is skipped only when this small (canvas share)
 
 
+def _shadows(it: Item, shapes: List[Item]) -> bool:
+    """`it` lies just beneath a shape of nearly its own box (a drop shadow, an outline, a border)."""
+    def iou(a: Rect, b: Rect) -> float:
+        inter = a.intersection(b)
+        return inter / max(1e-6, a.area + b.area - inter)
+
+    return not it.rotation and any(s is not it and s.z > it.z and iou(it.box, s.box) >= 0.7 for s in shapes)
+
+
 def classify(items: List[Item], W: float, H: float):
     canvas = Rect(0, 0, W, H)
     bgs, decor, hidden, content = [], [], [], []
@@ -273,8 +282,12 @@ def classify(items: List[Item], W: float, H: float):
             content.append(it)
     parent = find_containers(content)
     holders = {p.idx for p in parent.values()}
+    shapes = [s for s in content if s.type == "shape" and not s.rotation]
     rest = []
     for it in content:
+        if it.type == "shape" and not it.group and it.idx not in holders and _shadows(it, shapes):
+            decor.append(it)  # a shadow or outline of the shape above it, at any opacity: it follows that shape
+            continue
         faint_frame = it.type == "shape" and it.alpha < 0.3 and it.box.area >= 0.5 * canvas.area
         if it.type == "shape" and not it.group and it.idx not in holders and it.el.get("shape_type") != "line":
             tiny = it.box.area < 0.004 * canvas.area

@@ -180,6 +180,15 @@ def _frames(blocks: List[Block]) -> List:
     return out
 
 
+def _twin(it, frames: List):
+    """The card or button `it` is a shadow or outline of: an unrotated shape of nearly the same box."""
+    c = it.bounds
+    if it.rotation or it.type != "shape":
+        return None
+    return next((f for f in frames if c.intersection(f.box) >= 0.7 * (c.area + f.box.area - c.intersection(f.box))),
+                None)
+
+
 def _mirror(it, frame, p: Placement) -> Placement:
     """A card's shadow or outline: offset and size relative to the card, kept as the card moves and resizes
     (an offset is a distance, so it scales uniformly)."""
@@ -211,8 +220,7 @@ def finish(scene: Scene, lay: Layout, ornaments: List[Block]) -> Layout:
     for it in scene.decor:
         visible = it.bounds.intersection(canvas_src) / max(1e-6, it.bounds.area)
         c = it.bounds
-        twin = next((f for f in shapes if not it.rotation and it.type == "shape" and
-                     c.intersection(f.box) >= 0.7 * (c.area + f.box.area - c.intersection(f.box))), None)
+        twin = _twin(it, shapes)
         card = next((f for f in frames if f.box.x <= c.cx <= f.box.x1 and f.box.y <= c.cy <= f.box.y1
                      and c.area < 0.5 * f.box.area), None)
         if twin is not None:  # a card's or button's shadow or outline stays with it
@@ -291,10 +299,11 @@ def settle_decor(scene: Scene, lay: Layout) -> None:
     content = [(scene.items[i], scene.items[i].ink_at(p.rect, p.font)) for i, p in lay.out.items()
                if i not in skip and not p.hidden]
     steps = [i / 8 for i in range(9)]
+    frames = _frames(scene.blocks)
     for d in scene.decor:
         p = lay.out.get(d.idx)
-        if p is None or p.hidden or _is_frame(d, scene):
-            continue
+        if p is None or p.hidden or _is_frame(d, scene) or _twin(d, frames):
+            continue  # (a shadow or outline stays with its shape)
 
         def cost(r: Rect) -> float:
             return sum(max(0.0, _overlap(r, ink) - _overlap(d.bounds, it.ink) - 0.02) for it, ink in content)
@@ -324,14 +333,20 @@ def snap_alignment(scene: Scene, lay: Layout) -> None:
 
     W, H = lay.ctx.W, lay.ctx.H
     every = [b for b, _ in lay.placed]
+    frames = _frames(scene.blocks)
+    shadows: Dict[int, List] = {}  # frame idx -> the shadows and outlines that move with it
+    for d in scene.decor:
+        if (f := _twin(d, frames)) is not None:
+            shadows.setdefault(f.idx, []).append(d)
 
     def ink(b: Block) -> Optional[Rect]:
         return bounding([scene.items[it.idx].ink_at(lay.out[it.idx].rect, lay.out[it.idx].font)
                          for it in b.items if it.idx in lay.out and not lay.out[it.idx].hidden])
 
     def moved(b: Block, dx: float, dy: float) -> Dict[int, Placement]:
+        items = b.items + [d for it in b.items for d in shadows.get(it.idx, [])]
         return {it.idx: replace(lay.out[it.idx], x=lay.out[it.idx].x + dx, y=lay.out[it.idx].y + dy)
-                for it in b.items if it.idx in lay.out}
+                for it in items if it.idx in lay.out}
 
     def overlap(b: Block) -> float:  # all that moving b can change
         return new_overlap(visible_inks(lay.out, every), {it.idx for it in b.items})

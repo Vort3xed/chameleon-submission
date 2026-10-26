@@ -264,6 +264,35 @@ def test_bare_edge_bars_keep_their_edges(target):
     assert strip["x"] == 0 and strip["width"] == W and strip["y"] + strip["height"] == H
 
 
+BUTTON_SHADOW = {
+    "canvas": {"width": 1080, "height": 1080},
+    "elements": [
+        {"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 1080, "fill_color": "rgba(42,26,46,1)",
+         "z_index": 0},
+        {"id": "headline", "type": "text", "x": 90, "y": 300, "width": 900, "height": 110, "content": "Golden Hour",
+         "font_size": 90, "font_family": "Lora", "color": "#ffffff", "text_align": "center", "z_index": 2},
+        {"id": "cta_shadow", "type": "shape", "x": 398, "y": 608, "width": 300, "height": 70,
+         "fill_color": "rgba(0,0,0,0.6)", "corner_radius": 35, "z_index": 2},
+        {"id": "cta_bg", "type": "shape", "x": 390, "y": 600, "width": 300, "height": 70,
+         "fill_color": "rgba(232,106,58,1)", "corner_radius": 35, "group_id": "cta", "z_index": 3},
+        {"id": "cta_label", "type": "text", "x": 390, "y": 615, "width": 300, "height": 40, "content": "Shop Now",
+         "font_size": 28, "font_family": "Poppins", "color": "#ffffff", "text_align": "center", "group_id": "cta",
+         "z_index": 4},
+    ],
+}
+
+
+@pytest.mark.parametrize("target", [(1920, 1080), (1080, 1920), (728, 90), (300, 250)])
+def test_a_button_keeps_its_shadow_whatever_its_opacity(target):
+    """A shape just beneath a button, of nearly its box, is the button's shadow even when fairly opaque."""
+    W, H = target
+    out = {e["id"]: e for e in resize(BUTTON_SHADOW, {"width": W, "height": H})["elements"]}
+    btn, shadow = out["cta_bg"], out["cta_shadow"]
+    k = min(btn["width"] / 300, btn["height"] / 70)
+    assert abs(shadow["width"] - btn["width"]) <= 1 and abs(shadow["height"] - btn["height"]) <= 1
+    assert abs(shadow["x"] - btn["x"] - 8 * k) <= 1.5 and abs(shadow["y"] - btn["y"] - 8 * k) <= 1.5
+
+
 SIDE_PANEL = {
     "canvas": {"width": 1080, "height": 1920},
     "elements": [
