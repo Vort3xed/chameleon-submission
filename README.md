@@ -131,7 +131,8 @@ docker run --rm --network none \
 
 Everything is installed at build time (versions pinned in `requirements.txt`);
 nothing is fetched at run time and no model is used. Typical latency is
-~0.05 s per design, worst case well under a second.
+~0.1 s per design; the slowest (cards inside narrow banners, where every
+candidate re-solves the card's interior) take ~3 s.
 
 ## Evaluation harness (`eval/`, `tests/`)
 
