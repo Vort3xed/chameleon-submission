@@ -375,16 +375,33 @@ def stack_place(blocks: List[Block], ctx: Ctx, region: Rect, out: Dict[int, Plac
         y, stretch = region.y + free / 2, 1.0
     else:  # half the slack to the outer margins, half to the gaps between groups in proportion; groups stay compact
         y, stretch = region.y + free / 4, 1.0 + free / 2 / between
+    lists = _list_runs(blocks, sizes, region)
     placed = []
     for b, (bw, bh), g, brk in zip(blocks, sizes, gaps, breaks):
         y += g * (stretch if brk else 1.0)
-        x = {"left": region.x, "right": region.x1 - bw}.get(axis, region.x + (region.w - bw) / 2)
+        x = lists.get(id(b), {"left": region.x, "right": region.x1 - bw}.get(axis, region.x + (region.w - bw) / 2))
         r = place(b, ctx, x, y, region.w, INF, out)
         if axis == "center" and b.kind == "text":
             r = _centre_snug(b, r, out)
         placed.append((b, r))
         y += bh
     return placed
+
+
+def _list_runs(blocks: List[Block], sizes, region: Rect) -> Dict[int, float]:
+    """Consecutive list items (an icon with its label) keep one left edge, the list centred as a whole:
+    x of each, by id."""
+    xs: Dict[int, float] = {}
+    run: List[Tuple[Block, float]] = []
+    for b, (bw, _) in list(zip(blocks, sizes)) + [(None, (0.0, 0.0))]:
+        if b is not None and b.items and all(str(i.group or "").startswith("icon:") for i in b.items):
+            run.append((b, bw))
+            continue
+        if len(run) >= 2:
+            x0 = region.x + (region.w - max(w for _, w in run)) / 2
+            xs.update({id(r): x0 for r, _ in run})
+        run = []
+    return xs
 
 
 def _centre_snug(b: Block, r: Rect, out: Dict[int, Placement]) -> Rect:

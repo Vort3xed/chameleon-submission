@@ -333,9 +333,13 @@ ICON_LIST = {
 
 @pytest.mark.parametrize("target", [(1920, 1080), (1080, 1920), (300, 600), (728, 90)])
 def test_icons_stay_beside_their_labels(target):
-    """A small icon just left of a one-line label travels with it: centred on it, just before it."""
+    """A small icon just left of a one-line label travels with it: centred on it, just before it; and
+    stacked, the list keeps one left edge (it is centred as a whole, not item by item)."""
     W, H = target
     out = {e["id"]: e for e in resize(ICON_LIST, {"width": W, "height": H})["elements"]}
+    xs = [out[f"icon{i}"]["x"] for i in range(4)]
+    if H > W:
+        assert max(xs) - min(xs) <= 4
     for i in range(4):
         icon, label = out[f"icon{i}"], out[f"label{i}"]
         assert abs((icon["y"] + icon["height"] / 2) - (label["y"] + label["height"] / 2)) <= 2
