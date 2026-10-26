@@ -287,6 +287,10 @@ targets.
 not in the main catalogue, incl. 120×600, 300×1050, 468×60, 234×60,
 1128×191): v36l 0 gate failures, 0 crashes, scorer 97.54, max 1.3 s.
 
+**Submission check (v38f, 2026-10-25):** rebuilt amd64 image byte-identical to
+native on 56 tasks (the earlier 53 plus the three random-design failures fixed
+by v38b / v38d / v38e).
+
 **Submission check (v37w, 2026-10-25):** the amd64 image rebuilt; `resize()`
 inside it is byte-identical to native on 53 tasks (the 3 official samples, 40
 format / holdout tasks, 10 stress tasks with bands, faint text and unknown
