@@ -35,6 +35,7 @@ SETS = {  # run-name prefix: test set
     "r_{}": "random",
     "s_{}": "strips",
     "t_{}": "tall",
+    "p_{}": "patterns",
     "x_{}": "formats_extra",
 }
 SAFETY_ONLY = ("formats_extra",)  # checked for gate failures and crashes, not judged for quality

@@ -28,7 +28,7 @@ if str(ROOT) not in sys.path:
 
 from eval.catalogue import FORMATS  # noqa: E402
 from eval.gen_crazy import _cta  # noqa: E402
-from eval.gen_testset import (BADGES, BODY, BOTTLE, CREAM, CTAS, DEEP, GOLD, HEAD_LONG, HEAD_SHORT, INK, LEGAL,  # noqa: E402
+from eval.gen_testset import (BADGES, BODY, BOTTLE, CREAM, CTAS, DEEP, FLAVORS, GOLD, HEAD_LONG, HEAD_SHORT, INK, LEGAL,  # noqa: E402
                               ORANGE, PLUM, PRICES, RIBBONS, SANS, SERIF, SUBHEADS, WHITE, Design, rgba)
 
 SOURCES = [(1080, 1080), (1080, 1350), (1080, 1920), (1920, 1080), (1200, 628), (1600, 900)]
@@ -158,13 +158,120 @@ def strip_design(rng: random.Random) -> Design:
     return d
 
 
-def generate(out_dir: Path, n: int, seed: int, strips: bool = False, tall: bool = False):
+def pattern_design(rng: random.Random) -> Design:
+    """Three more common skeletons: a Z-pattern (headline top-left, product top-right, copy bottom-left, button
+    bottom-right), a 2x2 product grid with names and prices, and a colour panel bleeding off one side holding the
+    product, copy on the other side."""
+    W, H = rng.choice(SOURCES)
+    d, u = Design(W, H, rng), min(W, H) / 1080
+    d.bg_image() if rng.random() < 0.7 else d.bg_solid(rng.choice((PLUM, DEEP)))
+    kind = rng.choice(("z", "grid", "half_bleed"))
+    if kind == "z":
+        d.text("headline", rng.choice(HEAD_SHORT), SERIF, rng.uniform(64, 100) * u, rgba(*WHITE), W * 0.06, H * 0.08,
+               W * 0.48, weight="bold", align="left")
+        size = min(W * 0.38, H * 0.45)
+        d.image("product", BOTTLE, W * 0.58, H * 0.06, size, size)
+        d.text("subhead", rng.choice(SUBHEADS), SANS, 26 * u, rgba(*WHITE), W * 0.06, H * 0.62, W * 0.46, align="left")
+        _cta(d, rng.choice(CTAS), W * 0.76, H * 0.8, 26 * u)
+        d.logo(W * 0.14, H * 0.86, 200 * u)
+    elif kind == "grid":
+        d.text("headline", rng.choice(HEAD_SHORT), SERIF, 70 * u, rgba(*WHITE), W * 0.08, H * 0.06, W * 0.84, weight="bold")
+        tile = min(W * 0.3, H * 0.26)
+        for i, flavor in enumerate(rng.sample(FLAVORS, 4)):
+            x, y = W * (0.2 + 0.32 * (i % 2)), H * (0.22 + 0.34 * (i // 2))
+            d.image("product", BOTTLE, x, y, tile, tile)
+            d.text("name", flavor, SERIF, 24 * u, rgba(*WHITE), x - 20 * u, y + tile, tile + 40 * u, weight="bold")
+            d.text("price", rng.choice(PRICES), SANS, 20 * u, rgba(*GOLD), x - 20 * u, y + tile + 32 * u, tile + 40 * u)
+        _cta(d, rng.choice(CTAS), W / 2, H * 0.9, 24 * u)
+    else:
+        left = rng.random() < 0.5
+        d.shape("panel", 0 if left else W * 0.5, 0, W * 0.5, H, ORANGE)
+        size = min(W * 0.36, H * 0.6)
+        d.image("product", BOTTLE, (W * 0.25 if left else W * 0.75) - size / 2, (H - size) / 2, size, size)
+        x = W * 0.56 if left else W * 0.06
+        d.text("headline", rng.choice(HEAD_SHORT), SERIF, 72 * u, rgba(*WHITE), x, H * 0.25, W * 0.38, weight="bold",
+               align="left")
+        d.text("subhead", rng.choice(SUBHEADS), SANS, 24 * u, rgba(*WHITE), x, H * 0.5, W * 0.38, align="left")
+        _cta(d, rng.choice(CTAS), x + d.pill_size("Shop Now", 24 * u)[0] / 2, H * 0.68, 24 * u)
+    return d
+
+
+def skeleton_design(rng: random.Random) -> Design:
+    """Five more skeletons: the copy inside a colour block bleeding off one side (product on the other), a full-bleed
+    product under a scrim band holding the copy, three feature columns, a footer band of partner marks and legal
+    text, and a cream card the product overlaps."""
+    W, H = rng.choice(SOURCES)
+    d, u = Design(W, H, rng), min(W, H) / 1080
+    d.bg_image() if rng.random() < 0.7 else d.bg_solid(rng.choice((PLUM, DEEP)))
+    kind = rng.choice(("copy_block", "scrim", "features", "partner_footer", "card_overlap"))
+    head, cta = rng.choice(HEAD_SHORT), rng.choice(CTAS)
+    if kind == "copy_block":
+        left, bw = rng.random() < 0.5, W * rng.uniform(0.4, 0.55)
+        x0 = 0 if left else W - bw
+        d.shape("block", x0, 0, bw, H, rng.choice((ORANGE, CREAM)))
+        ink = INK
+        d.logo(x0 + bw / 2, H * 0.08, 200 * u)
+        y = H * 0.3 + d.text("headline", head, SERIF, 76 * u, rgba(*ink), x0 + bw * 0.1, H * 0.3, bw * 0.8,
+                             weight="bold")["height"]
+        y += 24 * u + d.text("subhead", rng.choice(SUBHEADS), SANS, 26 * u, rgba(*ink), x0 + bw * 0.1, y + 24 * u,
+                             bw * 0.8)["height"]
+        _cta(d, cta, x0 + bw / 2, y + 40 * u, 26 * u, fill=INK)
+        size = min(W - bw, H) * 0.7
+        d.image("product", BOTTLE, (bw if left else 0) + (W - bw - size) / 2, (H - size) / 2, size, size)
+    elif kind == "scrim":
+        size = min(W, H) * 0.9
+        d.image("product", BOTTLE, (W - size) / 2, (H - size) / 2 - H * 0.1, size, size)
+        sh = H * rng.uniform(0.25, 0.35)
+        d.shape("scrim", 0, H - sh, W, sh, INK, alpha=rng.choice((0.75, 1.0)))
+        d.text("headline", head, SERIF, 64 * u, rgba(*WHITE), W * 0.06, H - sh + sh * 0.18, W * 0.58, weight="bold",
+               align="left")
+        _cta(d, cta, W * 0.8, H - sh / 2 - 30 * u, 26 * u)
+        d.logo(W * 0.12, 40 * u, 200 * u)
+    elif kind == "features":
+        d.logo(W / 2, 40 * u, 200 * u)
+        d.text("headline", head, SERIF, 70 * u, rgba(*WHITE), W * 0.08, H * 0.16, W * 0.84, weight="bold")
+        for i, label in enumerate(rng.sample(BADGES, 3)):
+            cx = W * (0.2 + 0.3 * i)
+            d.shape("icon", cx - 40 * u, H * 0.42, 80 * u, 80 * u, rng.choice((ORANGE, GOLD)), kind="ellipse")
+            d.text("feature", label, SANS, 26 * u, rgba(*WHITE), cx - W * 0.13, H * 0.42 + 100 * u, W * 0.26,
+                   weight="bold")
+            d.text("detail", rng.choice(SUBHEADS), SANS, 18 * u, rgba(*WHITE, 0.85), cx - W * 0.13, H * 0.42 + 145 * u,
+                   W * 0.26)
+        _cta(d, cta, W / 2, H * 0.82, 26 * u)
+    elif kind == "partner_footer":
+        size = min(W * 0.5, H * 0.45)
+        d.image("product", BOTTLE, (W - size) / 2, H * 0.08, size, size)
+        d.text("headline", head, SERIF, 72 * u, rgba(*WHITE), W * 0.08, H * 0.08 + size + 20 * u, W * 0.84,
+               weight="bold")
+        fh = H * 0.16
+        d.shape("footer", 0, H - fh, W, fh, CREAM)
+        for i in range(3):
+            d.logo(W * (0.15 + 0.2 * i), H - fh * 0.75, 140 * u)
+        d.text("legal", rng.choice(LEGAL), SANS, 14 * u, rgba(*INK, 0.8), W * 0.62, H - fh * 0.7, W * 0.34, align="left")
+    else:
+        cw, ch = W * 0.7, H * 0.38
+        cx, cy = (W - cw) / 2, H * 0.5
+        d.shape("card", cx, cy, cw, ch, CREAM, radius=28 * u)
+        size = min(W, H) * 0.42
+        d.image("product", BOTTLE, (W - size) / 2, cy - size * 0.7, size, size)
+        y = cy + size * 0.35 + d.text("headline", head, SERIF, 56 * u, rgba(*INK), cx + 40 * u, cy + size * 0.35,
+                                      cw - 80 * u, weight="bold")["height"]
+        d.text("price", rng.choice(PRICES), SERIF, 40 * u, rgba(*ORANGE), cx + 40 * u, y + 10 * u, cw - 80 * u,
+               weight="bold")
+        _cta(d, cta, W / 2, min(y + 70 * u, cy + ch - 80 * u), 24 * u)
+        d.logo(W / 2, 40 * u, 200 * u)
+    return d
+
+
+def generate(out_dir: Path, n: int, seed: int, strips: bool = False, tall: bool = False, patterns: bool = False,
+             skeletons: bool = False):
     tasks_dir = Path(out_dir) / "tasks"
     tasks_dir.mkdir(parents=True, exist_ok=True)
     rng, manifest = random.Random(seed), []
     for i in range(n):
         r = random.Random(rng.random())
-        src = (strip_design(r) if strips else design(r, TALL if tall else SOURCES)).to_source()
+        src = (strip_design(r) if strips else pattern_design(r) if patterns else skeleton_design(r) if skeletons else
+               design(r, TALL if tall else SOURCES)).to_source()
         sw, sh = src["canvas"]["width"], src["canvas"]["height"]
         wanted = (lambda f: f[2] >= 0.6 * f[1]) if strips else (lambda f: f[1] >= f[2]) if tall else (lambda f: True)
         targets = [f for f in FORMATS if (f[1], f[2]) != (sw, sh) and wanted(f)]
@@ -188,8 +295,11 @@ def main():
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--strips", action="store_true", help="banner-shaped sources, resized to square and tall formats")
     ap.add_argument("--tall", action="store_true", help="skyscraper sources, resized to square and wide formats")
+    ap.add_argument("--patterns", action="store_true", help="Z-pattern, 2x2 product grid and half-bleed panel designs")
+    ap.add_argument("--skeletons", action="store_true",
+                    help="copy in a colour block, scrim band, feature columns, partner footer, card overlap designs")
     a = ap.parse_args()
-    generate(Path(a.out), a.n, a.seed, a.strips, a.tall)
+    generate(Path(a.out), a.n, a.seed, a.strips, a.tall, a.patterns, a.skeletons)
 
 
 if __name__ == "__main__":
