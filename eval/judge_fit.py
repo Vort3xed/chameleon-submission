@@ -10,6 +10,7 @@ small.  Overfitting is audited three ways:
   * by task      k-fold with every task's pairs held out together
   * by defect    leave one defect type out entirely (does it catch defects it never saw?)
   * by source    fit on synthetic defects, test on human labels (and vice versa)
+  * leakage      the by-task audit with shuffled labels must fall to ~50%
 
     python -m eval.judge_fit                 # audit + save eval/judge_weights.json
     python -m eval.judge_fit --vlm holistic_lp
@@ -142,6 +143,13 @@ def audit(vlm: str = "", l2: float = 0.01):
     f_of = np.array([fold[p["task_id"]] for p in syn])
     accs = [accuracy(Xs[f_of == k], fit(Xs[f_of != k], l2)) for k in range(5)]
     print(f"  by task (5-fold, synthetic):       {np.mean(accs):.1%}  train {accuracy(Xs, fit(Xs, l2)):.1%}")
+    # leakage control: with each pair's good side chosen at random the same audit must read ~50%
+    rng = np.random.default_rng(0)
+    shuffled = []
+    for _ in range(5):
+        Xr = Xs * rng.choice([-1.0, 1.0], size=(len(Xs), 1))
+        shuffled.append(np.mean([accuracy(Xr[f_of == k], fit(Xr[f_of != k], l2)) for k in range(5)]))
+    print(f"    same, labels shuffled (5x):      {np.mean(shuffled):.1%} (should be ~50%)")
 
     # by defect: never seen this kind of defect
     kinds = sorted({p["kind"] for p in syn})

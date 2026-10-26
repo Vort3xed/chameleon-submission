@@ -212,8 +212,9 @@ Development-only tooling, not copied into the image
   the brief's anti-examples (shrunk, stretched), and held-out defect kinds.
 * `judge_fit.py`, `discriminator.py` – the fitted discriminator (non-negative
   logistic on rules + scorer metrics, a floor on every rule) with an
-  overfitting audit (held-out tasks, unseen defect kinds, invisible-change
-  sensitivity), and run-vs-run comparison: sign test, mean, severe losses.
+  overfitting audit (held-out tasks, unseen defect kinds, held-out human
+  labels, invisible-change sensitivity, a shuffled-label leakage control), and
+  run-vs-run comparison: sign test, mean, severe losses.
 * `loop.py` – one step of the improvement loop in one command (~20 min): run
   the engine on the format set, the fresh holdout, the stress set, every
   random-design set and the extra presets, judge each against a baseline with the
