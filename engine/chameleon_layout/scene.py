@@ -491,6 +491,22 @@ def column_units(blocks: List[Block]) -> List[Block]:
     return out
 
 
+def price_pairs(blocks: List[Block]) -> List[Block]:
+    """Two prices set side by side, a word apart (was and now, two offers' prices) are one price: split,
+    the old one can end up larger than the new."""
+    prices = sorted((b for b in blocks if b.kind == "text" and _PRICE.match(b.items[0].content.strip())),
+                    key=lambda b: b.visible.x)
+    pairs, used = {}, set()
+    for a, b in zip(prices, prices[1:]):
+        ra, rb = a.src, b.src
+        em = max(a.items[0].font, b.items[0].font)
+        if id(a) not in used and min(ra.y1, rb.y1) - max(ra.y, rb.y) >= 0.5 * min(ra.h, rb.h) and \
+                0 <= b.visible.x - a.visible.x1 <= em:
+            pairs[id(a)] = Block("rigid", a.items + b.items, role="price")
+            used |= {id(a), id(b)}
+    return [pairs.get(id(b), b) for b in blocks if id(b) not in used or id(b) in pairs]
+
+
 def group_rows(blocks: List[Block]) -> List[Block]:  # noqa: C901
     """Merge side-by-side blocks of similar height (badge rows, product tiles)."""
     eligible = [b for b in blocks if not b.ornament and b.kind in ("rigid", "image", "text", "shape")]
@@ -612,7 +628,7 @@ def assign_roles(blocks: List[Block], W: float, H: float):
             b.role = "divider" if b.items[0].el.get("shape_type") == "line" else "shape"
         elif b.kind == "rigid":
             labels = [t.content.strip() for t in b.texts]
-            if b.role == "feature":
+            if b.role in ("feature", "price"):
                 pass
             elif b.rotated:
                 b.role = "ribbon"
@@ -729,7 +745,7 @@ def analyze(elements: List[dict], W: float, H: float) -> Scene:
     for idx, p in parent.items():
         children_of.setdefault(p.idx, []).append(items[idx])
     top = [it for it in content if it.idx not in parent]
-    blocks = column_units(build_blocks(top, children_of, Rect(0, 0, W, H)))
+    blocks = price_pairs(column_units(build_blocks(top, children_of, Rect(0, 0, W, H))))
     assign_roles(blocks, W, H)
     mark_ornaments(blocks, W, H)
     flow = [b for b in blocks if not b.ornament]

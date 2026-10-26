@@ -604,3 +604,17 @@ def test_each_column_keeps_its_caption(name, top, target):
             continue
         assert t["y"] + t["height"] <= c["y"] + 1 and c["y"] - (t["y"] + t["height"]) <= max(t["height"], c["height"])
         assert abs((t["x"] + t["width"] / 2) - (c["x"] + c["width"] / 2)) <= 0.3 * max(t["width"], c["width"])
+
+
+@pytest.mark.parametrize("target", [(1080, 1920), (1920, 1080), (1080, 1080), (300, 600)])
+def test_a_was_and_now_price_stay_side_by_side(target):
+    """$29.99 $19.99: split, the old price could end up larger than the new one, far from it."""
+    src = json.loads((ROOT / "tests" / "fixtures" / "was_now.json").read_text())
+    out = {e["id"]: e for e in resize(src, {"width": target[0], "height": target[1]})["elements"]}
+    was, now = out["price_was"], out["price_now"]
+    if was.get("opacity", 1) == 0 or now.get("opacity", 1) == 0:
+        assert was.get("opacity", 1) == now.get("opacity", 1) == 0  # together or not at all
+        return
+    assert now["font_size"] > was["font_size"]
+    assert min(was["y"] + was["height"], now["y"] + now["height"]) > max(was["y"], now["y"])  # one line
+    assert was["x"] < now["x"]

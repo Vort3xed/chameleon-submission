@@ -58,7 +58,8 @@ semantic labels:
   over two when the canvas is narrow) and **column units** (a row of pieces
   each set over its caption - a stat over its label, a numbered step over its
   text, a feature title over its detail: each column travels as one, wrapping
-  as a row of tiles, and a big stat never takes the headline role);
+  as a row of tiles, and a big stat never takes the headline role); two
+  prices side by side a word apart (was and now) are one price;
 * *ornaments* – rotated or corner-pinned small blocks, placed last in free corner space.
 
 Roles come from cues a designer would use: largest type → headline (a price
@@ -205,7 +206,8 @@ Development-only tooling, not copied into the image
   footer, card overlap; `wild`: full-bleed photo, menu, grouped offers,
   badge ring, testimonial; `effects`: card and text shadows, outlined type,
   two-tone backgrounds, bare colour strips; `marketing`: stats row, numbered
-  steps, coupon code, star rating, QR corner); `hunt.py` ranks the engine's outputs on any set by the source-relative part
+  steps, coupon code, star rating, QR corner; `offers`: was/now price,
+  countdown, store badges, social proof); `hunt.py` ranks the engine's outputs on any set by the source-relative part
   of the discriminator and shows the worst - where new weaknesses come from.
 * `score.py` – a hard structural gate (schema, ids, frozen content/fonts/assets,
   bounds, aspect, renderability) plus 17 rubric metrics computed from real font
@@ -264,7 +266,7 @@ Development-only tooling, not copied into the image
   never outgrow the headline; faint texture type stays decoration, never the
   headline; the logo that headed the copy keeps heading it beside product art;
   a centred headline stays near the middle of a tall canvas; each stat and
-  numbered step keeps its caption.
+  numbered step keeps its caption; a was and a now price stay side by side.
 * `tests/test_discriminator.py` – the discriminator's invariants: a designer's
   original scores 1.0 on every rule against itself, a 1 px move is a tie,
   collisions / shrunk headlines / edge-crowding / a header bar floating loose
