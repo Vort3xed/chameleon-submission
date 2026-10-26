@@ -23,7 +23,8 @@ source design + target canvas
 semantic labels:
 
 * *backgrounds* – images/shapes covering ≥90% of the canvas → re-fitted full-bleed;
-* *decor* – faint, tiny or off-canvas shapes holding no content → kept, re-anchored
+* *decor* – faint, tiny or off-canvas shapes holding no content, and faint
+  texture type (a huge 8%-opacity word behind everything) → kept, re-anchored
   proportionally (large faint frames instead keep their distance to each canvas edge);
 * *hidden* – invisible elements and small images whose asset is missing (the
   intentional `holiday_watermark` case) → skipped gracefully (opacity 0); a
@@ -74,7 +75,10 @@ badges/ribbons → body → secondary text → product), never the headline or C
 never the logo.  In banner rows, images fill the height while their
 transparent padding stays on the canvas, the logo never outgrows the text by
 more than 1.5× its original proportion, the text may grow until a headline
-fills two lines of the row, and the button never outshines the headline.
+fills two lines of the row, copy keeps at least a third of an em from the
+product, logo or button beside it, and the button never outshines the
+headline. Long copy may re-wrap to a comfortable ~40-character line even when
+its source box was narrow.
 Strips get wider end margins (a 320×50 button no longer sits 2 px from the
 edge); sparse designs may scale up to 2× more into a bigger canvas.
 
