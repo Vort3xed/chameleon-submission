@@ -29,6 +29,13 @@ the source-relative part of the discriminator are shown for review.  First run
 footer card as loud as the headline (fixed, v37w), product art overlapping a
 card edge, product rows shrinking beside a card.
 
+**Scorer fix (third random set):** the structural scorer read the largest text as
+the headline even when it was faint texture (a 260 px 'SUMMER' at 7% opacity),
+so its overlap, hierarchy and readability metrics judged the wrong element and
+every random design with texture type showed a 'collision'.  Faint text is now
+decor in the scorer too (as in the engine since v37n); discriminator audit and
+weights unchanged (no benchmark pair has texture type).
+
 **Loop acceptance (2026-10-25):** a judged set where nothing changed is neutral;
 a set blocks a step with gate failures/crashes, severe losses over the limit,
 or significantly more losses than wins; a step is accepted when no set blocks

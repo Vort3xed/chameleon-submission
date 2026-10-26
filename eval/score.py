@@ -215,7 +215,10 @@ def element_role(el: dict, all_els: List[dict], canvas) -> str:
             return "logo"
         return "hero"
     if t == "text":
-        sizes = [num(e.get("font_size"), 0) for e in all_els if e.get("type") == "text"]
+        faint = lambda e: parse_color(e.get("color"))[3] < 0.3  # noqa: E731
+        if faint(el):
+            return "decor"  # faint type is texture behind the content, not copy
+        sizes = [num(e.get("font_size"), 0) for e in all_els if e.get("type") == "text" and not faint(e)]
         fs = num(el.get("font_size"), 0)
         if sizes and fs >= max(sizes):
             return "headline"
