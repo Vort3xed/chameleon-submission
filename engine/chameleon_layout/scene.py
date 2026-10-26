@@ -201,9 +201,21 @@ class Scene:
 
 # ---------------------------------------------------------------------------
 
+TEXT_FIELDS = ("content", "font_family", "font_weight", "font_style", "text_align", "asset_id", "fit", "shape_type",
+               "color", "fill_color", "id")
+
+
+def _scalars(el: dict) -> dict:
+    """The element with junk (a list, a dict) in a field meant to hold a string read as absent: text
+    measurement and asset lookups are cached on these values."""
+    bad = [k for k in TEXT_FIELDS if isinstance(el.get(k), (list, dict, set))]
+    return {k: v for k, v in el.items() if k not in bad} if bad else el
+
+
 def make_items(elements: List[dict]) -> List[Item]:
     items = []
     for idx, el in enumerate(elements):
+        el = _scalars(el)
         t = el.get("type") if isinstance(el.get("type"), str) else ""
         g = el.get("group_id")
         box = Rect(num(el.get("x")), num(el.get("y")), max(0.0, num(el.get("width"))), max(0.0, num(el.get("height"))))
@@ -621,7 +633,7 @@ def mark_ornaments(blocks: List[Block], W: float, H: float):
 def mark_echoes(items: List[Item]):
     """Copies of one text stacked on each other (a drop shadow, an outline, a duplicate) read as one
     piece of type: the topmost copy is laid out, the others echo it - same width and wrap, scaled offset."""
-    texts = [it for it in items if it.type == "text" and str(it.el.get("content") or "").strip()]
+    texts = [it for it in items if it.type == "text" and str(it.el.get("content") or "").strip() and it.bounds.area > 0]
     for a in texts:
         stack = [b for b in texts if str(b.el.get("content")).strip() == str(a.el.get("content")).strip()
                  and b.group == a.group  # (two buttons' labels are not one text's copies)

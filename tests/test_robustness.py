@@ -495,3 +495,18 @@ def test_odd_sources_pass_gate(name, target):
     src = ODD_SOURCES[name]
     out = resize(copy.deepcopy(src), {"width": target[0], "height": target[1]})
     assert not gate(src, {"width": target[0], "height": target[1]}, out)
+
+
+@pytest.mark.parametrize("junk", [{"asset_id": ["a", "b"]}, {"font_family": {"name": "Lora"}}, {"content": ["x"]},
+                                  {"color": {"r": 1}}, {"fit": []}, {"width": 0}, {"height": 0}])
+def test_junk_fields_stay_on_the_main_pipeline(junk):
+    """A list or dict where a string belongs, or a zero-sized copy of a text, must not knock the design off the
+    layout engine onto the fallback (it crashed there: cached text measures and asset lookups need strings)."""
+    from engine.chameleon_layout.pipeline import retarget
+
+    src = copy.deepcopy(load(SAMPLES[1])["source"])
+    for e in src["elements"]:
+        e.update(junk)
+    src["elements"].append(copy.deepcopy(src["elements"][-1]) | {"id": "copy", "width": 0})
+    tc = {"width": 728, "height": 90}
+    assert_valid(src, tc, retarget(copy.deepcopy(src), tc))
