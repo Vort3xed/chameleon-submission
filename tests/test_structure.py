@@ -107,6 +107,46 @@ def test_photo_scrim_stays_at_the_bottom(target):
     assert scrim["y"] <= head["y"] and head["y"] + head["height"] <= H + 1
 
 
+def _offer(i, x, name, price):
+    g, f = f"offer{i}", {"font_family": "Solstice Sans", "color": "#ffffff", "text_align": "center"}
+    return [
+        {"id": f"product{i}", "type": "image", "x": x + 32, "y": 405, "width": 324, "height": 324,
+         "asset_id": "solstice_bottle.png", "fit": "contain", "group_id": g, "z_index": 3},
+        {"id": f"name{i}", "type": "text", "x": x, "y": 739, "width": 389, "height": 43, "content": name,
+         "font_size": 32, **f, "font_family": "Solstice Serif", "group_id": g, "z_index": 4},
+        {"id": f"price{i}", "type": "text", "x": x, "y": 785, "width": 389, "height": 39, "content": price,
+         "font_size": 26, **f, "group_id": g, "z_index": 4},
+        {"id": f"cta_bg{i}", "type": "shape", "x": x + 94, "y": 829, "width": 201, "height": 53,
+         "fill_color": "#e8693a", "corner_radius": 26, "group_id": g, "z_index": 5},
+        {"id": f"cta_label{i}", "type": "text", "x": x + 94, "y": 840, "width": 201, "height": 31,
+         "content": "Add to Cart", "font_size": 22, **f, "group_id": g, "z_index": 6},
+    ]
+
+
+DUO = {  # from the wild random set (random_045): two grouped offers under a headline
+    "canvas": {"width": 1080, "height": 1350},
+    "elements": [
+        {"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 1350, "fill_color": "#2a1a2e",
+         "z_index": 0},
+        {"id": "logo", "type": "image", "x": 440, "y": 40, "width": 200, "height": 62.5,
+         "asset_id": "solstice_logo_lockup.png", "fit": "contain", "z_index": 1},
+        {"id": "headline", "type": "text", "x": 86, "y": 162, "width": 907, "height": 84, "content": "Golden Hour",
+         "font_size": 64, "font_family": "Solstice Serif", "font_weight": "bold", "color": "#ffffff",
+         "text_align": "center", "z_index": 2},
+    ] + _offer(0, 108, "Hibiscus", "2 for $8") + _offer(1, 583, "Blood Orange", "$12.50"),
+}
+
+
+@pytest.mark.parametrize("target", [(300, 600), (160, 600), (300, 250), (1080, 1920)])
+def test_groups_never_outgrow_the_headline(target):
+    """Groups keep their small labels legible by scaling up as one picture; that must not make
+    their names (half the headline's size in the source) bigger than the headline."""
+    W, H = target
+    out = resize(DUO, {"width": W, "height": H})["elements"]
+    fonts = {e["id"]: e["font_size"] for e in out if e["type"] == "text" and e.get("opacity", 1) > 0}
+    assert fonts["headline"] >= max(v for k, v in fonts.items() if k != "headline")
+
+
 SIDE_PANEL = {
     "canvas": {"width": 1080, "height": 1920},
     "elements": [

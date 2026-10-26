@@ -78,12 +78,37 @@ def scale_bounds(scope: Scope) -> Tuple[float, float]:
 
 
 def _fit_scale(build):
-    """Search the text scale for each floor-relaxation level until one fits."""
+    """Search the text scale for each floor-relaxation level until one fits - and until the headline still
+    leads, if some level down to 0.6 allows it: a group scaled up to keep its small labels legible must not
+    outgrow the headline.  Floors are dropped entirely only to fit at all."""
+    first = None
     for relax in (1.0, 0.8, 0.6, 0.0):
+        if first is not None and relax == 0.0:
+            break
         lay = build(relax)
-        if lay is not None:
+        if lay is not None and _headline_leads(lay):
             return lay
-    return None
+        first = first or lay
+    return first
+
+
+def _leaves(b: Block) -> List[Block]:
+    return [leaf for c in b.children for leaf in _leaves(c)] if b.kind in ("panel", "row") else [b]
+
+
+def _headline_leads(lay: Layout) -> bool:
+    """No visible text that was at most the headline's size in the source has outgrown it."""
+    heads, others = [], []
+    for b, _ in lay.placed:
+        for leaf in _leaves(b):
+            for it in leaf.texts:
+                p = lay.out.get(it.idx)
+                if p is not None and not p.hidden and p.font:
+                    (heads if leaf.role == "headline" else others).append((it.font, p.font))
+    if not heads:
+        return True
+    src, out = max(heads)
+    return all(o <= out for s, o in others if s <= src)
 
 
 def _base(ctx0: Ctx, relax: float) -> Ctx:
