@@ -493,21 +493,23 @@ def _table(b, ctx, max_w, max_h, out, x, y):
     if sum(widths) > room:
         widths = [w * room / sum(widths) for w in widths]
     rows = [b.children[i:i + cols] for i in range(0, len(b.children), cols)]
-    record = 2 // cols if cols < 2 and b.cols % 2 == 0 else 1  # folded to one column, an item and its price
-    pitch = max(0.6 * em if record > 1 else 0.35 * em, _row_spacing(rows[::record]) * ctx.ts)  # stay a pair
+    # folded into one column (item, price, item, price...) a record spans two lines: kept tight, spaced apart
+    record = 2 if cols == 1 and b.cols % 2 == 0 else 1
+    pitch = max((0.6 if record > 1 else 0.35) * em, _row_spacing(rows[::record]) * ctx.ts)
+    sides = [_column_align(b.children[j::cols]) for j in range(cols)] if cols > 1 else ["center"]
     yy = y
     for k, r in enumerate(rows):
         sizes = [measure(c, ctx, w) for c, w in zip(r, widths)]
         rh = max(h for _, h in sizes)
         if out is not None:
             xx = x
-            for j, (c, (cw, ch)) in enumerate(zip(r, sizes)):
-                side = _column_align(b.children[j::cols]) if cols > 1 else "center"
-                dx = {"left": 0.0, "right": widths[j] - cw}.get(side, (widths[j] - cw) / 2)
-                r_ = place(c, ctx, xx + dx, yy + (rh - ch) / 2, cw + 0.01, INF, out)  # its own width: the text's
-                if side == "center" and c.kind == "text":  # alignment inside a wider box would undo the column's
-                    _centre_snug(c, r_, out)
-                xx += widths[j] + gap
+            for c, (cw, ch), w, side in zip(r, sizes, widths, sides):
+                dx = {"left": 0.0, "right": w - cw}.get(side, (w - cw) / 2)
+                # each cell in a box of its own width: its text alignment inside a wider box would undo the column's
+                placed = place(c, ctx, xx + dx, yy + (rh - ch) / 2, cw + 0.01, INF, out)
+                if side == "center" and c.kind == "text":
+                    _centre_snug(c, placed, out)
+                xx += w + gap
         yy += rh + (pitch if k % record == record - 1 else 0.15 * em)
     return sum(widths) + gap * (cols - 1), yy - y - pitch
 
