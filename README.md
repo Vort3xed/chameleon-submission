@@ -26,16 +26,21 @@ semantic labels:
 * *decor* – faint, tiny or off-canvas shapes holding no content, and faint
   texture type (a huge 8%-opacity word behind everything) → kept, re-anchored
   proportionally (large faint frames instead keep their distance to each canvas edge);
-* *hidden* – invisible elements and small images whose asset is missing (the
+* *hidden* – invisible elements, elements wholly off the source canvas (never
+  seen, so never revealed) and small images whose asset is missing (the
   intentional `holiday_watermark` case) → skipped gracefully (opacity 0); a
   large image we cannot find is laid out as usual - only the logo is a fixed
   asset, so the scorer's bundle may hold product art we have never seen;
+* *effects* – copies of one text stacked on each other (drop shadows,
+  outlines) are one group; a shape just beneath a card or button of nearly its
+  box is its shadow or outline and stays with it, whatever its opacity;
 * *bands* – full-width bars on the top or bottom edge (header, footer, photo
   scrim) → stay bars on that edge with their content inside; the rest flows
   between them (and under them, as far as the source let it).  A full-height
   panel on a side edge (a colour block bleeding off half the canvas) does the
   same on a canvas relatively as wide as the source or wider; on a narrower
-  one it flows like any block.  A bar too thin to hold its content stays a
+  one it flows like any block (a bare bar - a two-tone background, a colour
+  strip - keeps its edge on any canvas).  A bar too thin to hold its content stays a
   stripe on its edge while its logo or small print flows with the rest - if
   that content stays legible off it (the bar is close in tone to the
   background); else the bar grows to hold it.  A thin bar holding the message
@@ -192,7 +197,8 @@ Development-only tooling, not copied into the image
   skeletons (`--patterns`: Z-pattern, product grid, half-bleed panel;
   `--skeletons`: copy in a colour block, scrim, feature columns, partner
   footer, card overlap; `--wild`: full-bleed photo, menu, grouped offers,
-  badge ring, testimonial); `hunt.py` ranks the engine's outputs on any set by the source-relative part
+  badge ring, testimonial; `--effects`: card and text shadows, outlined type,
+  two-tone backgrounds, bare colour strips); `hunt.py` ranks the engine's outputs on any set by the source-relative part
   of the discriminator and shows the worst - where new weaknesses come from.
 * `score.py` – a hard structural gate (schema, ids, frozen content/fonts/assets,
   bounds, aspect, renderability) plus 17 rubric metrics computed from real font
