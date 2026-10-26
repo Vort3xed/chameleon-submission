@@ -461,6 +461,37 @@ def offers_design(rng: random.Random) -> Design:
     return d
 
 
+PLANS = [("Single", "$4.99", ["One bottle", "Any flavor", "Ships in 2 days"]),
+         ("Sunset Pack", "$24", ["Six bottles", "Mix any flavors", "Free shipping"])]
+
+
+def compare_design(rng: random.Random) -> Design:
+    """A pricing table: a headline over two cards side by side, each with a title, a price, three bullet
+    points and its own button - the second card highlighted."""
+    W, H = rng.choice(SOURCES)
+    d, u = Design(W, H, rng), min(W, H) / 1080
+    d.bg_solid(rng.choice((PLUM, DEEP)))
+    d.logo(W / 2, 46 * u, 200 * u)
+    top = H * 0.13 + d.text("headline", rng.choice(HEAD_SHORT), SERIF, 76 * u, rgba(*WHITE), W * 0.08, H * 0.13,
+                            W * 0.84, weight="bold")["height"] + 40 * u
+    cw, gap = W * 0.38, W * 0.04
+    ch = min(H - top - 60 * u, 640 * u)
+    for k, (title, price, points) in enumerate(PLANS):
+        x = W / 2 - cw - gap / 2 if k == 0 else W / 2 + gap / 2
+        d.shape("card", x, top, cw, ch, ORANGE if k else CREAM, radius=24 * u)
+        ink = WHITE if k else INK
+        y = top + 36 * u
+        y += d.text("plan", title, SANS, 34 * u, rgba(*ink), x + 30 * u, y, cw - 60 * u, weight="bold")["height"] + 10 * u
+        y += d.text("plan_price", price, SERIF, 64 * u, rgba(*ink), x + 30 * u, y, cw - 60 * u, weight="bold")["height"] + 20 * u
+        for pt in points:
+            y += d.text("point", "• " + pt, SANS, 26 * u, rgba(*ink), x + 40 * u, y, cw - 80 * u, align="left")["height"] + 8 * u
+        w, _ = d.pill_size("Choose", 24 * u)
+        d.shape("plan_btn", x + (cw - w) / 2, top + ch - 100 * u, w, 60 * u, INK if k else ORANGE, radius=30 * u, group=f"btn{k}")
+        d.text("plan_btn_label", "Choose", SANS, 24 * u, rgba(*WHITE), x + (cw - w) / 2, top + ch - 84 * u, w, weight="bold",
+               group=f"btn{k}")
+    return d
+
+
 KINDS = {  # test set: (design maker, which catalogue targets suit it)
     "random": (lambda r: design(r, SOURCES), lambda f: True),
     "strips": (strip_design, lambda f: f[2] >= 0.6 * f[1]),
@@ -471,6 +502,7 @@ KINDS = {  # test set: (design maker, which catalogue targets suit it)
     "effects": (effects_design, lambda f: True),
     "marketing": (marketing_design, lambda f: True),
     "offers": (offers_design, lambda f: True),
+    "compare": (compare_design, lambda f: True),
 }
 
 
@@ -508,7 +540,7 @@ def main():
                          "feature columns, partner footer, card overlap; wild: full-bleed photo, dense menu, duo "
                          "offers, badge ring, testimonial; effects: shadows, outlined type, two-tone, colour strips; "
                          "marketing: stats row, numbered steps, coupon code, star rating, QR corner; offers: was/now price, "
-                         "countdown, store badges, social proof")
+                         "countdown, store badges, social proof; compare: two pricing cards with bullet lists")
     a = ap.parse_args()
     generate(Path(a.out), a.n, a.seed, a.kind)
 
