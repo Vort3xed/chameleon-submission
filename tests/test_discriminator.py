@@ -151,3 +151,22 @@ def test_roles_are_read_in_the_source():
     runs = [json.loads((ROOT / "tests" / "fixtures" / f"sidebar_{k}.json").read_text()) for k in ("a", "b")]
     a, b = (quality(task["source"], task["target_canvas"], d) for d in runs)
     assert abs(a - b) < 0.2
+
+
+@pytest.mark.parametrize("target", [(728, 90), (1080, 1920), (300, 250), (1200, 628)])
+def test_a_one_pixel_nudge_barely_moves_the_verdict(target):
+    """Nudging every element by under a pixel (on the canvas) changes nothing a person can see, so the verdict
+    must hold: rules that switch at one pixel (a pair just crammed, a block just near the edge, a speck) would
+    let noise decide a comparison."""
+    import random
+    W, H = target
+    for path in SAMPLES:
+        src = source(path)
+        out = resize(src, {"width": W, "height": H})
+        moved, rng = copy.deepcopy(out), random.Random(f"{path.name}{target}")
+        for e in moved["elements"]:
+            for k, ext, size in (("x", W, e["width"]), ("y", H, e["height"])):
+                v = e[k] + rng.uniform(-1, 1)
+                e[k] = round(min(max(v, min(e[k], 0.0)), max(e[k], ext - size)), 2)
+        t = {"width": W, "height": H}
+        assert abs(quality(src, t, moved) - quality(src, t, out)) < 0.15

@@ -58,6 +58,9 @@ def _opacity(e: dict) -> float:
         return 1.0
 
 
+SPECK = 3.0  # px
+
+
 def _scene(d: dict):
     """Scene analysis of what is actually drawn: elements at opacity 0 (how the
     engine hides dropped content, text included) are left out."""
@@ -65,6 +68,8 @@ def _scene(d: dict):
     drawn = [e for e in d["elements"] if isinstance(e, dict) and _opacity(e) > 0.01]
     sc = analyze(drawn, W, H)
     ink = {id(b): bounding([i.ink for i in b.items]) for b in sc.blocks + sc.ornaments}
+    # a block shrunk to a speck (under 3px both ways - a long thin divider still counts) is not seen
+    ink = {k: r if r is not None and max(r.w, r.h) >= SPECK else None for k, r in ink.items()}
     return W, H, sc, ink
 
 
@@ -105,10 +110,16 @@ def _groups(W: float, sc, ink) -> list:
     return out
 
 
-def crowded(W, H, rects: List[Rect]) -> int:
-    """Blocks whose drawn content comes within 2.5% (of the short side) of the canvas edge."""
+def _ramp(v: float, lo: float, hi: float) -> float:
+    """0 at or below lo, 1 at or above hi, linear between: a rule that switches at one pixel would let a
+    nudge too small to see flip a verdict."""
+    return _clamp((v - lo) / (hi - lo)) if hi > lo else float(v >= hi)
+
+
+def crowded(W, H, rects: List[Rect]) -> float:
+    """Blocks whose drawn content comes within 2.5% (of the short side) of the canvas edge, fully at 1.25%."""
     lim = 0.025 * min(W, H)
-    return sum(1 for r in rects if min(r.x, r.y, W - r.x1, H - r.y1) < lim)
+    return sum(1 - _ramp(min(r.x, r.y, W - r.x1, H - r.y1), lim / 2, lim) for r in rects)
 
 
 def lopsided(W, H, rects: List[Rect]) -> Tuple[float, float]:
@@ -119,21 +130,24 @@ def lopsided(W, H, rects: List[Rect]) -> Tuple[float, float]:
     return abs(c.x - (W - c.x1)) / W, abs(c.y - (H - c.y1)) / H
 
 
-def _facing(rects: List[Rect]) -> List[Tuple[int, int, float]]:
-    """(i, j, gap) for neighbours that face each other vertically or horizontally with nothing in between."""
+def _facing(rects: List[Rect]) -> List[Tuple[int, int, float, float]]:
+    """(i, j, gap, overlap) for neighbours that face each other vertically or horizontally with nothing in
+    between; overlap is how far they share the other axis."""
     out = []
     for i, a in enumerate(rects):
         for j, b in enumerate(rects):
             if i == j:
                 continue
-            if b.y >= a.y1 and min(a.x1, b.x1) > max(a.x, b.x):  # b below a
+            over = min(a.x1, b.x1) - max(a.x, b.x)
+            if b.y >= a.y1 and over > 0:  # b below a
                 if not any(k not in (i, j) and c.y >= a.y1 and c.y1 <= b.y and min(c.x1, a.x1, b.x1) > max(c.x, a.x, b.x)
                            for k, c in enumerate(rects)):
-                    out.append((i, j, b.y - a.y1))
-            if b.x >= a.x1 and min(a.y1, b.y1) > max(a.y, b.y):  # b right of a
+                    out.append((i, j, b.y - a.y1, over))
+            over = min(a.y1, b.y1) - max(a.y, b.y)
+            if b.x >= a.x1 and over > 0:  # b right of a
                 if not any(k not in (i, j) and c.x >= a.x1 and c.x1 <= b.x and min(c.y1, a.y1, b.y1) > max(c.y, a.y, b.y)
                            for k, c in enumerate(rects)):
-                    out.append((i, j, b.x - a.x1))
+                    out.append((i, j, b.x - a.x1, over))
     return out
 
 
@@ -148,22 +162,23 @@ EM = 0.3  # and so do groups closer than 0.3 em of the larger text beside them (
 
 def cramming(src_blocks, out_blocks, sW, sH, W, H) -> float:
     """Share of facing neighbour pairs that are not newly crammed: closer than
-    1.2% of the short side or 0.3 em now, although they were comfortably apart
-    in the source.  Blocks are (ids, drawn extent, largest font), matched across
-    source and output by their element ids."""
+    1.2% of the short side or 0.3 em now (fully at half that), although they were comfortably apart
+    in the source.  Pairs count by how far they face each other (fully from 1.5% of the short side), so
+    nudging one past another's corner cannot add or drop a pair.  Blocks are (ids, drawn extent, largest
+    font), matched across source and output by their element ids."""
     src = {frozenset(ids): (r, f) for ids, r, f in src_blocks}
-    pairs = _facing([r for _, r, _ in out_blocks])
-    if not pairs:
-        return 1.0
-    crammed = 0
-    for i, j, gap in pairs:
+    L = min(W, H)
+    total = crammed = 0.0
+    for i, j, gap, over in _facing([r for _, r, _ in out_blocks]):
         (ia, _, fa), (ib, _, fb) = out_blocks[i], out_blocks[j]
-        if gap >= max(TIGHT * min(W, H), EM * max(fa, fb)):
-            continue
+        tight = max(TIGHT * L, EM * max(fa, fb))
         a, b = src.get(frozenset(ia)), src.get(frozenset(ib))
-        if a is None or b is None or _clearance(a[0], b[0]) >= max(TIGHT * min(sW, sH), EM * max(a[1], b[1])):
-            crammed += 1
-    return _clamp(1 - 2 * crammed / len(pairs))
+        was = max(TIGHT * min(sW, sH), EM * max(a[1], b[1])) if a and b else 0.0
+        apart = 1.0 if was == 0.0 else _ramp(_clearance(a[0], b[0]), was / 2, was)
+        w = _ramp(over, 0.0, 0.015 * L)
+        total += w
+        crammed += w * (1 - _ramp(gap, tight / 2, tight)) * apart
+    return _clamp(1 - 2 * crammed / total) if total > 0 else 1.0
 
 
 def _font_of(d: dict, el_id) -> float:
