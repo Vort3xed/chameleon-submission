@@ -16,6 +16,7 @@ from engine.chameleon_layout.fallback import letterbox  # noqa: E402
 from engine.resize import resize  # noqa: E402
 from eval.design_rules import RULES, evaluate  # noqa: E402
 from eval.discriminator import quality, sign_test  # noqa: E402
+from test_structure import BARS  # noqa: E402
 
 SAMPLES = sorted((ROOT / "input").glob("chameleon_sample_*.json"))
 
@@ -111,3 +112,22 @@ def test_loop_veto_rule():
     assert not blocks(9, 11, 0, 20)  # slightly worse but not significantly: neutral
     assert blocks(5, 30, 0, 35)  # significantly worse
     assert blocks(60, 20, 3, 100)  # better on count, but too many severe losses
+
+
+def test_bar_floating_from_its_content_scores_lower():
+    """A header bar must stay on its edge, or stay a card behind what it holds: a slab
+    floating loose from its (shrunk-to-a-speck) logo is a stray box."""
+    W, H = 728, 90
+    out = resize(BARS, {"width": W, "height": H})
+    assert evaluate(BARS, out)["bars"] == pytest.approx(1.0)
+    loose = copy.deepcopy(out)
+    bar, logo = element(loose, "header"), element(loose, "brand")
+    bar.update(x=150, y=30, width=300, height=30)  # a slab mid-row
+    logo.update(x=600, y=40, width=1, height=1)
+    assert evaluate(BARS, loose)["bars"] < 1.0
+    card = copy.deepcopy(loose)
+    element(card, "brand").update(x=200, y=35, width=100, height=20)  # the slab holds its content again
+    assert evaluate(BARS, card)["bars"] == pytest.approx(1.0)
+    gone = copy.deepcopy(loose)
+    element(gone, "header")["opacity"] = 0
+    assert evaluate(BARS, gone)["bars"] == pytest.approx(1.0)

@@ -228,7 +228,8 @@ Development-only tooling, not copied into the image
   reading order; faint texture type stays decoration, never the headline.
 * `tests/test_discriminator.py` – the discriminator's invariants: a designer's
   original scores 1.0 on every rule against itself, a 1 px move is a tie,
-  collisions / shrunk headlines / edge-crowding score lower, and the naive
+  collisions / shrunk headlines / edge-crowding / a header bar floating loose
+  from its logo score lower, and the naive
   shrink loses to a real layout when the shape changes.
 * `RUNS.md` – log of every kept change and rejected experiment with scorer
   and AI-judge results.
