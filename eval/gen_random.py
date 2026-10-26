@@ -319,15 +319,60 @@ def wild_design(rng: random.Random) -> Design:
     return d
 
 
+def effects_design(rng: random.Random) -> Design:
+    """Common effects: a card with a translucent shadow, a headline with a drop shadow and a shadowed button,
+    an outlined headline (four offset copies), a two-tone background, and bare colour strips."""
+    W, H = rng.choice(SOURCES)
+    d, u = Design(W, H, rng), min(W, H) / 1080
+    d.bg_solid(rng.choice((PLUM, DEEP)))
+    kind = rng.choice(("card_shadow", "text_shadow", "outline", "two_tone", "strips"))
+    head, cta, size = rng.choice(HEAD_SHORT), rng.choice(CTAS), min(W, H) * 0.32
+    hx, hw = W * 0.08, W * 0.84
+    if kind == "card_shadow":
+        cw, ch = W * 0.76, H * 0.36
+        cx, cy = (W - cw) / 2, H * 0.52
+        d.shape("shadow", cx + 12 * u, cy + 12 * u, cw, ch, INK, alpha=0.4, radius=24 * u)
+        d.shape("card", cx, cy, cw, ch, CREAM, radius=24 * u)
+        d.image("product", BOTTLE, (W - size) / 2, cy - size - 20 * u, size, size)
+        y = cy + 40 * u + d.text("headline", head, SERIF, 64 * u, rgba(*INK), cx + 40 * u, cy + 40 * u, cw - 80 * u,
+                                 weight="bold")["height"]
+        d.text("subhead", rng.choice(SUBHEADS), SANS, 26 * u, rgba(*INK), cx + 40 * u, y + 16 * u, cw - 80 * u)
+    elif kind in ("text_shadow", "outline"):
+        offsets = [(6 * u, 6 * u)] if kind == "text_shadow" else [(-3 * u, 0), (3 * u, 0), (0, -3 * u), (0, 3 * u)]
+        for dx, dy in offsets:
+            d.text("headline_fx", head, SERIF, 90 * u, rgba(*(INK if kind == "text_shadow" else ORANGE)), hx + dx,
+                   H * 0.18 + dy, hw, weight="bold")
+        d.text("headline", head, SERIF, 90 * u, rgba(*WHITE), hx, H * 0.18, hw, weight="bold")
+        d.image("product", BOTTLE, (W - size) / 2, H * 0.4, size, size)
+        w, _ = d.pill_size(cta, 26 * u)
+        d.shape("cta_shadow", (W - w) / 2 + 5 * u, H * 0.82 + 5 * u, w, 62 * u, INK, alpha=0.45, radius=31 * u)
+    elif kind == "two_tone":
+        left = rng.random() < 0.5
+        d.shape("tone", 0 if left else W / 2, 0, W / 2, H, rng.choice((ORANGE, CREAM)))
+        d.image("product", BOTTLE, (W / 4 if left else W * 0.75) - size / 2, (H - size) / 2, size, size)
+        x = W * 0.56 if left else W * 0.06
+        d.text("headline", head, SERIF, 72 * u, rgba(*WHITE), x, H * 0.3, W * 0.38, weight="bold", align="left")
+        d.text("subhead", rng.choice(SUBHEADS), SANS, 26 * u, rgba(*WHITE), x, H * 0.52, W * 0.38, align="left")
+    else:
+        sh = H * rng.uniform(0.03, 0.08)
+        d.shape("strip_top", 0, 0, W, sh, ORANGE)
+        d.shape("strip_bottom", 0, H - sh, W, sh, ORANGE)
+        d.text("headline", head, SERIF, 90 * u, rgba(*WHITE), hx, H * 0.2, hw, weight="bold")
+        d.image("product", BOTTLE, (W - size) / 2, H * 0.4, size, size)
+    _cta(d, cta, W / 2, H * 0.82, 26 * u)
+    d.logo(W / 2, H * 0.06 + (H * 0.06 if kind == "strips" else 0), 180 * u)
+    return d
+
+
 def generate(out_dir: Path, n: int, seed: int, strips: bool = False, tall: bool = False, patterns: bool = False,
-             skeletons: bool = False, wild: bool = False):
+             skeletons: bool = False, wild: bool = False, effects: bool = False):
     tasks_dir = Path(out_dir) / "tasks"
     tasks_dir.mkdir(parents=True, exist_ok=True)
     rng, manifest = random.Random(seed), []
     for i in range(n):
         r = random.Random(rng.random())
         src = (strip_design(r) if strips else pattern_design(r) if patterns else skeleton_design(r) if skeletons else
-               wild_design(r) if wild else
+               wild_design(r) if wild else effects_design(r) if effects else
                design(r, TALL if tall else SOURCES)).to_source()
         sw, sh = src["canvas"]["width"], src["canvas"]["height"]
         wanted = (lambda f: f[2] >= 0.6 * f[1]) if strips else (lambda f: f[1] >= f[2]) if tall else (lambda f: True)
@@ -357,8 +402,10 @@ def main():
                     help="copy in a colour block, scrim band, feature columns, partner footer, card overlap designs")
     ap.add_argument("--wild", action="store_true",
                     help="full-bleed photo, dense menu, grouped duo offers, badge ring, testimonial designs")
+    ap.add_argument("--effects", action="store_true",
+                    help="card and text shadows, outlined type, two-tone backgrounds, bare colour strips")
     a = ap.parse_args()
-    generate(Path(a.out), a.n, a.seed, a.strips, a.tall, a.patterns, a.skeletons, a.wild)
+    generate(Path(a.out), a.n, a.seed, a.strips, a.tall, a.patterns, a.skeletons, a.wild, a.effects)
 
 
 if __name__ == "__main__":
