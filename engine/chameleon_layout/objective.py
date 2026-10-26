@@ -5,8 +5,10 @@ Each term is in [0, 1] (higher is better):
   size         elements keep their size relative to the region (hierarchy)
   fill         content spans the available area instead of floating small
   coverage     visible content area relative to the source's
-  headline     the headline is big enough to lead
+  headline     the headline is big enough to read at a glance
+  headline_share  and to lead the canvas (full at 12% of its short side, as people prefer)
   hero         the product imagery keeps its share of the canvas
+  product_share  and fills it (full at a quarter of the region, as people prefer)
   balance      visual mass is centred
   wrap         short phrases are not shattered into one-word lines
   kept         important elements stay visible
@@ -33,7 +35,7 @@ from .scene import Block
 # ever saw candidates these already screened (narrow shattered columns, tiny
 # text, overlaps), so the data cannot price them.
 WEIGHTS = {"hero": 0.16, "fill": 0.14, "coverage": 0.12, "headline": 0.20, "kept": 0.18, "legibility": 0.28,
-           "balance": 0.07, "faithful": 0.06, "wrap": 0.12, "overlap": 0.12, "hierarchy": 0.08,
+           "balance": 0.07, "faithful": 0.06, "product_share": 0.04, "headline_share": 0.06, "wrap": 0.12, "overlap": 0.12, "hierarchy": 0.08,
            "is_preserve_near": 0.06, "is_stack_near": 0.05, "is_split_near": -0.05,
            "is_preserve_mid": 0.10, "is_split_mid": 0.13, "is_stack_mid": -0.09, "is_row_mid": -0.14,
            "is_split_wide": 0.04, "is_stack_wide": -0.24, "is_row_wide": 0.20}
@@ -90,8 +92,12 @@ def evaluate(lay: Layout, scope: Scope, items) -> Dict[str, float]:
     t["coverage"] = min(1.0, out_cov / src_cov) if src_cov > 0 else 1.0
     heads = [lay.out[it.idx].font for b, it, _, _ in vis if b.role == "headline" and lay.out[it.idx].font]
     t["headline"] = min(1.0, max(heads) * ctx.view / 44.0) if heads else 1.0
+    # and leading the canvas, as people prefer: shrinking a headline that already reads still costs something
+    t["headline_share"] = min(1.0, max(heads) / (HEADLINE_SHARE * min(reg.w, reg.h))) if heads else 1.0
     t["hierarchy"] = _hierarchy(lay, vis)
     hero = [(o.area / reg.area, s_.area / src.area) for b, it, o, s_ in vis if b.hero or b.role == "hero"]
+    t["product_share"] = min(1.0, sum(h[0] for h in hero) / 0.25) if hero else 1.0  # people reward product art
+    # that fills the canvas (human labels), beyond merely keeping its source share
     t["hero"] = min(1.0, math.sqrt(sum(h[0] for h in hero) / sum(h[1] for h in hero))) if hero and \
         sum(h[1] for h in hero) > 0 else (0.0 if any(b.hero for b in lay.hidden) else 1.0)
     mass = sum(o.area for _, o, _ in content)
@@ -142,6 +148,9 @@ def _hierarchy(lay: Layout, vis) -> float:
         if b.role != "headline" and want > 1.0:
             worst = min(worst, max(0.0, (hf / f - 1.0) / (want - 1.0)))
     return worst
+
+
+HEADLINE_SHARE = 0.12  # a headline this tall relative to the region's short side earns full marks
 
 
 FAMILIES = ("preserve", "stack", "split", "row")
