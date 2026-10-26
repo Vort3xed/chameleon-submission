@@ -9,6 +9,7 @@ structures someone thought of; this searches for the rest.  `python -m
 eval.hunt` ranks the engine's outputs on it and shows the worst.
 
     python -m eval.gen_random --out eval/testsets/random --n 150
+    python -m eval.gen_random --out eval/testsets/strips --n 80 --strips   # banner sources -> tall / square
 """
 
 from __future__ import annotations
@@ -118,14 +119,50 @@ def design(rng: random.Random) -> Design:
     return d
 
 
-def generate(out_dir: Path, n: int, seed: int):
+STRIPS = [(728, 90), (970, 250), (320, 100), (1500, 500), (1200, 300), (468, 60)]
+
+
+def strip_design(rng: random.Random) -> Design:
+    """A banner source: logo, product art, copy and a button side by side in a strip, at random proportions -
+    the reverse direction (banner -> story / square / portrait) the poster-shaped sources never test."""
+    W, H = rng.choice(STRIPS)
+    d, u = Design(W, H, rng), H / 250
+    if rng.random() < 0.8:
+        d.bg_image()
+    else:
+        d.bg_solid(rng.choice((PLUM, DEEP, ORANGE)))
+    x = 0.04 * W
+    if rng.random() < 0.7:
+        w = H * rng.uniform(0.9, 1.4)
+        d.logo(x + w / 2, H * 0.32, w)
+        x += w + 0.03 * W
+    for _ in range(rng.choice((0, 1, 1, 2))):
+        size = H * rng.uniform(0.7, 0.95)
+        d.image("product", BOTTLE, x, (H - size) / 2, size, size)
+        x += size * 0.8 + 0.02 * W
+    cta_w = d.pill_size("Shop the Summer Line", 22 * u)[0] if rng.random() < 0.85 else 0.0
+    copy_w = max(W * 0.15, W - x - cta_w - 0.08 * W)
+    y = H * rng.uniform(0.12, 0.3)
+    y += d.text("headline", rng.choice(HEAD_LONG if rng.random() < 0.25 else HEAD_SHORT), SERIF, rng.uniform(44, 72) * u,
+                rgba(*WHITE), x, y, copy_w, weight="bold", align=rng.choice(("left", "center")))["height"] + 8 * u
+    if rng.random() < 0.6 and y < H * 0.75:
+        d.text("subhead", rng.choice(SUBHEADS), SANS, rng.uniform(18, 26) * u, rgba(*WHITE), x, y, copy_w)
+    if cta_w:
+        _cta(d, rng.choice(CTAS), W - 0.04 * W - cta_w / 2, H / 2 - 28 * u, 22 * u)
+    if rng.random() < 0.2:
+        d.ribbon(rng.choice(RIBBONS), "tr", size=14 * u)
+    return d
+
+
+def generate(out_dir: Path, n: int, seed: int, strips: bool = False):
     tasks_dir = Path(out_dir) / "tasks"
     tasks_dir.mkdir(parents=True, exist_ok=True)
     rng, manifest = random.Random(seed), []
     for i in range(n):
-        src = design(random.Random(rng.random())).to_source()
+        src = (strip_design if strips else design)(random.Random(rng.random())).to_source()
         sw, sh = src["canvas"]["width"], src["canvas"]["height"]
-        for name, tw, th in rng.sample([f for f in FORMATS if (f[1], f[2]) != (sw, sh)], 2):
+        targets = [f for f in FORMATS if (f[1], f[2]) != (sw, sh) and (not strips or f[2] >= 0.6 * f[1])]
+        for name, tw, th in rng.sample(targets, 2):
             tid = f"random_{i:03d}__{name.lower().replace(' ', '_')}"
             lvl = 3 if max(tw / th, th / tw) > 3 else (2 if (tw > th) != (sw > sh) else 1)
             task = {"task_id": tid, "archetype": "random", "ratio_level": lvl, "source": copy.deepcopy(src),
@@ -143,8 +180,9 @@ def main():
     ap.add_argument("--out", default=str(ROOT / "eval" / "testsets" / "random"))
     ap.add_argument("--n", type=int, default=150)
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--strips", action="store_true", help="banner-shaped sources, resized to square and tall formats")
     a = ap.parse_args()
-    generate(Path(a.out), a.n, a.seed)
+    generate(Path(a.out), a.n, a.seed, a.strips)
 
 
 if __name__ == "__main__":

@@ -36,6 +36,12 @@ every random design with texture type showed a 'collision'.  Faint text is now
 decor in the scorer too (as in the engine since v37n); discriminator audit and
 weights unchanged (no benchmark pair has texture type).
 
+**Banner sources (`gen_random.py --strips`, 80 designs x 2 square/tall targets):**
+almost every source in the sets was a poster or a wide card, so the reverse
+direction (a 728x90 or 970x250 turned into a story, square or portrait) was
+untested.  v38f: 0 gate failures, 0 crashes, scorer 99.6; outputs read well
+(stacked, big headlines).  Now a judged loop set (`s_<step>`).
+
 **Loop acceptance (2026-10-25):** a judged set where nothing changed is neutral;
 a set blocks a step with gate failures/crashes, severe losses over the limit,
 or significantly more losses than wins; a step is accepted when no set blocks
