@@ -242,6 +242,28 @@ def test_a_card_keeps_its_shadow(target):
     assert card["x"] <= head["x"] and head["x"] + head["width"] <= card["x"] + card["width"] + 1
 
 
+def _bare(*shapes):
+    els = [{"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 1080, "fill_color": "rgba(42,26,46,1)",
+            "z_index": 0}]
+    els += [{"id": k, "type": "shape", "x": x, "y": y, "width": w, "height": h, "fill_color": "rgba(232,106,58,1)",
+             "z_index": 1} for k, x, y, w, h in shapes]
+    els.append({"id": "headline", "type": "text", "x": 600, "y": 400, "width": 420, "height": 200, "content": "Golden Hour",
+                "font_size": 72, "font_family": "Lora", "color": "#ffffff", "text_align": "center", "z_index": 2})
+    return {"canvas": {"width": 1080, "height": 1080}, "elements": els}
+
+
+@pytest.mark.parametrize("target", [(1920, 1080), (1080, 1920), (728, 90), (320, 50)])
+def test_bare_edge_bars_keep_their_edges(target):
+    """A two-tone background (a bare half-canvas panel) and a bare colour strip hold nothing, yet they
+    are part of the composition: they stay on their edges at full length, never floating as boxes."""
+    W, H = target
+    out = {e["id"]: e for e in resize(_bare(("half", 0, 0, 540, 1080), ("strip", 0, 1000, 1080, 80)),
+                                      {"width": W, "height": H})["elements"]}
+    half, strip = out["half"], out["strip"]
+    assert half["x"] == 0 and half["y"] == 0 and half["height"] == H
+    assert strip["x"] == 0 and strip["width"] == W and strip["y"] + strip["height"] == H
+
+
 SIDE_PANEL = {
     "canvas": {"width": 1080, "height": 1920},
     "elements": [

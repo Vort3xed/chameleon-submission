@@ -153,8 +153,9 @@ def _bands(scene: Scene, W: float, H: float) -> Dict[int, Tuple[Block, Rect]]:
         w = f.w * W / scene.W
         return Rect(0.0 if b.band == "left" else W - w, 0.0, w, H)
 
-    wider = W / H >= scene.W / scene.H  # a side panel keeps its edge only with room beside it, and
-    side = lambda b: wider and rect(b).w >= BAND_MIN  # noqa: E731  # room inside it; else it flows
+    wider = W / H >= scene.W / scene.H  # a side panel keeps its edge only with room beside it, and room
+    side = lambda b: (wider or len(b.items) == 1) and rect(b).w >= BAND_MIN  # noqa: E731  # inside it (an empty
+    # one always: flowing, it would only float as a box); else it flows
     return {id(b): (b, rect(b)) for b in scene.blocks if b.band in ("top", "bottom") or b.band and side(b)}
 
 
@@ -168,10 +169,10 @@ def _holds_key(b: Block) -> bool:
 
 def _kept(b: Block, r: Rect, bg: Optional[float], H: float) -> Optional[Rect]:
     """Where a band is kept, if at all.  One thick enough holds its content; a bar too thin for it never
-    floats as a box: with peripheral content (a logo, small print) it becomes a stripe if that content stays
-    legible off it, else it grows to hold it (up to a quarter of the canvas); a thin bar holding the message
-    is not kept - it flows as a card behind it."""
-    if min(r.w, r.h) >= BAND_MIN or _stripe(b, bg):
+    floats as a box: empty, or with peripheral content (a logo, small print) that stays legible off it, it
+    becomes a stripe; else it grows to hold that content (up to a quarter of the canvas); a thin bar holding
+    the message is not kept - it flows as a card behind it."""
+    if min(r.w, r.h) >= BAND_MIN or len(b.items) == 1 or _stripe(b, bg):
         return r
     if not _holds_key(b) and BAND_MIN <= 0.25 * H:
         return Rect(r.x, 0.0 if b.band == "top" else H - BAND_MIN, r.w, BAND_MIN)

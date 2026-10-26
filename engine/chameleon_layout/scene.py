@@ -354,6 +354,9 @@ def make_block(members: List[Item], children_of: Dict[int, List[Item]], scope: R
     if len(members) == 1:
         it = members[0]
         kind = {"text": "text", "image": "image"}.get(it.type, "shape")
+        band = _band(it, scope) if kind == "shape" else ""
+        if band:  # a bare bar on an edge (a two-tone background, a colour strip): a band holding nothing
+            return Block("panel", members, frame=it, band=band)
         return Block(kind, members)
     frames = [m for m in members if m.idx in children_of and m.type == "shape"]
     frame = max(frames, key=lambda f: f.box.area) if frames else None

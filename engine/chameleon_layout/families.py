@@ -592,6 +592,8 @@ def best_layout(scope: Scope, ctx0: Ctx, items, allow_preserve: bool = True) -> 
 def _panel_inner(children: List[Block], src: Rect, region: Rect, ctx: Ctx, items) -> Dict[int, Placement]:
     """Lay out a panel's children inside its new box (hooked into blocks.py).
     Panels nested deeper simply stack, which keeps the search linear in depth."""
+    if not children:
+        return {}
     hook, B.panel_layout_hook = B.panel_layout_hook, None
     try:
         lay = best_layout(Scope(children, src, region), ctx, items)
