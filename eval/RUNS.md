@@ -71,7 +71,7 @@ pairwise logs); `eval/runs/history.jsonl` has every scorer run.
 
 ## Current best
 
-**v39v2**: formats 98.73 · fresh holdout2 98.51 · crazy 96.81 · random 98.29 · strips 99.63 · tall 98.70 · patterns 99.34 · skeletons 98.08 · wild 98.79 · effects 98.47 · extra presets 97.78 · 0 gate failures, 0 crashes.
+**v39x**: formats 98.73 · fresh holdout2 98.51 · crazy 96.81 · random 98.29 · strips 99.63 · tall 98.70 · patterns 99.34 · skeletons 98.08 · wild 98.79 · effects 98.47 · marketing 99.17 · extra presets 97.78 · 0 gate failures, 0 crashes.
 
 Earlier, **v37y**: formats 98.63 · fresh holdout2 98.31 · crazy 96.99 (35 designs) · random 97.95 · extra presets 97.60 · 0 gate failures.
 Against v36r (start of 2026-10-25): discriminator formats 496–237 (p 10⁻²², 1 severe), fresh holdout2 82–31
@@ -180,7 +180,7 @@ v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 | (pre-screen) | a logo that sat above the card holding the headline stays above it on a banner (no row or split setting it beside the card: p088/p089 'logo in a terrible spot') | – | – | formats 12–7 but 3 severe (scrim bands at 320x100 forced into a cramped stack), VLM 6–6; the logo also came out small over the card. Dropped - the card case stays open | |
 | (pre-screen) | headline boost: a stack (and a split's copy column) with room to spare grows its headline up to 1.5x, capped at 15% of the short side (the attack hill-climb found +30% headline free on an Instagram story) | – | – | the discriminator loved it (formats 212–73, six sets significant) but the VLM 12–26 against: 'headline too tall and cramped', 'better line breaks'. Mild (1.25x, never an added line break): discriminator 260–61, VLM 10–14 (56 ties). Dropped - see below | |
 | v39w | a 3000-case fuzz campaign (the suite's junk mutations plus valid extremes: line height 50, letter spacing 200, 5000-char copy, emoji / RTL / CJK, out-of-range style runs, all elements on one spot, everything rotated, 20:1 sources to 1:20 targets): 303 cases crashed the layout engine and fell back to the letterbox - echo detection on a zero-area text (its own overlap test excluded it: max() of nothing), and lists / dicts in string fields reaching cached text measures and asset lookups. Junk in those fields now reads as absent and zero-area texts are skipped | – | 98.73 | 0 crashes in 3000, 0 validity failures; no output changes on any set (no real task hit either path: 0 of 4013) - kept for robustness; tests pin each junk field | `7984862` |
-| v39x | a new generated set (`--kind marketing`: stats row, numbered steps, coupon, star rating, QR corner) showed stats split into a list of numbers and a list of labels, step numbers dropped from their captions, and the biggest stat taking the headline role. A row of pieces each over its caption (text or an image-free group over a smaller or larger text, nothing above it) is now a row of units; their row gap is measured as drawn | – | 98.73 | first judged without a pairing rule: marketing 18–28, skeletons 2–19 (the units came out smaller - the size bias) while the VLM said 29–12 and 9–6 for it. With the judge's new `pairs` rule: ACCEPT, marketing 36–8 (+0.37), skeletons 14–7, everything else unchanged. Product grids and menus untouched (rows that look alike are records; a product above keeps its own tile) | |
+| v39x | a new generated set (`--kind marketing`: stats row, numbered steps, coupon, star rating, QR corner) showed stats split into a list of numbers and a list of labels, step numbers dropped from their captions, and the biggest stat taking the headline role. A row of pieces each over its caption (text or an image-free group over a smaller or larger text, nothing above it) is now a row of units; their row gap is measured as drawn | – | 98.73 | first judged without a pairing rule: marketing 18–28, skeletons 2–19 (the units came out smaller - the size bias) while the VLM said 29–12 and 9–6 for it. With the judge's new `pairs` rule: ACCEPT, marketing 36–8 (+0.37), skeletons 14–7, everything else unchanged. Product grids and menus untouched (rows that look alike are records; a product above keeps its own tile) | `8a6cc2e` |
 | (pre-screen) | preserve: a boost may not crush the gaps between bands below 60% of theirs (the official core sample at 1080x1080: body text touching the button) | – | – | formats 13–64, skeletons 1–13: the bigger boosted type wins. Dropped | |
 
 **Lesson (v29–v31):** a chain of small A/B wins (+0.06, +0.06, +0.38 on 8
@@ -387,6 +387,8 @@ not in the main catalogue, incl. 120×600, 300×1050, 468×60, 234×60,
 **VLM on the format set (v39f2 vs v38o, 2026-10-26):** 80 differing tasks, v39f2 31 - v38o 16 (33 ties), net +0.17 (before the scrim fix, v39d vs v38o was -0.07, almost all of it on scrim designs).
 
 **VLM on the fresh holdout (v39d vs v38o, 2026-10-26):** the day's changes judged by the other judge on holdout2 (never tuned on): 26 differing tasks, v39d 14 - v38o 6 (6 ties), net +0.31 - same direction as the discriminator, beyond the judge's noise. Its reasons for v38o: two centred scrim layouts and a split card it found more balanced.
+
+**Submission check (v39x, 2026-10-26):** image rebuilt; `eval.docker_parity` (now with the marketing set) 91/91 byte-identical to native.
 
 **Submission check (v39v2, 2026-10-26):** image rebuilt; `eval.docker_parity` 83/83 byte-identical to native.
 
