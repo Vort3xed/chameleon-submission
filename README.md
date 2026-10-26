@@ -118,8 +118,9 @@ dropping content), and two terms reward using the canvas - the headline's
 share of the short side and the product's share of the area.  The family
 priors are kept small (a quarter of the fit): they are the judge's taste in
 arrangements and must not outvote the quality terms.  A family's prior
-follows the shape of the region it laid out (beside a side panel a stack sits
-in a near-square space, whatever the canvas).  A layout that collides never
+follows the less stretched of the canvas and the region it laid out: beside
+a side panel a stack sits in a near-square space whatever the canvas, but a
+scrim along the bottom of a square ad does not make its content a banner.  A layout that collides never
 outranks a clean one.
 
 **5. Enforce the rules (`finalize.py`).** Same elements in the same order,

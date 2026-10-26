@@ -344,6 +344,8 @@ not in the main catalogue, incl. 120×600, 300×1050, 468×60, 234×60,
 
 **VLM on the fresh holdout (v39d vs v38o, 2026-10-26):** the day's changes judged by the other judge on holdout2 (never tuned on): 26 differing tasks, v39d 14 - v38o 6 (6 ties), net +0.31 - same direction as the discriminator, beyond the judge's noise. Its reasons for v38o: two centred scrim layouts and a split card it found more balanced.
 
+**Submission check (v39f2, 2026-10-26):** image rebuilt; `eval.docker_parity` (now with the wild set) 75/75 byte-identical to native.
+
 **Submission check (v39c3, 2026-10-26):** image rebuilt; `eval.docker_parity` 67/67 byte-identical to native.
 
 **Submission check (v38z, 2026-10-26):** image rebuilt; `eval.docker_parity` 67/67 byte-identical to native (the preview renderer still segfaults under qemu once, isolated as designed).
