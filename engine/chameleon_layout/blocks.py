@@ -363,8 +363,18 @@ def stack_measure(blocks: List[Block], ctx: Ctx, width: float, region_h: float):
     return w, h, sizes, gaps
 
 
+def _slack_shares(blocks: List[Block], breaks: List[bool], src: Rect) -> Optional[Tuple[float, float]]:
+    """(top, between) shares of the space the source left around and between its groups, or None if the
+    source stacked nothing (a row restacked keeps the default spread)."""
+    top = min(b.src.y for b in blocks) - src.y
+    bottom = src.y1 - max(b.src.y1 for b in blocks)
+    between = sum(g for g, brk in zip(source_gaps(blocks), breaks) if brk)
+    total = max(0.0, top) + max(0.0, bottom) + between
+    return (max(0.0, top) / total, between / total) if between > 0 and total > 0 else None
+
+
 def stack_place(blocks: List[Block], ctx: Ctx, region: Rect, out: Dict[int, Placement],
-                valign: str = "spread") -> List[Tuple[Block, Rect]]:
+                valign: str = "spread", src: Optional[Rect] = None) -> List[Tuple[Block, Rect]]:
     w, h, sizes, gaps = stack_measure(blocks, ctx, region.w, region.h)
     free = max(0.0, region.h - h)
     n = len(blocks)
@@ -372,10 +382,13 @@ def stack_place(blocks: List[Block], ctx: Ctx, region: Rect, out: Dict[int, Plac
     axis = aligns.pop() if len(aligns) == 1 else "center"  # one alignment per column; mixed ones centre
     breaks = group_breaks(blocks)
     between = sum(g for g, brk in zip(gaps, breaks) if brk)
+    shares = _slack_shares(blocks, breaks, src) if src is not None else None
     if valign == "center" or n == 1 or between <= 0:
         y, stretch = region.y + free / 2, 1.0
-    else:  # half the slack to the outer margins, half to the gaps between groups in proportion; groups stay compact
-        y, stretch = region.y + free / 4, 1.0 + free / 2 / between
+    else:  # half the slack to the outer margins, half to the gaps between groups in proportion (groups stay
+        # compact) - drawn halfway to where the source left its space: above, between the groups, below
+        top, mid = ((0.25 + shares[0]) / 2, (0.5 + shares[1]) / 2) if shares else (0.25, 0.5)
+        y, stretch = region.y + free * top, 1.0 + free * mid / between
     lists = _list_runs(blocks, sizes, region)
     placed = []
     for b, (bw, bh), g, brk in zip(blocks, sizes, gaps, breaks):

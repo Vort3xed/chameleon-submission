@@ -71,7 +71,7 @@ pairwise logs); `eval/runs/history.jsonl` has every scorer run.
 
 ## Current best
 
-**v39t3**: formats 98.72 · fresh holdout2 98.50 · crazy 96.84 · random 98.28 · strips 99.62 · tall 98.69 · patterns 99.32 · skeletons 98.08 · wild 98.73 · effects 98.47 · extra presets 97.79 · 0 gate failures, 0 crashes.
+**v39u2**: formats 98.73 · fresh holdout2 98.51 · crazy 96.83 · random 98.29 · strips 99.63 · tall 98.68 · patterns 99.33 · skeletons 98.08 · wild 98.75 · effects 98.47 · extra presets 97.80 · 0 gate failures, 0 crashes.
 
 Earlier, **v37y**: formats 98.63 · fresh holdout2 98.31 · crazy 96.99 (35 designs) · random 97.95 · extra presets 97.60 · 0 gate failures.
 Against v36r (start of 2026-10-25): discriminator formats 496–237 (p 10⁻²², 1 severe), fresh holdout2 82–31
@@ -171,6 +171,10 @@ v33 ties v27 18–17 over all 233 differing tasks; v34 vs v33 16–13.
 | v39t | human notes flag the logo set apart as a column beside the product (p088, p089, p093); beside product art on a banner the logo that headed the copy now heads the headline's column if that costs the type under 20% (strips 5:1+ and rows without art keep it leading) | – | 98.72 | ACCEPT: formats 53–33 (+0.085), the rest neutral (wild 2–9 and tall 6–10: sources with a tiny logo keep it tiny atop the copy); VLM on the 86 changed wide formats 33–16 for it | `f78c4ad` |
 | v39t2 | the logo heads the copy only if it also keeps 80% of the height it has leading the row (a small source logo stayed small atop the copy) | – | 98.72 | neutral everywhere: tall 11–4, wild 3–1, but formats 15–22 (it reverted cases the VLM preferred, logos kept at 0.67–0.75) | |
 | v39t3 | the same at two thirds | – | 98.72 | ACCEPT: formats 10–2 (+0.17), tall 8–1 (+0.27), the rest neutral | `30753d6` |
+| v39r | from the official core sample at 300x250: a label lifted to its legibility floor (4.7 -> 10 px) ballooned its button with it (a 200x43 pill, 2/3 of the canvas, over a 12 px headline); a lifted button now hugs its label (padding follows the layout, at least 1 em / 0.45 em) | – | – | the loop run was contaminated (it carried v39q2's gap floor); re-judged clean on formats / crazy / skeletons: lifted 1.5x+ only, formats 86–84, crazy 27–34, skeletons 5–10 - near-tie layout flips both ways (a card switched to a tiny-text stack); drawn snug inside its old slot instead: formats 31–110. Parked | |
+| v39u | stack slack drawn halfway to where the source left its space (the warm-up sample's headline sank to 70% of every tall canvas: one group gap took half the slack), with faint texture type left behind the content | – | 98.73 | formats 64–34, patterns 17–2, effects 12–2 improved, but crazy blocks: 6 severe, all the watermark design - left in place, the faint SUMMER sat behind the headline (settle_decor moves it clear). Texture part dropped | |
+| v39u2 | the slack part alone | – | 98.73 | ACCEPT: formats 64–34, crazy 36–14, patterns 17–2, effects 12–2 improved, the rest neutral; VLM 8–9 (63 ties) on 80 changed formats; ornaments keep their corners (the full source share let content reach them) | |
+| (pre-screen) | preserve: a boost may not crush the gaps between bands below 60% of theirs (the official core sample at 1080x1080: body text touching the button) | – | – | formats 13–64, skeletons 1–13: the bigger boosted type wins. Dropped | |
 
 **Lesson (v29–v31):** a chain of small A/B wins (+0.06, +0.06, +0.38 on 8
 tasks) hid a real regression. Every few versions, compare against a fixed

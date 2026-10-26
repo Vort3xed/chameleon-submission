@@ -267,7 +267,7 @@ def stack(scope: Scope, ctx0: Ctx, k: float, shrink: float = 1.0) -> Optional[La
             return None
         ts *= shrink
         lay = Layout(f"stack k={k} s={shrink}", base.with_scale(ts, ts * k))
-        lay.placed = stack_place(blocks, lay.ctx, reg, lay.out)
+        lay.placed = stack_place(blocks, lay.ctx, reg, lay.out, src=scope.src)
         return lay
 
     return _fit_scale(build)

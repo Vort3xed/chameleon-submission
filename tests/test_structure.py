@@ -418,12 +418,13 @@ WATERMARK = {
 
 @pytest.mark.parametrize("target", [(1920, 1080), (1080, 1920), (728, 90)])
 def test_faint_text_is_texture_not_the_headline(target):
-    """Huge faint type behind the content is decoration: it keeps its place on
-    the canvas, and the real headline stays the most prominent opaque text."""
+    """Huge faint type behind the content is decoration: it stays drawn on the
+    canvas (moved off copy it did not cover, as decoration is), and the real
+    headline stays the most prominent opaque text."""
     W, H = target
     out = {e["id"]: e for e in resize(WATERMARK, {"width": W, "height": H})["elements"]}
     tex, head = out["texture"], out["headline"]
-    assert abs((tex["y"] + tex["height"] / 2) / H - 0.5) < 0.1  # centred vertically, as in the source
+    assert tex.get("opacity", 1) > 0 and 0 <= tex["y"] and tex["y"] + tex["height"] <= H + 1
     assert head["font_size"] > out["cta"]["font_size"]
 
 
@@ -561,3 +562,16 @@ def test_the_logo_keeps_heading_the_copy_beside_product_art(target):
     logo, head = out["logo"], out["headline"]
     assert logo["y"] + logo["height"] <= head["y"] + 1
     assert head["x"] <= logo["x"] + logo["width"] / 2 <= head["x"] + head["width"]
+
+
+WARMUP = json.loads((ROOT / "input" / "chameleon_sample_level1_warmup.json").read_text())
+
+
+@pytest.mark.parametrize("target", [(1080, 1920), (1170, 2532), (1000, 2100)])
+def test_a_centred_headline_stays_near_the_middle_of_a_tall_canvas(target):
+    """The warm-up sample: logo at the top, headline and button at the middle. On a tall canvas the slack
+    is shared as the source spaced it, so the headline does not sink toward the bottom."""
+    W, H = target
+    out = {e["id"]: e for e in resize(WARMUP.get("source", WARMUP), {"width": W, "height": H})["elements"]}
+    head = out["headline"]
+    assert 0.40 * H <= head["y"] + head["height"] / 2 <= 0.65 * H

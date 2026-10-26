@@ -79,7 +79,7 @@ still works with no fonts or assets present.
   overlaps move together and only the space between them stretches (corner
   pieces stay by their corner; an inset border frame is the canvas the content
   lives in). The same shape (aspect within 8%) always keeps the composition;
-* **stack** – a single column in reading order (tall/square canvases);
+* **stack** – a single column in reading order (tall/square canvases); groups stay compact and the spare height goes to the margins and the gaps between groups, drawn halfway to how the source spaced them (a headline the designer centred does not sink to the bottom of a tall canvas);
 * **split** – product imagery in one column, everything else stacked beside it;
 * **row** – banners: logo | product | text columns | CTA, with text partitioned into 1–3 columns; beside product art on a banner (not a strip), a logo that headed the copy stays at the head of the headline's column when that costs the type under 20% (set apart by the product, it reads as a stray).
 
@@ -216,10 +216,16 @@ Development-only tooling, not copied into the image
 * `design_rules.py` – exact design-rule metrics, each relative to the source
   (alignment incl. inside cards, edge crowding, margin balance, newly crammed
   neighbours, headline lead, product and logo share - nested in panels too -,
-  fill, corner pieces, header and footer bars kept on their edges).
+  fill, corner pieces, header and footer bars kept on their edges). Roles are
+  read in the source and followed into the resize by element id (analysed
+  afresh, a resize could merge a side panel with its content into 'product
+  art'); thresholds ramp in over a band and specks under 3 px are not seen, so
+  a nudge too small to see cannot flip a verdict.
 * `judge_bench.py` – known-answer pairs for judges: an output against a copy
   with one defect at graded severity, tie controls (identical, 1 px moves),
-  the brief's anti-examples (shrunk, stretched), and held-out defect kinds.
+  the brief's anti-examples (shrunk, stretched), and three sets of held-out
+  defect kinds (`--set unseen3`: failures the engine could make - cropped art,
+  text off its card, overflowing text, a bar slipped off its edge).
 * `judge_fit.py`, `discriminator.py` – the fitted discriminator (non-negative
   logistic on rules + scorer metrics, a floor on every rule) with an
   overfitting audit (held-out tasks, unseen defect kinds, held-out human
@@ -251,12 +257,14 @@ Development-only tooling, not copied into the image
   stays a full-height bar holding the product with the copy beside it in
   reading order; a price list keeps each price with its item; grouped offers
   never outgrow the headline; faint texture type stays decoration, never the
-  headline.
+  headline; the logo that headed the copy keeps heading it beside product art;
+  a centred headline stays near the middle of a tall canvas.
 * `tests/test_discriminator.py` – the discriminator's invariants: a designer's
   original scores 1.0 on every rule against itself, a 1 px move is a tie,
   collisions / shrunk headlines / edge-crowding / a header bar floating loose
-  from its logo score lower, and the naive
-  shrink loses to a real layout when the shape changes.
+  from its logo or slipped off its edge score lower, the naive
+  shrink loses to a real layout when the shape changes, product art is the
+  source's, and a sub-pixel nudge of every element barely moves the verdict.
 * `RUNS.md` – log of every kept change and rejected experiment with scorer
   and AI-judge results.
 
