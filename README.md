@@ -36,8 +36,10 @@ semantic labels:
   panel on a side edge (a colour block bleeding off half the canvas) does the
   same on a canvas relatively as wide as the source or wider; on a narrower
   one it flows like any block.  A bar too thin to hold its content stays a
-  stripe on its edge while its logo or small print flows with the rest (a thin
-  bar holding the message flows as a card behind it);
+  stripe on its edge while its logo or small print flows with the rest - if
+  that content stays legible off it (the bar is close in tone to the
+  background); else the bar grows to hold it.  A thin bar holding the message
+  flows as a card behind it;
 * *blocks* – the units that get laid out: single texts and images, **rigid
   groups** (shared `group_id`, e.g. button shape + label, rotated ribbons,
   product tiles), **panels** (a container shape such as a card or scrim whose

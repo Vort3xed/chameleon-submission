@@ -8,14 +8,14 @@ from __future__ import annotations
 
 import math
 from dataclasses import replace
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from . import blocks as B
 from .blocks import Ctx, Placement, place
 from .families import Layout, Scope, _base, _panel_inner, arrangements, outer_margins, preserve, scale_block
 from .finishing import _anchored, _is_frame, finish, opaque_covers
 from .geometry import Rect
-from .scene import Block, Scene
+from .scene import Block, Scene, backdrop, luminance
 
 DROP_STEPS = (0.25, 0.36, 0.45, 0.55, 0.65, 0.8, 0.9)
 
@@ -163,6 +163,25 @@ def _holds_key(b: Block) -> bool:
     return b.role in KEY_ROLES or b.hero or any(map(_holds_key, b.children))
 
 
+def _kept(b: Block, r: Rect, bg: Optional[float], H: float) -> Optional[Rect]:
+    """Where a band is kept, if at all.  One thick enough holds its content; a bar too thin for it never
+    floats as a box: with peripheral content (a logo, small print) it becomes a stripe if that content stays
+    legible off it, else it grows to hold it (up to a quarter of the canvas); a thin bar holding the message
+    is not kept - it flows as a card behind it."""
+    if min(r.w, r.h) >= BAND_MIN or _stripe(b, bg):
+        return r
+    if not _holds_key(b) and BAND_MIN <= 0.25 * H:
+        return Rect(r.x, 0.0 if b.band == "top" else H - BAND_MIN, r.w, BAND_MIN)
+    return None
+
+
+def _stripe(b: Block, bg: Optional[float]) -> bool:
+    """A thin bar may become a stripe, its content lifted onto the canvas: only peripheral content, and only
+    off a bar close in tone to the background (contrast under 2:1), so what it held stays legible."""
+    lum = luminance(b.frame.el.get("fill_color"))
+    return not _holds_key(b) and lum is not None and bg is not None and (max(lum, bg) + 0.05) / (min(lum, bg) + 0.05) < 2
+
+
 def _place_bands(lay: Layout, bands: Dict[int, Tuple[Block, Rect]], stripes, scene: Scene, mx: float, my: float):
     """Each band's bar at its edge, its content laid out inside it - free along the bar, in proportion across
     it - unless the bar is a stripe, whose content flows with the rest."""
@@ -227,9 +246,8 @@ def candidates(scene: Scene, ctx0: Ctx) -> Tuple[Scope, List[Layout]]:
         free = _between(src, {k: (b, b.frame.box) for k, (b, _) in bands.items()}, scene, 0.0, 0.0)
         return _flowing(scene, ctx0, free, _between(region, bands, scene, mx, my), judge, bands, stripes, mx, my)
 
-    # a bar too thin to hold its content stays a stripe on its edge (never a floating box) when what it
-    # holds is peripheral (a logo, small print); a thin bar holding the message flows as a card behind it
-    bands = {k: v for k, v in _bands(scene, W, H).items() if min(v[1].w, v[1].h) >= BAND_MIN or not _holds_key(v[0])}
+    bg = backdrop(scene)
+    bands = {k: (b, kr) for k, (b, r) in _bands(scene, W, H).items() if (kr := _kept(b, r, bg, H)) is not None}
     thin = {k: v for k, v in bands.items() if min(v[1].w, v[1].h) < BAND_MIN}
     kept = between(bands, set(thin)) if bands else []
     if any(evaluate(lay, judge, scene.items)["legibility"] >= 0.9 for lay in kept):

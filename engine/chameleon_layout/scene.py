@@ -44,6 +44,27 @@ def num(v, default=0.0) -> float:
         return default
 
 
+def luminance(v) -> Optional[float]:
+    """Relative luminance (0 black - 1 white) of an rgb(a) or hex colour, None if unreadable."""
+    m = _RGBA.match(str(v or "").strip())
+    if m:
+        return assets.relative_luminance(*(float(m.group(i)) for i in (1, 2, 3)))
+    h = str(v or "").strip().lstrip("#")
+    h = "".join(c * 2 for c in h) if len(h) == 3 else h
+    if len(h) != 6 or any(c not in "0123456789abcdefABCDEF" for c in h):
+        return None
+    return assets.relative_luminance(*(int(h[i:i + 2], 16) for i in (0, 2, 4)))
+
+
+def backdrop(scene: "Scene") -> Optional[float]:
+    """Luminance of what the canvas shows behind everything: its lowest full-canvas background."""
+    full = [it for it in scene.backgrounds if it.box.area >= 0.9 * scene.W * scene.H]
+    if not full:
+        return None
+    it = min(full, key=lambda it: it.z)
+    return luminance(it.el.get("fill_color")) if it.type == "shape" else assets.mean_luminance(it.el.get("asset_id"))
+
+
 def color_alpha(v) -> float:
     m = _RGBA.match(str(v or "").strip())
     if m and m.group(4) is not None:

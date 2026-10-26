@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 try:
-    from PIL import Image  # type: ignore
+    from PIL import Image, ImageStat  # type: ignore
 except Exception:  # pragma: no cover
     Image = None
 
@@ -83,6 +83,28 @@ def is_opaque(asset_id) -> bool:
             return im.convert("RGBA").getchannel("A").getextrema()[0] >= 250
     except Exception:
         return False
+
+
+@lru_cache(maxsize=128)
+def mean_luminance(asset_id) -> Optional[float]:
+    """Average relative luminance (0 black - 1 white) of the asset, None if it cannot be read."""
+    d = assets_dir()
+    if d is None or Image is None or not asset_id:
+        return None
+    try:
+        with Image.open(d / str(asset_id)) as im:
+            r, g, b = ImageStat.Stat(im.convert("RGB").resize((32, 32))).mean
+    except Exception:
+        return None
+    return relative_luminance(r, g, b)
+
+
+def relative_luminance(r: float, g: float, b: float) -> float:
+    """WCAG relative luminance of an 8-bit RGB colour."""
+    def lin(c):
+        c /= 255.0
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
 
 
 @lru_cache(maxsize=128)

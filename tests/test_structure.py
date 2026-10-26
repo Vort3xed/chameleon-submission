@@ -2,6 +2,7 @@
 footer, photo scrim, a colour panel bleeding off one side) stay bars on that
 edge, with their content inside, whatever the new canvas."""
 
+import copy
 import sys
 from pathlib import Path
 
@@ -15,15 +16,15 @@ from engine.resize import resize  # noqa: E402
 BARS = {
     "canvas": {"width": 1080, "height": 1080},
     "elements": [
-        {"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 1080, "fill": "#2a1a2e", "z_index": 0},
-        {"id": "header", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 140, "fill": "#1b1020", "z_index": 1},
+        {"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 1080, "fill_color": "#2a1a2e", "z_index": 0},
+        {"id": "header", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 140, "fill_color": "#1b1020", "z_index": 1},
         {"id": "brand", "type": "text", "x": 340, "y": 45, "width": 400, "height": 50, "content": "SOLSTICE",
          "font_size": 40, "font_family": "Poppins", "color": "#ffffff", "text_align": "center", "z_index": 2},
-        {"id": "product", "type": "shape", "x": 340, "y": 220, "width": 400, "height": 400, "fill": "#e8693a",
+        {"id": "product", "type": "shape", "x": 340, "y": 220, "width": 400, "height": 400, "fill_color": "#e8693a",
          "z_index": 2},
         {"id": "headline", "type": "text", "x": 90, "y": 680, "width": 900, "height": 110, "content": "Stay Golden",
          "font_size": 90, "font_family": "Lora", "color": "#ffffff", "text_align": "center", "z_index": 2},
-        {"id": "footer", "type": "shape", "x": 0, "y": 990, "width": 1080, "height": 90, "fill": "#1b1020", "z_index": 1},
+        {"id": "footer", "type": "shape", "x": 0, "y": 990, "width": 1080, "height": 90, "fill_color": "#1b1020", "z_index": 1},
         {"id": "legal", "type": "text", "x": 40, "y": 1020, "width": 1000, "height": 30, "content": "All rights reserved.",
          "font_size": 22, "font_family": "Poppins", "color": "#ffffff", "text_align": "center", "z_index": 2},
     ],
@@ -52,18 +53,40 @@ def test_thin_bars_stay_on_their_edges(target):
     assert footer["x"] == 0 and footer["width"] == W and footer["y"] + footer["height"] == H
 
 
+def _light_footer():
+    d = copy.deepcopy(BARS)
+    for e in d["elements"]:
+        if e["id"] == "footer":
+            e["fill_color"] = "#f5ebdc"  # cream, on a dark canvas
+        if e["id"] == "legal":
+            e["color"] = "#1b1020"  # dark small print, legible only on the footer
+    return d
+
+
+@pytest.mark.parametrize("target", [(728, 90), (600, 200), (970, 90)])
+def test_content_never_loses_the_bar_it_needs(target):
+    """Dark small print on a cream footer cannot be lifted onto a dark canvas: on a strip the
+    footer keeps holding it (or it is hidden), whatever happens to the bar."""
+    W, H = target
+    out = {e["id"]: e for e in resize(_light_footer(), {"width": W, "height": H})["elements"]}
+    legal, footer = out["legal"], out["footer"]
+    if legal.get("opacity", 1) > 0 and footer.get("opacity", 1) > 0:
+        assert footer["x"] <= legal["x"] + 1 and legal["x"] + legal["width"] <= footer["x"] + footer["width"] + 1
+        assert footer["y"] <= legal["y"] + 1 and legal["y"] + legal["height"] <= footer["y"] + footer["height"] + 1
+
+
 SIDE_PANEL = {
     "canvas": {"width": 1080, "height": 1920},
     "elements": [
-        {"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 1920, "fill": "#2a1a2e", "z_index": 0},
-        {"id": "panel", "type": "shape", "x": 0, "y": 0, "width": 540, "height": 1920, "fill": "#e8693a", "z_index": 1},
-        {"id": "product", "type": "shape", "x": 120, "y": 760, "width": 300, "height": 400, "fill": "#f4c542",
+        {"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 1920, "fill_color": "#2a1a2e", "z_index": 0},
+        {"id": "panel", "type": "shape", "x": 0, "y": 0, "width": 540, "height": 1920, "fill_color": "#e8693a", "z_index": 1},
+        {"id": "product", "type": "shape", "x": 120, "y": 760, "width": 300, "height": 400, "fill_color": "#f4c542",
          "z_index": 2},
         {"id": "headline", "type": "text", "x": 605, "y": 480, "width": 410, "height": 181, "content": "Golden Hour",
          "font_size": 72, "font_family": "Lora", "color": "#ffffff", "text_align": "left", "z_index": 3},
         {"id": "subhead", "type": "text", "x": 605, "y": 960, "width": 410, "height": 36, "font_size": 24,
          "content": "Naturally bright, never too sweet.", "font_family": "Poppins", "color": "#ffffff", "z_index": 3},
-        {"id": "cta_bg", "type": "shape", "x": 595, "y": 1305, "width": 220, "height": 58, "fill": "#e8693a",
+        {"id": "cta_bg", "type": "shape", "x": 595, "y": 1305, "width": 220, "height": 58, "fill_color": "#e8693a",
          "corner_radius": 29, "group_id": "cta", "z_index": 4},
         {"id": "cta_label", "type": "text", "x": 595, "y": 1318, "width": 220, "height": 34, "content": "Get 20% Off",
          "font_size": 24, "font_family": "Poppins", "color": "#ffffff", "text_align": "center", "group_id": "cta",
@@ -88,7 +111,7 @@ def test_side_panel_stays_a_full_height_bar(target):
 WATERMARK = {
     "canvas": {"width": 1080, "height": 1080},
     "elements": [
-        {"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 1080, "fill": "#2a1a2e", "z_index": 0},
+        {"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 1080, "fill_color": "#2a1a2e", "z_index": 0},
         {"id": "texture", "type": "text", "x": 0, "y": 320, "width": 1080, "height": 360, "content": "SUMMER",
          "font_size": 300, "font_family": "Lora", "color": "rgba(255,255,255,0.08)", "text_align": "center", "z_index": 1},
         {"id": "headline", "type": "text", "x": 90, "y": 640, "width": 900, "height": 90, "content": "Stay Golden",
@@ -113,7 +136,7 @@ def test_faint_text_is_texture_not_the_headline(target):
 UNKNOWN_ART = {
     "canvas": {"width": 1080, "height": 1080},
     "elements": [
-        {"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 1080, "fill": "#2a1a2e", "z_index": 0},
+        {"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 1080, "fill_color": "#2a1a2e", "z_index": 0},
         {"id": "photo", "type": "image", "x": 240, "y": 120, "width": 600, "height": 600, "asset_id": "not_in_our_bundle.png",
          "fit": "contain", "z_index": 1},
         {"id": "sticker", "type": "image", "x": 900, "y": 960, "width": 120, "height": 80, "asset_id": "also_unknown.png",
