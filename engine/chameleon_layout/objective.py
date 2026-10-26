@@ -52,7 +52,7 @@ def _holds_hero(b: Block) -> bool:
 def leaf_blocks(blocks: List[Block]) -> List[Block]:
     out = []
     for b in blocks:
-        out += leaf_blocks(b.children) if b.kind in ("panel", "row") else [b]
+        out += leaf_blocks(b.children) if b.kind in ("panel", "row", "table") else [b]
         if b.kind == "panel":
             out.append(Block("shape", [b.frame], role="panel", importance=0.2))
     return out

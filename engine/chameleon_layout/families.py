@@ -93,7 +93,7 @@ def _fit_scale(build):
 
 
 def _leaves(b: Block) -> List[Block]:
-    return [leaf for c in b.children for leaf in _leaves(c)] if b.kind in ("panel", "row") else [b]
+    return [leaf for c in b.children for leaf in _leaves(c)] if b.kind in ("panel", "row", "table") else [b]
 
 
 def _headline_leads(lay: Layout) -> bool:
@@ -193,12 +193,13 @@ def preserve(scope: Scope, ctx0: Ctx, boost: float, items) -> Optional[Layout]:
     ctx.floor_relax = 0.0
     lay = Layout(f"preserve{boost:.2f}", ctx)
     m, s0 = margin(reg.w, reg.h), s / boost
-    inks = [_drawn(b) for b in scope.blocks]
-    flow = [k for k, b in enumerate(scope.blocks) if not b.ornament]  # corner pieces do not shape the bands
+    blocks = [c for b in scope.blocks for c in (b.children if b.kind == "table" else [b])]  # a table's columns
+    inks = [_drawn(b) for b in blocks]  # are bands of their own, so the gaps between them can tighten
+    flow = [k for k, b in enumerate(blocks) if not b.ornament]  # corner pieces do not shape the bands
     xs = _band_starts([(inks[k].x, inks[k].x1) for k in flow], src.x, src.x1, s, reg.x, reg.w, m, s0)
     ys = _band_starts([(inks[k].y, inks[k].y1) for k in flow], src.y, src.y1, s, reg.y, reg.h)
     starts = {k: (x, y) for k, x, y in zip(flow, xs, ys)}
-    for k, (b, ink) in enumerate(zip(scope.blocks, inks)):
+    for k, (b, ink) in enumerate(zip(blocks, inks)):
         snug = _tight_text(b, ink, s)
         r = snug[0] if snug else b.src
         if k in starts:  # band positions are of the drawn content

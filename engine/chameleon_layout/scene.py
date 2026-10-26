@@ -33,7 +33,7 @@ _PRICE = re.compile(r"^((from|only|just|now)\s+)?[$€£¥]\s?\d[\d.,]*\b.{0,12}
 
 IMPORTANCE = {"headline": 1.0, "cta": 0.85, "logo": 0.85, "hero": 0.75, "subhead": 0.6, "price": 0.6, "text": 0.5,
               "body": 0.4, "image": 0.5, "badge": 0.35, "ribbon": 0.35, "legal": 0.2, "divider": 0.15,
-              "shape": 0.2, "panel": 0.8, "row": 0.4}
+              "shape": 0.2, "panel": 0.8, "row": 0.4, "table": 0.4}
 
 
 def num(v, default=0.0) -> float:
@@ -147,7 +147,7 @@ class Item:
 
 @dataclass(eq=False)
 class Block:
-    kind: str  # text | image | shape | rigid | panel | row
+    kind: str  # text | image | shape | rigid | panel | row | table
     items: List[Item]
     children: List["Block"] = field(default_factory=list)
     frame: Optional[Item] = None
@@ -159,6 +159,7 @@ class Block:
     hero: bool = False  # carries the main product imagery
     inner: Optional[Rect] = None  # panels: where the children sat inside the frame
     band: str = ""  # panels: the edge a full-width/-height bar sits on (header, footer, scrim, side panel)
+    cols: int = 0  # tables: cells per row (the children are the cells, row by row)
 
     @property
     def src(self) -> Rect:
@@ -404,13 +405,41 @@ def group_rows(blocks: List[Block]) -> List[Block]:  # noqa: C901
         else:
             rows.append([b])
     out = [b for b in blocks if b not in eligible]
-    tiles = [sorted(r, key=lambda b: b.src.x) for r in rows if len(r) >= 2 and r[0].kind in ("rigid", "image")]
-    out += [b for r in rows if not (len(r) >= 2 and r[0].kind in ("rigid", "image")) for b in r]
-    for grid in _stack_rows(tiles):
-        kids = [b for r in grid for b in r]
+    rows = [sorted(r, key=lambda b: b.src.x) for r in rows]
+    tiles = [r for r in rows if len(r) >= 2 and r[0].kind in ("rigid", "image")]
+    tables = _tables([r for r in rows if len(r) >= 2 and r[0].kind == "text"])
+    out += [b for r in rows if r not in tiles and not any(r in t for t in tables) for b in r]
+    for kids in [[b for r in grid for b in r] for grid in _stack_rows(tiles)]:
         out.append(Block("row", [i for b in kids for i in b.items], children=kids, role="row",
                          importance=max(b.importance for b in kids), hero=any(b.hero for b in kids)))
+    for t in tables:
+        cells = [b for r in t for b in r]
+        out.append(Block("table", [i for b in cells for i in b.items], children=cells, role="row",
+                         importance=max(b.importance for b in cells), cols=len(t[0])))
     return out
+
+
+def _tables(rows: List[List[Block]]) -> List[List[List[Block]]]:
+    """Rows of text that form tables - at least three stacked rows with the same number of cells
+    in aligned columns (a menu, a price list): a table keeps its rows and columns whatever the
+    canvas, so a price stays beside its item."""
+    out: List[List[List[Block]]] = []
+    run: List[List[Block]] = []
+    for r in sorted(rows, key=lambda r: r[0].src.y) + [[]]:
+        if run and r and _next_row(run[-1], r):
+            run.append(r)
+            continue
+        if len(run) >= 3:
+            out.append(run)
+        run = [r]
+    return out
+
+
+def _next_row(a: List[Block], b: List[Block]) -> bool:
+    h = max(c.src.h for c in a + b)
+    gap = min(c.src.y for c in b) - max(c.src.y1 for c in a)
+    return len(a) == len(b) and 0 <= gap <= 3 * h and \
+        all(min(abs(p.src.x - q.src.x), abs(p.src.x1 - q.src.x1)) <= 0.5 * h for p, q in zip(a, b))
 
 
 def _stack_rows(rows: List[List[Block]]) -> List[List[List[Block]]]:
@@ -522,7 +551,7 @@ def assign_roles(blocks: List[Block], W: float, H: float):
         best.role = "cta"
     for b in flat:
         b.importance = IMPORTANCE.get(b.role, 0.4)
-        if b.kind in ("panel", "row") and b.children:
+        if b.kind in ("panel", "row", "table") and b.children:
             b.importance = max(c.importance for c in b.children)
         if b.hero:
             b.importance = max(b.importance, IMPORTANCE["hero"])

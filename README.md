@@ -43,8 +43,11 @@ semantic labels:
 * *blocks* – the units that get laid out: single texts and images, **rigid
   groups** (shared `group_id`, e.g. button shape + label, rotated ribbons,
   product tiles), **panels** (a container shape such as a card or scrim whose
-  children are re-laid out *inside* it, recursively) and **rows**
-  (side-by-side runs like a badge strip);
+  children are re-laid out *inside* it, recursively), **rows**
+  (side-by-side runs like a badge strip) and **tables** (three or more
+  stacked rows of aligned text cells - a menu, a price list - which keep
+  their columns, each aligned as in the source; four columns fold to two
+  over two when the canvas is narrow);
 * *ornaments* – rotated or corner-pinned small blocks, placed last in free corner space.
 
 Roles come from cues a designer would use: largest type → headline (a price
@@ -227,7 +230,9 @@ Development-only tooling, not copied into the image
   bars stay full-width on their edges with their content inside (as stripes
   when too thin for it), a side panel
   stays a full-height bar holding the product with the copy beside it in
-  reading order; faint texture type stays decoration, never the headline.
+  reading order; a price list keeps each price with its item; grouped offers
+  never outgrow the headline; faint texture type stays decoration, never the
+  headline.
 * `tests/test_discriminator.py` – the discriminator's invariants: a designer's
   original scores 1.0 on every rule against itself, a 1 px move is a tie,
   collisions / shrunk headlines / edge-crowding / a header bar floating loose

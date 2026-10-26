@@ -147,6 +147,40 @@ def test_groups_never_outgrow_the_headline(target):
     assert fonts["headline"] >= max(v for k, v in fonts.items() if k != "headline")
 
 
+MENU = {
+    "canvas": {"width": 1920, "height": 1080},
+    "elements": [
+        {"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1920, "height": 1080, "fill_color": "#2a1a2e",
+         "z_index": 0},
+        {"id": "headline", "type": "text", "x": 460, "y": 60, "width": 1000, "height": 110, "content": "Tasting Menu",
+         "font_size": 90, "font_family": "Lora", "color": "#ffffff", "text_align": "center", "z_index": 1},
+    ] + [e for i, (name, price) in enumerate([("Blood Orange Spritz", "$4.99"), ("Wild Honey Tonic", "2 for $8"),
+                                               ("Yuzu Mint Fizz", "From $24"), ("Hibiscus Spritz", "$12.50"),
+                                               ("Pink Grapefruit Tonic", "$3.49"), ("Elderflower Fizz", "$4.99")])
+         for e in ({"id": f"item{i}", "type": "text", "x": 200, "y": 260 + 110 * i, "width": 900, "height": 50,
+                    "content": name, "font_size": 40, "font_family": "Poppins", "color": "#ffffff",
+                    "text_align": "left", "z_index": 2},
+                   {"id": f"price{i}", "type": "text", "x": 1420, "y": 260 + 110 * i, "width": 300, "height": 50,
+                    "content": price, "font_size": 40, "font_family": "Poppins", "color": "#f0b242",
+                    "text_align": "right", "z_index": 2})],
+}
+
+
+@pytest.mark.parametrize("target", [(1080, 1080), (300, 250), (160, 600), (1080, 1920)])
+def test_a_table_keeps_its_rows(target):
+    """A price list keeps each price with its item - on the item's row, or under it before the next
+    item - and on a roomy canvas its item column keeps one left edge."""
+    W, H = target
+    out = {e["id"]: e for e in resize(MENU, {"width": W, "height": H})["elements"] if e.get("opacity", 1) > 0}
+    items = [k for k in out if k.startswith("item")]
+    for i in range(6):
+        if f"price{i}" in out and f"item{i}" in out:
+            p, nxt = out[f"price{i}"], out.get(f"item{i + 1}", {"y": H})
+            assert out[f"item{i}"]["y"] - 1 <= p["y"] + p["height"] / 2 <= nxt["y"] + 1
+    if W >= 1000:
+        assert max(out[k]["x"] for k in items) - min(out[k]["x"] for k in items) <= 1
+
+
 SIDE_PANEL = {
     "canvas": {"width": 1080, "height": 1920},
     "elements": [

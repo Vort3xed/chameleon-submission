@@ -473,4 +473,59 @@ def _row(b, ctx, max_w, max_h, out, x, y):
     return total_w, yy - y - gap
 
 
-_SIZERS = {"text": _text, "image": _image, "shape": _shape, "rigid": _rigid, "panel": _panel, "row": _row}
+TABLE_GAP_EM = 1.5  # a table's columns sit this many em of their text apart (not the source's spread: a menu
+                    # set across a wide canvas would otherwise force its type down to keep the gaps)
+
+
+def _table(b, ctx, max_w, max_h, out, x, y):
+    """A table keeps its columns: each as wide as its widest cell and aligned as in the source,
+    TABLE_GAP_EM apart.  Too wide, every row folds the same way (four columns become two over two,
+    two become one centred column, an item over its price); an odd number of columns instead
+    shares the width in proportion, its cells wrapping."""
+    cols, em = b.cols, max((_lead_font(c, ctx) for c in b.children), default=0.0)
+    gap = max(2.0, TABLE_GAP_EM * em)
+    while True:
+        widths = [max(measure(c, ctx, INF)[0] for c in b.children[j::cols]) for j in range(cols)]
+        if sum(widths) + gap * (cols - 1) <= max_w or cols % 2:
+            break
+        cols //= 2
+    room = max_w - gap * (cols - 1)
+    if sum(widths) > room:
+        widths = [w * room / sum(widths) for w in widths]
+    rows = [b.children[i:i + cols] for i in range(0, len(b.children), cols)]
+    pitch = max(0.35 * em, _row_spacing(rows) * ctx.ts)
+    yy = y
+    for r in rows:
+        sizes = [measure(c, ctx, w) for c, w in zip(r, widths)]
+        rh = max(h for _, h in sizes)
+        if out is not None:
+            xx = x
+            for j, (c, (cw, ch)) in enumerate(zip(r, sizes)):
+                side = _column_align(b.children[j::cols]) if cols > 1 else "center"
+                dx = {"left": 0.0, "right": widths[j] - cw}.get(side, (widths[j] - cw) / 2)
+                place(c, ctx, xx + dx, yy + (rh - ch) / 2, widths[j] + 0.01, INF, out)
+                xx += widths[j] + gap
+        yy += rh + pitch
+    return sum(widths) + gap * (cols - 1), yy - y - pitch
+
+
+def _row_spacing(rows) -> float:
+    """Median source gap between a table's rows."""
+    gaps = sorted(min(c.src.y for c in b) - max(c.src.y1 for c in a) for a, b in zip(rows, rows[1:]))
+    return max(0.0, gaps[len(gaps) // 2]) if gaps else 0.0
+
+
+def _column_align(cells) -> str:
+    """How a column's cells line up in the source: the edge (or centre) they share - or, sharing
+    none (a folded column gathers cells from several source columns), their own text alignment."""
+    spread = {a: max(f(c.src) for c in cells) - min(f(c.src) for c in cells)
+              for a, f in (("left", lambda r: r.x), ("right", lambda r: r.x1), ("center", lambda r: r.cx))}
+    side = min(spread, key=spread.get)
+    if spread[side] > 0.5 * min(c.src.w for c in cells):
+        aligns = [{"right": "right", "center": "center"}.get(c.items[0].el.get("text_align"), "left") for c in cells]
+        side = max(("left", "center", "right"), key=aligns.count)
+    return side
+
+
+_SIZERS = {"text": _text, "image": _image, "shape": _shape, "rigid": _rigid, "panel": _panel, "row": _row,
+           "table": _table}

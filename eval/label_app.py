@@ -225,7 +225,7 @@ def main():
     q.add_argument("--n", type=int, default=80)
     q.add_argument("--seed", type=int, default=0)
     ap_ = sub.add_parser("append", help="add version pairs after the existing ones (labels stay valid)")
-    ap_.add_argument("--versions", required=True, help="runA:runB:origin,... ")
+    ap_.add_argument("--versions", required=True, help="runA:runB:origin[:test set],... ")
     ap_.add_argument("--n", type=int, default=15, help="pairs per version pair")
     ap_.add_argument("--seed", type=int, default=1)
     s = sub.add_parser("serve")
@@ -238,7 +238,9 @@ def main():
         build_questions(a.n, a.seed)
     elif a.cmd == "append":
         rng = random.Random(a.seed)
-        _finish([q for v in a.versions.split(",") for q in version_pairs(*v.split(":"), a.n, rng)], rng, append=True)
+        specs = [v.split(":") for v in a.versions.split(",")]  # runA:runB:origin[:test set]
+        _finish([q for x, y, origin, *tset in specs for q in version_pairs(x, y, origin, a.n, rng, *tset)], rng,
+                append=True)
     elif a.cmd == "serve":
         serve(a.port)
     else:
