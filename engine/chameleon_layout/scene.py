@@ -264,8 +264,8 @@ def classify(items: List[Item], W: float, H: float):
     for it in items:
         if it.missing and it.box.area > MISSING_HIDE * canvas.area:
             it.missing = False  # only the logo is a fixed asset: the scorer's bundle may well have this one
-        if it.alpha <= 0.02 or it.box.w <= 0 or it.box.h <= 0 or it.missing:
-            hidden.append(it)
+        if it.alpha <= 0.02 or it.box.w <= 0 or it.box.h <= 0 or it.missing or it.bounds.intersection(canvas) <= 0:
+            hidden.append(it)  # (wholly off the canvas, it was never seen)
         elif it.type in ("image", "shape") and not it.rotation and it.box.intersection(canvas) >= 0.9 * canvas.area:
             bgs.append(it)
         else:
@@ -597,8 +597,21 @@ def mark_ornaments(blocks: List[Block], W: float, H: float):
             b.corner = ("t" if r.cy < H / 2 else "b") + ("l" if r.cx < W / 2 else "r")
 
 
+def overlay_groups(items: List[Item]):
+    """Copies of one text stacked on each other (a drop shadow, an outline, a duplicate) read as one
+    piece of type: they become one group, so no layout pulls them apart."""
+    texts = [it for it in items if it.type == "text" and str(it.el.get("content") or "").strip()]
+    for i, a in enumerate(texts):
+        for b in texts[i + 1:]:
+            same = str(a.el.get("content")).strip() == str(b.el.get("content")).strip()
+            if same and a.bounds.intersection(b.bounds) >= 0.5 * min(a.bounds.area, b.bounds.area) > 0:
+                if not (a.group and b.group):
+                    a.group = b.group = a.group or b.group or f"overlay:{a.idx}"
+
+
 def analyze(elements: List[dict], W: float, H: float) -> Scene:
     items = make_items(elements)
+    overlay_groups(items)
     bgs, decor, hidden, content, parent = classify(items, W, H)
     children_of: Dict[int, List[Item]] = {}
     for idx, p in parent.items():

@@ -182,6 +182,36 @@ def test_a_table_keeps_its_rows(target):
         assert min(spread(lambda k: out[k]["x"]), spread(lambda k: out[k]["x"] + out[k]["width"] / 2)) <= 1
 
 
+SHADOWED = {
+    "canvas": {"width": 1080, "height": 1080},
+    "elements": [
+        {"id": "bg", "type": "shape", "x": 0, "y": 0, "width": 1080, "height": 1080, "fill_color": "#2a1a2e",
+         "z_index": 0},
+        {"id": "shadow", "type": "text", "x": 96, "y": 306, "width": 900, "height": 110, "content": "Stay Golden",
+         "font_size": 90, "font_family": "Lora", "color": "#000000", "text_align": "center", "z_index": 1},
+        {"id": "headline", "type": "text", "x": 90, "y": 300, "width": 900, "height": 110, "content": "Stay Golden",
+         "font_size": 90, "font_family": "Lora", "color": "#ffffff", "text_align": "center", "z_index": 2},
+        {"id": "sub", "type": "text", "x": 140, "y": 520, "width": 800, "height": 40, "content": "Naturally bright.",
+         "font_size": 32, "font_family": "Poppins", "color": "#ffffff", "text_align": "center", "z_index": 2},
+        {"id": "parked", "type": "text", "x": 1400, "y": 200, "width": 400, "height": 60, "content": "Draft copy",
+         "font_size": 40, "font_family": "Poppins", "color": "#ffffff", "z_index": 2},
+    ],
+}
+
+
+@pytest.mark.parametrize("target", [(1920, 1080), (1080, 1920), (728, 90), (300, 250)])
+def test_a_drop_shadow_stays_with_its_text_and_off_canvas_copy_stays_unseen(target):
+    """A text stacked on a copy of itself (a drop shadow) is one piece of type: the copy keeps its
+    offset, scaled, and the size; and copy parked off the source canvas was never seen, so it stays hidden."""
+    W, H = target
+    out = {e["id"]: e for e in resize(SHADOWED, {"width": W, "height": H})["elements"]}
+    head, shadow = out["headline"], out["shadow"]
+    s = head["font_size"] / 90
+    assert shadow["font_size"] == head["font_size"]
+    assert abs(shadow["x"] - head["x"] - 6 * s) <= 1.5 and abs(shadow["y"] - head["y"] - 6 * s) <= 1.5
+    assert out["parked"].get("opacity") == 0 and out["parked"]["z_index"] < out["bg"]["z_index"]
+
+
 SIDE_PANEL = {
     "canvas": {"width": 1080, "height": 1920},
     "elements": [

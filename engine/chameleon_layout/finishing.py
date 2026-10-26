@@ -200,11 +200,16 @@ def finish(scene: Scene, lay: Layout, ornaments: List[Block]) -> Layout:
         else:
             lay.out[it.idx] = _anchored(it, scene, W, H, m) if _is_frame(it, scene) else \
                 _proportional(it, scene, W, H, m * math.sqrt(max(0.2, visible)))
-    for it in scene.hidden:
-        p = _proportional(it, scene, W, H, m)
-        p.hidden = it.missing  # graceful skip of a missing asset
-        lay.out[it.idx] = p
     covers = opaque_covers(scene)
+    spare = max((c for c in covers.values() if c.idx in lay.out and not lay.out[c.idx].hidden),
+                key=lambda c: c.box.area, default=None)  # a cover for text that has no block of its own
+    for it in scene.hidden:  # a missing asset is skipped, and what lay off the canvas stays unseen
+        p = _proportional(it, scene, W, H, m)
+        p.hidden = it.missing or it.bounds.intersection(Rect(0, 0, scene.W, scene.H)) <= 0
+        if p.hidden and it.type == "text" and scene.hide_z is None and spare is not None:
+            p = _beneath(it, lay.out[spare.idx], spare)
+            p.hidden = True
+        lay.out[it.idx] = p
     for b in lay.hidden:
         cover = covers.get(id(b)) if scene.hide_z is None else None
         for it in b.items:
