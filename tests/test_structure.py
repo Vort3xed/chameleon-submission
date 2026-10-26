@@ -575,3 +575,12 @@ def test_a_centred_headline_stays_near_the_middle_of_a_tall_canvas(target):
     out = {e["id"]: e for e in resize(WARMUP.get("source", WARMUP), {"width": W, "height": H})["elements"]}
     head = out["headline"]
     assert 0.40 * H <= head["y"] + head["height"] / 2 <= 0.65 * H
+
+
+def test_a_narrowed_row_column_keeps_its_line_breaks():
+    """Banner-row copy columns narrow to their lines, but spaced type wraps narrower than it measures:
+    the date of this event flyer must keep its two lines in a 970x250 billboard."""
+    task = json.loads((ROOT / "tests" / "fixtures" / "event_flyer_billboard.json").read_text())
+    out = {e["id"]: e for e in resize(task["source"], task["target_canvas"])["elements"]}
+    date = out["date_line"]
+    assert date["height"] <= 2.6 * date["font_size"]
