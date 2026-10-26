@@ -25,7 +25,8 @@ from .scene import Block, Item
 
 INF = float("inf")
 SMALL_ROLES = {"legal", "badge", "ribbon", "divider"}
-MAX_MEASURE = 1.6  # text may grow at most this much wider than its scaled source box
+MAX_MEASURE = 1.6  # text may grow at most this much wider than its scaled source box,
+LINE_EM = 20.0  # or to a comfortable line of ~40 characters, whichever is wider (long copy re-wraps to the room)
 
 # Set by arrange.py: (children, source frame, target region, ctx) -> placements.
 # Lets a panel give its children their own best arrangement.
@@ -173,7 +174,7 @@ def _text(b, ctx, max_w, max_h, out, x, y):
             f, w, h = fit_text(it, max(1, min(f - 1, int(f * max_w / w))), INF)
         fitted = (f, w, h) if w <= max_w else None
     if fitted is None:
-        measure_w = max(it.box.w * MAX_MEASURE * font / it.font, 4.0 * font)
+        measure_w = max(it.box.w * MAX_MEASURE * font / it.font, LINE_EM * font)
         words = len(it.content.split())
         pairs = b.role in ("headline", "subhead") and 3 <= words <= 6 and "\n" not in it.content
         fitted = fit_text(it, font, min(max_w, measure_w), pairs)  # short titles keep two words a line
