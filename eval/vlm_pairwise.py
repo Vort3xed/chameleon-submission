@@ -102,9 +102,9 @@ def main():
     losses = sum(1 for r in recs if r["b_minus_a"] < 0)
     print(f"{a.b} vs {a.a}: {len(recs)} differing tasks judged -> B wins {wins}, A wins {losses}, "
           f"ties {len(recs) - wins - losses}; net preference {sum(r['b_minus_a'] for r in recs) / max(1, len(recs)):+.3f}")
-    for r in sorted(recs, key=lambda r: r["b_minus_a"])[:6]:
+    for r in [r for r in sorted(recs, key=lambda r: r["b_minus_a"]) if r["b_minus_a"] < 0][:6]:
         print(f"  A better: {r['task_id']}: {r['reasons']}")
-    for r in sorted(recs, key=lambda r: -r["b_minus_a"])[:6]:
+    for r in [r for r in sorted(recs, key=lambda r: -r["b_minus_a"]) if r["b_minus_a"] > 0][:6]:
         print(f"  B better: {r['task_id']}: {r['reasons']}")
     out = ROOT / "eval" / "runs" / a.b / f"pairwise_vs_{a.a}.jsonl"
     out.write_text("\n".join(json.dumps(r) for r in recs))
