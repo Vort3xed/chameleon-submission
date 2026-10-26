@@ -93,11 +93,16 @@ balanced lines instead of a lone last word.
 **4. Rank them (`objective.py`).** Terms in [0, 1]: legibility, headline size,
 product size, visible coverage, fill, kept content, overlap beyond what the
 source layered, short phrases not shattered into one-word lines, faithfulness
-of position, the headline still leading the other text — plus which arrangement family suits how stretched the canvas is
+of position, the headline still leading the other text, visual mass centred -
+plus which arrangement family suits how stretched the canvas is
 (near-square → keep the composition, wide → product beside text, very wide →
-banner row). The weights are a logistic fit to an AI judge's rankings of the
-engine's own candidates on ~320 tasks (`eval/collect_prefs.py` +
-`eval/fit_prefs.py`), with overlap kept as a safety term the data cannot price.
+banner row). The weights started as a logistic fit to an AI judge's rankings
+of the engine's own candidates on ~320 tasks (`eval/collect_prefs.py` +
+`eval/fit_prefs.py`); human labels then moved them: headline size and
+legibility count more, content kept more (size must not be bought by
+dropping content), and two terms reward using the canvas - the headline's
+share of the short side and the product's share of the area.  A layout that
+collides never outranks a clean one.
 
 **5. Enforce the rules (`finalize.py`).** Same elements in the same order,
 only geometry / `font_size` / `opacity` (and, for hidden text, `z_index`) change;
