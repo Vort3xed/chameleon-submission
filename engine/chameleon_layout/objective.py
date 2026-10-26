@@ -124,14 +124,19 @@ def evaluate(lay: Layout, scope: Scope, items) -> Dict[str, float]:
     t["faithful"] = _wavg(dist)
 
     family = lay.name.split()[0].rstrip("0123456789.")
-    fr = lay.region or reg  # the family's prior follows the shape it was laid out in
-    stretch = max(fr.w / fr.h, fr.h / fr.w) if fr.w > 0 and fr.h > 0 else 1.0
+    # the family's prior follows the shape it was laid out in - squarer beside a band, never more
+    # stretched than the canvas (a bar trimming a square ad leaves a wide strip, but the ad reads as a square)
+    stretch = min(_stretch(lay.region or reg), _stretch(reg))
     band = "near" if stretch < 1.5 else ("mid" if stretch < 2.5 else "wide")
     for f in FAMILIES:
         for b in BANDS:
             t[f"is_{f}_{b}"] = 1.0 if (f, b) == (family, band) else 0.0
     t["total"] = sum(WEIGHTS.get(k, 0.0) * v for k, v in t.items())
     return t
+
+
+def _stretch(r) -> float:
+    return max(r.w / r.h, r.h / r.w) if r.w > 0 and r.h > 0 else 1.0
 
 
 CLEAN = 0.9  # overlap term at or above this: no collision worth the name
