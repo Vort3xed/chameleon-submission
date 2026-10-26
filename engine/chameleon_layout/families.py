@@ -359,13 +359,39 @@ def _text_weight(blocks: List[Block]) -> float:
 TEXT_SHARE = 0.25  # a banner row gives its copy at least this share of the width
 
 
+LOGO_COST = 0.8  # a logo that headed the copy keeps heading it in a banner row if that costs the type under 20%
+STRIP = 5.0  # rows this much wider than tall are strips: too low for a logo above the copy
+
+
+def _heads_copy(logo: Block, blocks: List[Block]) -> bool:
+    """The logo sat just above the headline, overlapping it across: it heads the copy."""
+    head = next((b for b in blocks if b.role == "headline"), None)
+    return head is not None and logo.src.y1 <= head.src.y and min(logo.src.x1, head.src.x1) > max(logo.src.x, head.src.x)
+
+
 def row(scope: Scope, ctx0: Ctx, shrink: float = 1.0) -> List[Layout]:
+    """Banner rows with the logo leading - or, beside product art on a banner (not a strip), still heading
+    the copy it headed if that costs the type little: a logo set apart by the product reads as a stray."""
+    logo = next((b for b in scope.blocks if b.role == "logo"), None)
+    lead = _row(scope, ctx0, shrink, logo, False)
+    reg = scope.region
+    if logo is None or not _heads_copy(logo, scope.blocks) or reg.w >= STRIP * reg.h or \
+            visual_block([b for b in scope.blocks if b is not logo]) is None:
+        return lead
+    topped = _row(scope, ctx0, shrink, logo, True)
+    scale = lambda lays: max((lay.ctx.ts for lay in lays), default=0.0)  # noqa: E731
+    return topped if scale(topped) >= LOGO_COST * scale(lead) else lead
+
+
+def _row(scope: Scope, ctx0: Ctx, shrink: float, logo: Optional[Block], topped: bool) -> List[Layout]:
     reg, blocks = scope.region, scope.blocks
-    logo = [b for b in blocks if b.role == "logo"][:1]
-    vis = visual_block([b for b in blocks if b not in logo])
-    cta = [b for b in blocks if b.role == "cta" and b not in logo][-1:]
-    middle = [b for b in blocks if b not in logo + cta and b is not vis]
-    lead = logo + ([vis] if vis is not None else [])
+    rest = [b for b in blocks if b is not logo]
+    vis = visual_block(rest)
+    cta = [b for b in rest if b.role == "cta"][-1:]
+    middle = [b for b in rest if b not in cta and b is not vis]
+    if topped and not middle:
+        return []
+    lead = ([logo] if logo is not None and not topped else []) + ([vis] if vis is not None else [])
     gap = max(4.0, 0.6 * margin(reg.w, reg.h))
     lo, hi0 = scale_bounds(scope)
     heads = [i.font for b in blocks if b.role == "headline" for i in b.texts]
@@ -373,6 +399,10 @@ def row(scope: Scope, ctx0: Ctx, shrink: float = 1.0) -> List[Layout]:
     hi = max(hi0, reg.h / 2.6 / max(heads)) if heads else hi0
     layouts = []
     for parts in (_partitions(middle, 3) if middle else [[]]):
+        if topped:  # the logo heads the column holding the headline
+            k = next((i for i, part in enumerate(parts) if any(b.role == "headline" for b in part)), 0)
+            parts = parts[:k] + [[logo] + parts[k]] + parts[k + 1:]
+
         def columns(ts, relax, even):
             c = Ctx(ctx0.W, ctx0.H, ctx0.src_W, ctx0.src_H, ts, ts, relax)
             cf = Ctx(ctx0.W, ctx0.H, ctx0.src_W, ctx0.src_H, min(ts, hi0), min(ts, hi0), relax)

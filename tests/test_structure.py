@@ -3,6 +3,7 @@ footer, photo scrim, a colour panel bleeding off one side) stay bars on that
 edge, with their content inside, whatever the new canvas."""
 
 import copy
+import json
 import sys
 from pathlib import Path
 
@@ -546,3 +547,17 @@ def test_text_hides_beneath_a_button_without_background_or_card():
     assert legal["z_index"] < button["z_index"]
     assert button["x"] <= legal["x"] and legal["x"] + legal["width"] <= button["x"] + button["width"]
     assert button["y"] <= legal["y"] and legal["y"] + legal["height"] <= button["y"] + button["height"]
+
+
+CORE = json.loads((ROOT / "input" / "chameleon_sample_level2_core.json").read_text())
+
+
+@pytest.mark.parametrize("target", [(1200, 480), (820, 312), (1500, 500)])
+def test_the_logo_keeps_heading_the_copy_beside_product_art(target):
+    """In a banner the logo that sat above the headline stays above it - set apart beside the product, as a
+    column of its own, it reads as a stray (people's notes on these banners)."""
+    W, H = target
+    out = {e["id"]: e for e in resize(CORE.get("source", CORE), {"width": W, "height": H})["elements"]}
+    logo, head = out["logo"], out["headline"]
+    assert logo["y"] + logo["height"] <= head["y"] + 1
+    assert head["x"] <= logo["x"] + logo["width"] / 2 <= head["x"] + head["width"]

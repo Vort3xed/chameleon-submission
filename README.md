@@ -81,7 +81,7 @@ still works with no fonts or assets present.
   lives in). The same shape (aspect within 8%) always keeps the composition;
 * **stack** – a single column in reading order (tall/square canvases);
 * **split** – product imagery in one column, everything else stacked beside it;
-* **row** – banners: logo | product | text columns | CTA, with text partitioned into 1–3 columns.
+* **row** – banners: logo | product | text columns | CTA, with text partitioned into 1–3 columns; beside product art on a banner (not a strip), a logo that headed the copy stays at the head of the headline's column when that costs the type under 20% (set apart by the product, it reads as a stray).
 
 Each arrangement binary-searches the largest text scale that fits (and a
 calmer 0.82× variant), for several image-to-text ratios. Text never drops
