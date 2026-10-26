@@ -373,3 +373,25 @@ def test_random_designs_pass_gate(seed, target):
     assert gate(src, tc, out) == []
     shown = {e["id"] for e in out["elements"] if (1 if e.get("opacity") is None else e["opacity"]) > 0.01}
     assert set(_headlines(src)) <= shown, "the headline is never hidden"
+
+
+TYPOGRAPHY = {  # valid per the schema, but never produced by the generators
+    "loose leading": {"line_height": 2.0},
+    "tight leading": {"line_height": 0.9},
+    "wide tracking": {"letter_spacing": 8},
+    "right aligned": {"text_align": "right"},
+    "italic": {"font_style": "italic"},
+}
+
+
+@pytest.mark.parametrize("style", list(TYPOGRAPHY))
+@pytest.mark.parametrize("target", [(1080, 1920), (728, 90), (300, 250)])
+def test_typography_variants_pass_gate(style, target):
+    src = json.loads((ROOT / "input" / "chameleon_sample_level3_advanced.json").read_text())["source"]
+    for e in src["elements"]:
+        if e.get("type") == "text":
+            e.update(TYPOGRAPHY[style])
+    tc = {"width": target[0], "height": target[1]}
+    out = resize(copy.deepcopy(src), tc)
+    assert_valid(src, tc, out)
+    assert gate(src, tc, out) == []
