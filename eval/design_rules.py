@@ -24,6 +24,9 @@ if it did before; a deliberately bottom-heavy poster may stay bottom-heavy).
   wrap       a one-line label (button, badge, price) stays one line, and a short phrase is
              not broken one word per line when the source kept its words together
   corners    corner badges / ribbons stay in their source corner
+  pairs      a caption set under its piece (a stat's label, a numbered step's text, a feature
+             title's detail) still sits just under it, centred: split apart, a number no longer
+             says what it counts
 
 Blocks come from the engine's own scene analysis (a button's label and shape
 are one block); extents are drawn ink, not boxes.
@@ -44,7 +47,7 @@ from engine.chameleon_layout.geometry import Rect, bounding  # noqa: E402
 from engine.chameleon_layout.scene import analyze  # noqa: E402
 
 RULES = ("alignment", "edge", "margins", "spacing", "hierarchy", "hero", "logo", "fill", "presence", "wrap",
-         "corners", "bars")
+         "corners", "bars", "pairs")
 
 
 def _clamp(v: float) -> float:
@@ -308,6 +311,7 @@ def evaluate(source: dict, output: dict, scenes=None) -> Dict[str, float]:
     m["wrap"] = wrapping(ssc, sc)
     m["corners"] = _corners(ssc, sc, sW, sH, W, H)
     m["bars"] = _bars(ssc, output, W, H)
+    m["pairs"] = _pairs(ssc, output)
     return m
 
 
@@ -352,6 +356,34 @@ def _corners(ssc, sc, sW, sH, W, H) -> float:
             corner = ("t" if r.cy < H / 2 else "b") + ("l" if r.cx < W / 2 else "r")
             kept += corner == src[key] and near(r, W, H)
     return kept / len(src)
+
+
+def _pairs(ssc, output: dict) -> float:
+    """Share of the source's captioned pieces (the scene's feature units) whose caption still sits just under
+    its piece and centred on it; one of the two hidden without the other is a break, both hidden is not."""
+    units, todo = [], list(ssc.blocks)
+    while todo:
+        b = todo.pop()
+        units += [b] if b.role == "feature" else []
+        todo += b.children
+    if not units:
+        return 1.0
+    els = {e.get("id"): e for e in output["elements"] if isinstance(e, dict)}
+
+    def box(item):
+        e = els.get(item.el.get("id"))
+        return None if e is None or _opacity(e) <= 0.01 else Rect(*(float(e.get(k) or 0) for k in ("x", "y", "width", "height")))
+
+    held = 0
+    for u in units:
+        cap = max((i for i in u.items if i.type == "text"), key=lambda i: i.box.y)
+        top = [box(i) for i in u.items if i is not cap]
+        c, t = box(cap), bounding([r for r in top if r is not None])
+        if c is None and t is None:
+            held += 1
+        elif c is not None and t is not None:
+            held += 0 <= c.y - t.y1 + 1 <= 1.5 * max(t.h, c.h) and abs(t.cx - c.cx) <= 0.35 * max(t.w, c.w)
+    return held / len(units)
 
 
 def _bars(ssc, output: dict, W: float, H: float) -> float:

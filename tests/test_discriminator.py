@@ -170,3 +170,14 @@ def test_a_one_pixel_nudge_barely_moves_the_verdict(target):
                 e[k] = round(min(max(v, min(e[k], 0.0)), max(e[k], ext - size)), 2)
         t = {"width": W, "height": H}
         assert abs(quality(src, t, moved) - quality(src, t, out)) < 0.15
+
+
+def test_a_caption_split_from_its_number_scores_lower():
+    """A stat over its label: moved apart, the number no longer says what it counts."""
+    src = json.loads((ROOT / "tests" / "fixtures" / "stats_row.json").read_text())
+    out = resize(src, {"width": 1080, "height": 1920})
+    assert evaluate(src, out)["pairs"] == pytest.approx(1.0)
+    split = copy.deepcopy(out)
+    for k, suffix in enumerate(("", "_2", "_3", "_4")):  # the labels gathered in a list at the bottom
+        element(split, "caption" + suffix).update(x=40, y=1500 + 60 * k)
+    assert evaluate(src, split)["pairs"] < 0.5
