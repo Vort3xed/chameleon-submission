@@ -458,3 +458,40 @@ def test_table_edge_cases_pass_gate(name, target):
     src = TABLE_EDGES[name]
     out = resize(src, {"width": target[0], "height": target[1]})
     assert not gate(src, {"width": target[0], "height": target[1]}, out)
+
+
+def _t(id_, x, y, w, h, txt, fs=40, **k):
+    return {"id": id_, "type": "text", "x": x, "y": y, "width": w, "height": h, "content": txt, "font_size": fs,
+            "font_family": "Lora", "color": "#ffffff", "z_index": 2, **k}
+
+
+def _s(id_, x, y, w, h, kind="rectangle", z=1, fill="#e8693a"):
+    return {"id": id_, "type": "shape", "shape_type": kind, "x": x, "y": y, "width": w, "height": h,
+            "fill_color": fill, "z_index": z}
+
+
+def _canvas(W, H, *els):
+    return {"canvas": {"width": W, "height": H}, "elements": [_s("bg", 0, 0, W, H, z=0, fill="#2a1a2e"), *els]}
+
+
+ODD_SOURCES = {
+    "tiny source": _canvas(64, 64, _t("h", 4, 20, 56, 14, "Hi", 10)),
+    "strip source": _canvas(4000, 200, _t("h", 100, 60, 1500, 80, "Golden Hour Sale", 64), _s("cta", 3500, 70, 300, 60)),
+    "shapes only": _canvas(1080, 1080, *[_s(f"s{i}", 100 + 80 * i, 100 + 60 * i, 200, 200, ("rectangle", "ellipse")[i % 2])
+                                         for i in range(10)]),
+    "off canvas": _canvas(1080, 1080, _t("h", 1500, 1500, 400, 60, "Lost"), _t("h2", -800, 200, 400, 60, "Left out"),
+                          _t("ok", 100, 500, 800, 60, "Visible")),
+    "stacked duplicates": _canvas(1080, 1080, *[_t(f"t{i}", 100, 400, 800, 80, "Same place", 60) for i in range(15)]),
+    "text over text": _canvas(1080, 1080, _t("big", 0, 300, 1080, 400, "SUMMER", 300),
+                              _t("h", 100, 450, 880, 100, "Stay Golden", 90, z_index=3)),
+    "background only": _canvas(1080, 1080),
+}
+
+
+@pytest.mark.parametrize("name", sorted(ODD_SOURCES))
+@pytest.mark.parametrize("target", [(1920, 1080), (1080, 1920), (320, 50), (64, 64), (4000, 200)])
+def test_odd_sources_pass_gate(name, target):
+    """Sources of extreme size, without text, with content off the canvas, stacked or overlapping."""
+    src = ODD_SOURCES[name]
+    out = resize(copy.deepcopy(src), {"width": target[0], "height": target[1]})
+    assert not gate(src, {"width": target[0], "height": target[1]}, out)
