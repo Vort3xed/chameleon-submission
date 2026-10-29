@@ -25,6 +25,8 @@ if it did before; a deliberately bottom-heavy poster may stay bottom-heavy).
              not broken one word per line when the source kept its words together, and
              wrapped copy does not leave one word alone on its last line (half a fault)
   corners    corner badges / ribbons stay in their source corner
+  axis       wrapped copy in a centred column has its lines on the column's axis (ragged-left lines
+             under a centred logo and button read as misaligned, however centred their box)
   pairs      a caption set under its piece (a stat's label, a numbered step's text, a feature
              title's detail) still sits just under it, centred: split apart, a number no longer
              says what it counts
@@ -48,7 +50,7 @@ from engine.chameleon_layout.geometry import Rect, bounding  # noqa: E402
 from engine.chameleon_layout.scene import analyze  # noqa: E402
 
 RULES = ("alignment", "edge", "margins", "spacing", "hierarchy", "hero", "logo", "fill", "presence", "wrap",
-         "corners", "bars", "pairs")
+         "corners", "bars", "pairs", "axis")
 
 
 def _clamp(v: float) -> float:
@@ -284,6 +286,35 @@ def _bleeding_panels(sc, ink, W: float, H: float) -> frozenset:
                      and min(ink[id(b)].x, ink[id(b)].y, W - ink[id(b)].x1, H - ink[id(b)].y1) <= 1.0 for i in b.items)
 
 
+def _panels(blocks):
+    for b in blocks:
+        if b.kind == "panel" and b.frame is not None:
+            yield b
+            yield from _panels(b.children)
+
+
+def on_axis(W, H, sc, ink) -> float:
+    """Share of wrapped texts in a centred column (their box or ink and another block centred on the canvas, or on the
+    card holding them) whose every line is centred on that axis too, within 0.5% of the long side, failing at 3%."""
+    L = max(W, H)
+    frames = [(Rect(0, 0, W, H), W / 2)] + [(b.frame.box, b.frame.box.cx) for b in _panels(sc.blocks)]
+    centres = [r.cx for r in ink.values() if r is not None]
+    scores = []
+    for it in sc.items:
+        lay = it.text_layout(it.font, it.box.w) if it.type == "text" and it.content.strip() else None
+        if lay is None or lay.n_lines < 2:
+            continue
+        axis = min((f for f in frames if f[0].contains(it.box)), key=lambda f: f[0].area, default=frames[0])[1]
+        centred = min(abs(it.box.cx - axis), abs(it.ink.cx - axis)) <= 0.01 * L
+        if not centred or sum(abs(c - axis) <= 0.01 * L for c in centres) < 2:
+            continue
+        b, align = it.box, it.el.get("text_align", "left")
+        dev = max(abs(b.x + {"center": (b.w - lw) / 2, "right": b.w - lw}.get(align, 0.0) + lw / 2 - axis)
+                  for lw in lay.line_widths if lw > 0) / L
+        scores.append(_ramp(0.03 - dev, 0.0, 0.025))
+    return sum(scores) / len(scores) if scores else 1.0
+
+
 def evaluate(source: dict, output: dict, scenes=None) -> Dict[str, float]:
     """Each rule compares the resize with its own source: a designer's original
     scores 1 everywhere against itself, and only what got worse is penalised."""
@@ -314,6 +345,7 @@ def evaluate(source: dict, output: dict, scenes=None) -> Dict[str, float]:
     m["corners"] = _corners(ssc, sc, sW, sH, W, H)
     m["bars"] = _bars(ssc, output, W, H)
     m["pairs"] = _pairs(ssc, output)
+    m["axis"] = _clamp(1 - max(0.0, on_axis(sW, sH, ssc, sink) - on_axis(W, H, sc, ink)) / 0.5)
     return m
 
 

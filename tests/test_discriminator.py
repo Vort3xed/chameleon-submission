@@ -181,3 +181,15 @@ def test_a_caption_split_from_its_number_scores_lower():
     for k, suffix in enumerate(("", "_2", "_3", "_4")):  # the labels gathered in a list at the bottom
         element(split, "caption" + suffix).update(x=40, y=1500 + 60 * k)
     assert evaluate(src, split)["pairs"] < 0.5
+
+
+def test_ragged_copy_in_a_centred_column_is_off_axis():
+    """A banner row's 'Bright / Days Ahead' restacked into a story's centred column: centred lines keep the axis
+    the logo, product and button share; the source's ragged-left lines would not."""
+    task = json.loads((ROOT / "tests" / "fixtures" / "row_to_story.json").read_text())
+    out = resize(task["source"], task["target_canvas"])
+    ragged = copy.deepcopy(out)
+    for e in ragged["elements"]:
+        if e["id"] in ("headline", "subhead"):
+            e["text_align"] = "left"
+    assert evaluate(task["source"], out)["axis"] == 1.0 > evaluate(task["source"], ragged)["axis"]
