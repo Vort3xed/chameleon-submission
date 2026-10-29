@@ -53,7 +53,8 @@ def ask(src_img, a_img, b_img, tw, th, endpoint, model) -> dict:
 def differs(a: dict, b: dict) -> bool:
     def geo(d):
         return [(e.get("id"), round(e.get("x", 0)), round(e.get("y", 0)), round(e.get("width", 0)),
-                 round(e.get("height", 0)), e.get("font_size"), e.get("opacity"), e.get("z_index"))
+                 round(e.get("height", 0)), e.get("font_size"), e.get("opacity"), e.get("z_index"),
+                 e.get("corner_radius"), e.get("text_align"))
                 for e in d.get("elements", []) if isinstance(e, dict)]
     return geo(a) != geo(b)
 

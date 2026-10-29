@@ -55,7 +55,8 @@ def build(a: str, b: str, tasks: Path, n: int, out: Path, seed: int):
 
     rng = random.Random(seed)
     ra, rb = RUNS / a / "outputs", RUNS / b / "outputs"
-    ids = sorted(q.stem for q in ra.glob("*.json") if (rb / q.name).exists())
+    ids = sorted(q.stem for q in ra.glob("*.json")  # a narrowed tasks folder narrows the sample
+                 if (rb / q.name).exists() and (tasks / "tasks" / q.name).exists())
     rng.shuffle(ids)
     out.mkdir(parents=True, exist_ok=True)
     key = {}
