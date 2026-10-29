@@ -85,7 +85,7 @@ still works with no fonts or assets present.
   lives in). The same shape (aspect within 8%) always keeps the composition;
 * **stack** – a single column in reading order (tall/square canvases); groups stay compact and the spare height goes to the margins and the gaps between groups, drawn halfway to how the source spaced them (a headline the designer centred does not sink to the bottom of a tall canvas);
 * **split** – product imagery in one column, everything else stacked beside it;
-* **row** – banners: logo | product | text columns | CTA, with text partitioned into 1–3 columns (a list kept in one, unless splitting it buys the type over 25%); beside product art on a banner (not a strip), a logo that headed the copy stays at the head of the headline's column when that costs the type under 20% (set apart by the product, it reads as a stray); copy columns narrow to their lines and the spare width is shared between the row's items, so the gaps are even.
+* **row** – banners: logo | product | text columns | CTA, with text partitioned into 1–3 columns (a list kept in one, unless splitting it buys the type over 25%); beside product art on a banner (not a strip), a logo that headed the copy stays at the head of the headline's column when that costs the type under 20% (set apart by the product, it reads as a stray); copy columns narrow to their lines and the spare width is shared between the row's items, so the gaps are even. Rows are spaced the way a designer spaces a banner: one gap unit throughout (a margin, or a full em of the row's largest copy if that is wider, so a headline never sits against the logo or button) and 8% of the height clear above and below the copy, unless that costs the type over 15%. Strips, and rows of cards, keep tight gutters (a third of an em): a strip cannot spare the room, and a card's frame carries its own air.
 
 Each arrangement binary-searches the largest text scale that fits (and a
 calmer 0.82× variant), for several image-to-text ratios. Text never drops
@@ -97,9 +97,8 @@ badges/ribbons → body → secondary text → product), never the headline or C
 never the logo.  In banner rows, images fill the height while their
 transparent padding stays on the canvas, the logo never outgrows the text by
 more than 1.5× its original proportion, the text may grow until a headline
-fills two lines of the row, copy keeps at least a third of an em from the
-product, logo or button beside it, and the button never outshines the
-headline. Long copy may re-wrap to a comfortable ~40-character line even when
+fills two lines of the row, items keep the row's gap unit apart, and the
+button never outshines the headline. Long copy may re-wrap to a comfortable ~40-character line even when
 its source box was narrow.
 Strips get wider end margins (a 320×50 button no longer sits 2 px from the
 edge); sparse designs may scale up to 2× more into a bigger canvas.
@@ -109,7 +108,8 @@ centre); a column keeps its groups compact - the widest gaps of the original
 separate groups, a gap inside a group stays between half and 1.2 em of the
 text beside it, and spare height goes only between groups and to the margins; side-by-side columns and
 banner rows share one *drawn* centre line and equal drawn outer margins
-(transparent padding in product art or a logo does not count); near-misses
+(transparent padding in product art or a logo does not count - but never by
+closing a gap, a logo beside a card, below the margin it opens); near-misses
 within 1.5% are snapped onto the shared line (also inside cards) unless that
 collides, crams a neighbour or unbalances the margins; a corner badge keeps
 its corner (product art there shrinks a little to make way, text never);
@@ -173,8 +173,8 @@ docker run --rm --network none \
 
 Everything is installed at build time (versions pinned in `requirements.txt`);
 nothing is fetched at run time and no model is used. Typical latency is
-~0.1 s per design; the slowest (cards inside narrow banners, where every
-candidate re-solves the card's interior) take ~3 s.
+~0.2 s per design; the slowest (cards inside narrow banners, where every
+candidate re-solves the card's interior) take ~4.5 s.
 
 ## Evaluation harness (`eval/`, `tests/`)
 
@@ -248,6 +248,13 @@ Development-only tooling, not copied into the image
   what it over-rewards (found the label-wrapping hole).
 * `judges.py` – VLM judge variants measured on the bench; `label_app.py` – a
   local page for human A/B labels, the yardstick for every judge.
+* `blind_pairs.py` – shuffled ORIGINAL | A | B sheets of two runs (the key kept
+  apart) for judging by eye, and the sign test on the labels that come back.
+  Spacing is judged this way: on the human labels the discriminator agrees
+  only ~62% of the time and rewards larger type wherever it costs air, while a
+  blind image-reading reviewer given the labeller's written standards (a gap
+  of about an em between groups, padding near edges, one centre axis) tracks
+  what people flag.
 * `docker_parity.py` – runs a fixed sample of every test set in the amd64
   image exactly as stage one does (`--network none`) and checks each output is
   byte-identical to native `resize()`.

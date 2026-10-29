@@ -404,13 +404,15 @@ def _row(scope: Scope, ctx0: Ctx, shrink: float, logo: Optional[Block], topped: 
     if topped and not middle:
         return []
     lead = ([logo] if logo is not None and not topped else []) + ([vis] if vis is not None else [])
-    gap = max(4.0, 0.6 * margin(reg.w, reg.h))
     lo, hi0 = scale_bounds(scope)
     heads = [i.font for b in blocks if b.role == "headline" for i in b.texts]
     # the text may grow until a headline fills two lines of the row's height; logo and button keep the usual cap
     hi = max(hi0, reg.h / 2.6 / max(heads)) if heads else hi0
-    def fitted(partitions) -> List[Layout]:
+    def fitted(partitions, spacing) -> List[Layout]:
         layouts = []
+        margins, ems, air = spacing
+        gap = max(4.0, margins * margin(reg.w, reg.h))
+        copy_h = min(reg.h, ctx0.H * (1 - 2 * air))
         for parts in partitions:
             if topped:  # the logo heads the column holding the headline
                 k = next((i for i, part in enumerate(parts) if any(b.role == "headline" for b in part)), 0)
@@ -425,7 +427,7 @@ def _row(scope: Scope, ctx0: Ctx, shrink: float, logo: Optional[Block], topped: 
                          _edge_inset(tail[-1], 2, c.W - reg.x1) if tail else 0.0)
                 if even:  # a padded end sets the drawn margin on both ends
                     inset = (max(inset),) * 2
-                gaps = _row_gaps([b for b, _ in fixed] + list(parts) + [b for b, _ in tail], ts, gap)
+                gaps = _row_gaps([b for b, _ in fixed] + list(parts) + [b for b, _ in tail], ts, gap, ems)
                 used = sum(inset) + sum(w for _, (w, _) in fixed + tail) + sum(gaps)
                 weights = [_text_weight(p) for p in parts]
                 widths = [(reg.w - used) * w / sum(weights) for w in weights] if parts else []
@@ -439,7 +441,7 @@ def _row(scope: Scope, ctx0: Ctx, shrink: float, logo: Optional[Block], topped: 
                     return False  # the copy is squeezed into a sliver: drop something or use another layout
                 for p, w in zip(parts, widths):
                     cw, ch, _, _ = stack_measure(p, c, w, reg.h)
-                    if ch > reg.h or cw > w + 0.5:
+                    if ch > copy_h or cw > w + 0.5:
                         return False
                 return True
 
@@ -462,28 +464,43 @@ def _row(scope: Scope, ctx0: Ctx, shrink: float, logo: Optional[Block], topped: 
             layouts += [lay for _, lay in made[:1]]
         return layouts
 
+    scale = lambda lays: max((lay.ctx.ts for lay in lays), default=0.0)  # noqa: E731
+
+    def spaced(partitions) -> List[Layout]:
+        """Airy spacing unless it costs the type over AIR_COST.  A strip, too low to spare any, stays tight,
+        and so do cards: their frames carry their own air, and a row of them sits on gutters."""
+        partitions = list(partitions)
+        if reg.w >= STRIP * reg.h or any(b.kind == "panel" for b in blocks):
+            return fitted(partitions, TIGHT)
+        airy = fitted(partitions, AIRY)
+        if scale(airy) >= AIR_COST * hi * shrink:  # no tighter spacing could grow the type past the cost
+            return airy
+        tight = fitted(partitions, TIGHT)
+        return airy if scale(airy) >= AIR_COST * scale(tight) else tight
+
     if not middle:
-        return fitted([[]])
-    whole = fitted(_partitions(middle, 3))
+        return spaced([[]])
+    whole = spaced(_partitions(middle, 3))
     if not any(map(B.list_item, middle)):
         return whole
-    split = fitted(_partitions(middle, 3, lists=False))  # a list across columns, as on a strip, only where it pays
-    scale = lambda lays: max((lay.ctx.ts for lay in lays), default=0.0)  # noqa: E731
+    split = spaced(_partitions(middle, 3, lists=False))  # a list across columns, as on a strip, only where it pays
     return whole if scale(whole) >= LIST_COST * scale(split) else split
 
 
 EVEN_COST = 0.9  # even end margins may cost a banner's type up to 10%, never a line break
-TEXT_GAP_EM = 0.35  # copy keeps at least this many em of its largest text from its neighbours in a row
+# a banner row's spacing: (gap in margins, gap in ems of its largest copy, share of the canvas height kept
+# clear above and below the copy) - airy as a designer spaces a row, or tight where the row is dense
+AIRY, TIGHT = (1.0, 1.0, 0.08), (1.0, 0.35, 0.0)
+AIR_COST = 0.85  # a row is spaced airy unless that costs its type over 15% (past that it gives up content)
 
 
-def _row_gaps(seq, ts: float, base: float) -> List[float]:
-    """Gap after each item of a banner row: the usual gap, widened where copy
-    sits beside something (a headline must not touch the product or the button)."""
-    def em(obj) -> float:
-        blocks = obj if isinstance(obj, list) else [obj]
-        return max((i.font for b in blocks if b.role != "cta" for i in b.texts), default=0.0) * ts
-
-    return [max(base, TEXT_GAP_EM * max(em(a), em(b))) for a, b in zip(seq, seq[1:])]
+def _row_gaps(seq, ts: float, base: float, ems: float) -> List[float]:
+    """Gap after each item of a banner row: one unit throughout - the usual gap, or `ems` of the row's
+    largest copy if that is wider (a headline must not touch the product or the button, and the logo
+    keeps as far from the product)."""
+    em = max((i.font for obj in seq for b in (obj if isinstance(obj, list) else [obj]) if b.role != "cta"
+              for i in b.texts), default=0.0) * ts
+    return [max(base, ems * em)] * (len(seq) - 1)
 
 
 def _lines(lay: Layout) -> Dict[int, int]:
@@ -586,12 +603,15 @@ def _center_ink(lay: Layout, blocks: List[Block], reg: Rect, gap: float):
     shift(blocks_in_order, dx)
     left, right = left + dx, right - dx
     if len(order) > 1 and abs(left - right) > 1.0:
+        # never so far that the gap it closes ends up narrower than the far margin it opens
         if left > right:  # the first block's padding held the row back: the rest slides toward it
-            free = min(r.x for r in inks[1:]) + dx - (inks[0].x + dx) - (inks[0].w) - gap
-            shift(blocks_in_order[1:], room(blocks_in_order[1:], -max(0.0, min((left - right) / 2, free))))
+            g = min(r.x for r in inks[1:]) - inks[0].x1
+            s = max(0.0, min((left - right) / 2, g - gap, (g - right) / 2))
+            shift(blocks_in_order[1:], room(blocks_in_order[1:], -s))
         else:
-            free = (inks[-1].x + dx) - max(r.x1 for r in inks[:-1]) - dx - gap
-            shift(blocks_in_order[:-1], room(blocks_in_order[:-1], max(0.0, min((right - left) / 2, free))))
+            g = inks[-1].x - max(r.x1 for r in inks[:-1])
+            s = max(0.0, min((right - left) / 2, g - gap, (g - left) / 2))
+            shift(blocks_in_order[:-1], room(blocks_in_order[:-1], s))
 
 
 def _slot_ctx(b: Block, c: Ctx, reg: Rect) -> Ctx:

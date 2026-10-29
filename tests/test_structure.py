@@ -640,3 +640,19 @@ def test_no_card_stands_empty_round_its_button():
             inside = [k for k, e in out.items() if k.startswith(("plan", "point")) and not k.startswith("plan_btn")
                       and e.get("opacity", 1) > 0]
             assert inside, f"{card} holds nothing but its button"
+
+
+@pytest.mark.parametrize("target", [(1200, 480), (1500, 500), (820, 312), (1584, 396)])
+def test_banner_row_items_keep_an_em_apart(target):
+    """Headline and button side by side in a banner keep at least 3/4 em of the headline between them
+    (people's notes: "too stuck to each other"); the type gives up some size for the air."""
+    out = {e["id"]: e for e in resize(_units("minimal_row"), {"width": target[0], "height": target[1]})["elements"]}
+    head, cta = out["headline"], out["cta"]
+    assert cta["x"] - (head["x"] + head["width"]) >= 0.75 * head["font_size"]
+
+
+def test_a_row_of_price_cards_keeps_its_cards():
+    """Two price cards beside the headline of a 600x200 email header stay, on gutters, rather than being
+    dropped to give the headline air."""
+    out = resize(_units("pricing_duo"), {"width": 600, "height": 200})
+    assert all(e.get("opacity", 1) > 0 for e in out["elements"])
