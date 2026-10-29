@@ -22,3 +22,19 @@
 {"key": "p086", "task_id": "event_flyer_00__business_card", "origin": "balance vs size", "note": "bad arrangment"}
 {"key": "p089", "task_id": "card_overlay_01__etsy_shop_banner", "origin": "logo size", "note": "solstice has bad logo positioning. "}
 {"key": "p091", "task_id": "official_warmup_01__twitch_banner", "origin": "logo size", "note": "terrible spacing between elements"}
+{"key": "p099", "task_id": "split_hero_01__etsy_shop_banner", "origin": "logo size", "note": ""}
+{"key": "p100", "task_id": "adversarial_00__etsy_shop_banner", "origin": "balance vs size", "note": ""}
+{"key": "p103", "task_id": "scrim_text_00__twitch_banner", "origin": "logo size", "note": ""}
+{"key": "p106", "task_id": "official_advanced_01__facebook_cover", "origin": "logo size", "note": ""}
+{"key": "p107", "task_id": "event_flyer_00__large_mobile_banner", "origin": "logo size", "note": ""}
+{"key": "p108", "task_id": "scrim_text_01__web_leaderboard", "origin": "balance vs size", "note": ""}
+{"key": "p115", "task_id": "random_015__linkedin_banner", "origin": "menu kept vs dropped", "note": ""}
+{"key": "p116", "task_id": "random_071__presentation_16:9", "origin": "menu kept vs dropped", "note": ""}
+{"key": "p120", "task_id": "card_overlay_01__etsy_shop_banner", "origin": "logo over card", "note": ""}
+{"key": "p121", "task_id": "card_overlay_00__facebook_cover", "origin": "logo over card", "note": ""}
+{"key": "p122", "task_id": "scrim_text_02__large_mobile_banner", "origin": "logo over card", "note": ""}
+{"key": "p123", "task_id": "card_overlay_01__billboard_ad", "origin": "logo over card", "note": ""}
+{"key": "p125", "task_id": "card_overlay_01__x_header", "origin": "logo over card", "note": ""}
+{"key": "p127", "task_id": "scrim_text_00__large_mobile_banner", "origin": "logo over card", "note": ""}
+{"key": "p136", "task_id": "split_hero_00__super_leaderboard", "origin": "snug button", "note": ""}
+{"key": "p138", "task_id": "card_overlay_00__email_header", "origin": "snug button", "note": ""}
