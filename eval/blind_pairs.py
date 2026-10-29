@@ -8,6 +8,9 @@ that can read images), and the verdict from the labels that come back.
 with each pair's sides shuffled; the key (which side is which run) goes to
 DIR/key.json, never into the images.  `score` reads {"key", "choice"} lines
 (A / B / = / X for both bad) and reports how often run b won.
+
+eval/blind_rubric.txt holds the labeller's standards, written from their notes
+on eval/labels/human.jsonl; give it to whoever judges the sheets.
 """
 
 from __future__ import annotations
