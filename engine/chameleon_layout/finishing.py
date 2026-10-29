@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Tuple
 
 from .blocks import INF, Ctx, Placement, measure, place, list_item
 from .geometry import Rect, bounding
-from .scene import Block, Scene, num
+from .scene import Block, Scene, corner_radius, num
 
 from .families import Layout, margin
 
@@ -293,7 +293,7 @@ def opaque_covers(scene: Scene) -> Dict[int, object]:
 def _beneath(it, frame: Placement, cover) -> Placement:
     """A hidden text squeezed to 1 px in the middle of an opaque shape, under it - inside the part that is opaque
     edge to edge (a pill's rounded ends are not)."""
-    r = min(num(cover.el.get("corner_radius"), 0.0), frame.w / 2, frame.h / 2)
+    r = min(corner_radius(cover.el, frame.w, frame.h), frame.w / 2, frame.h / 2)
     w = max(1.0, (frame.w - 2 * r) * 0.8)
     h = min(max(1.0, it.text_layout(1, w).box_height), max(1.0, frame.h * 0.8))
     return Placement(frame.x + frame.w / 2 - w / 2, frame.y + frame.h / 2 - h / 2, w, h, 1, under=cover.idx)

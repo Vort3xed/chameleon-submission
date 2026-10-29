@@ -105,7 +105,8 @@ def _flowing(scene: Scene, ctx0: Ctx, src: Rect, region: Rect, judge: Scope, ban
             lay.region = region
             _place_bands(lay, bands, stripes, scene, mx, my)
             finish(scene, lay, [b for b in scene.ornaments if b not in drop])
-        out += lays
+        lays = [lay for lay in lays if all(it.idx in lay.out for k in bands for it in bands[k][0].items)]
+        out += lays  # (a bar whose content fits no arrangement inside it cannot be kept in that layout)
         if any(evaluate(lay, judge, scene.items)["legibility"] >= 0.97 for lay in lays):
             break  # everything left is legible: no need to drop more
         if len(out) > MAX_LAYOUTS:
@@ -235,10 +236,10 @@ def _with_bands(scene: Scene, ctx0: Ctx, src: Rect, region: Rect, judge: Scope, 
     bg = backdrop(scene)
     bands = {k: (b, kr) for k, (b, r) in _bands(scene, ctx0.W, ctx0.H).items() if (kr := _kept(b, r, bg, ctx0.H)) is not None}
     thin = {k: v for k, v in bands.items() if min(v[1].w, v[1].h) < BAND_MIN}
-    kept = flow(bands, set(thin)) if bands else []
+    kept = flow(bands, list(thin)) if bands else []  # (lists, not sets: the flow keeps the source's order)
     if legibility(kept) >= 0.9:
         return kept
-    cards = flow(thin, set(thin))
+    cards = flow(thin, list(thin))
     return cards if not kept or legibility(cards) > legibility(kept) + 0.02 else kept
 
 

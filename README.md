@@ -121,7 +121,10 @@ its corner (product art there shrinks a little to make way, text never);
 decoration on a card moves with the card; wrapped centred titles get
 balanced lines instead of a lone last word, and any other copy of three or
 more words that would leave one word alone on its last line is balanced
-within the room the layout measured for it (so the layout itself is unchanged).
+within the room the layout measured for it (so the layout itself is unchanged);
+left- or right-aligned copy restacked into a centred column is boxed to its
+lines and, once it wraps, centred line by line, so it shares the axis of the
+logo and button around it (a blind reviewer preferred this 18-0).
 
 **4. Rank them (`objective.py`).** Terms in [0, 1]: legibility, headline size,
 product size, visible coverage, fill, kept content, overlap beyond what the
@@ -143,7 +146,11 @@ scrim along the bottom of a square ad does not make its content a banner.  A lay
 outranks a clean one.
 
 **5. Enforce the rules (`finalize.py`).** Same elements in the same order,
-only geometry / `font_size` / `opacity` (and, for hidden text, `z_index`) change;
+only geometry / `font_size` / `opacity` change (plus `z_index` for hidden text,
+`text_align` for wrapped copy centred in its column, `letter_spacing`
+scaled with its font, and `corner_radius` scaled with its shape: a pill stays
+a pill, other corners keep their share of the short side, so a card shrunk
+into a banner does not turn into a blob - blind reviewer 32-1);
 images keep their exact source aspect (full-bleed backgrounds excepted);
 every box lies on the canvas (rotated footprints too where possible); text
 boxes are strictly positive (cr-renderer rejects zero); font sizes are
@@ -249,7 +256,8 @@ Development-only tooling, not copied into the image
   (alignment incl. inside cards, edge crowding, margin balance, newly crammed
   neighbours, headline lead, product and logo share - nested in panels too -,
   fill, corner pieces, header and footer bars kept on their edges, captions
-  kept under the piece they caption). Roles are
+  kept under the piece they caption, wrapped copy in a centred column kept on
+  its axis). Roles are
   read in the source and followed into the resize by element id (analysed
   afresh, a resize could merge a side panel with its content into 'product
   art'); thresholds ramp in over a band and specks under 3 px are not seen, so

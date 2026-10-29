@@ -119,7 +119,10 @@ def render_isolated(design: dict, assets_dir: Path, png_path: Path) -> bool:
         proc.kill()
     if proc.exitcode == 0 and png_path.exists():
         return True
-    _fallback_render(design, png_path)
+    try:
+        _fallback_render(design, png_path)
+    except Exception as e:  # a design even the box preview cannot read: no picture, but the run goes on
+        print(f"[{png_path.name}] box preview failed: {e!r}", file=sys.stderr)
     return False
 
 

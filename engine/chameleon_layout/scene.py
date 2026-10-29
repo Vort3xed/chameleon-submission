@@ -67,6 +67,14 @@ def backdrop(scene: "Scene") -> Optional[float]:
     return luminance(it.el.get("fill_color")) if it.type == "shape" else assets.mean_luminance(it.el.get("asset_id"))
 
 
+def corner_radius(el: dict, w: float, h: float) -> float:
+    """A shape's corner radius drawn at w x h: a pill stays a pill, other corners keep their share of the short side."""
+    r, short = num(el.get("corner_radius"), 0.0), min(num(el.get("width")), num(el.get("height")))
+    if r <= 0 or short <= 0:
+        return r
+    return min(w, h) / 2 if r >= 0.45 * short else r * min(w, h) / short
+
+
 def color_alpha(v) -> float:
     m = _RGBA.match(str(v or "").strip())
     if m and m.group(4) is not None:
@@ -718,6 +726,8 @@ def mark_echoes(items: List[Item]):
         stack = [b for b in texts if str(b.el.get("content")).strip() == str(a.el.get("content")).strip()
                  and b.group == a.group  # (two buttons' labels are not one text's copies)
                  and a.bounds.intersection(b.bounds) >= 0.5 * min(a.bounds.area, b.bounds.area) > 0]
+        if not stack:  # a sliver of a box (zero wide, then rotated) can fail to overlap even itself
+            continue
         top = max(stack, key=lambda b: (b.z, b.idx))
         if top is not a:
             a.echo_of = top.idx

@@ -693,3 +693,19 @@ def test_wrapped_copy_in_a_centred_column_is_centred():
     for key in ("headline", "subhead"):
         e = out[key]
         assert e["text_align"] == "center" and abs(e["x"] + e["width"] / 2 - W / 2) < 0.005 * W, (key, e)
+
+
+@pytest.mark.parametrize("target", [(728, 90), (1080, 1920), (320, 50), (2560, 1440)])
+def test_corners_keep_their_shape(target):
+    """A pill button or badge stays a pill however it is scaled, and other rounded corners keep their share of the
+    shape's short side: an unscaled radius turns a card shrunk into a banner into a blob, a grown pill into a slab."""
+    for path in sorted((ROOT / "input").glob("*.json")) + [ROOT / "tests" / "fixtures" / "rounded_card.json"]:
+        src = json.loads(path.read_text())["source"]
+        out = {e["id"]: e for e in resize(src, {"width": target[0], "height": target[1]})["elements"]}
+        for s in src["elements"]:
+            r, short = s.get("corner_radius") or 0, min(s["width"], s["height"])
+            if s["type"] != "shape" or s.get("shape_type") in ("ellipse", "line") or r <= 0 or short <= 0:
+                continue
+            o = out[s["id"]]
+            want = min(o["width"], o["height"]) / 2 if r >= 0.45 * short else r * min(o["width"], o["height"]) / short
+            assert abs(o["corner_radius"] - want) < 0.02, (path.stem, s["id"], o["corner_radius"], want)

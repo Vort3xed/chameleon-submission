@@ -318,15 +318,18 @@ def test_main_survives_bad_task_files(tmp_path):
     task = load(SAMPLES[0])
     files = {"a_no_elements": json.dumps({"source": {"canvas": task["source"]["canvas"]},
                                           "target_canvas": task["target_canvas"]}),
-             "b_bom": "﻿" + json.dumps(task), "c_no_target": json.dumps({"source": task["source"]}),
-             "d_good": json.dumps(task), "._e_sidecar": "\x00\x05\x16\x07", "f_not_json": "{nope"}
+             "b_bom": "\ufeff" + json.dumps(task), "c_no_target": json.dumps({"source": task["source"]}),
+             "d_good": json.dumps(task), "._e_sidecar": "\x00\x05\x16\x07", "f_not_json": "{nope",
+             "g_string_element": json.dumps({"source": {**task["source"], "elements": ["oops"]},
+                                             "target_canvas": task["target_canvas"]})}
     (tmp_path / "input").mkdir()
     for name, text in files.items():
         (tmp_path / "input" / f"{name}.json").write_text(text, encoding="utf-8")
     r = subprocess.run([sys.executable, "-m", "engine.main"], cwd=tmp_path, capture_output=True, text=True, timeout=600)
-    written = sorted(p.name for p in (tmp_path / "output").iterdir())
-    assert written == [f"{n}_output.{ext}" for n in ("a_no_elements", "b_bom", "c_no_target", "d_good")
-                       for ext in ("json", "png")], r.stderr
+    written = {p.name for p in (tmp_path / "output").iterdir()}
+    kept = ("a_no_elements", "b_bom", "c_no_target", "d_good")
+    assert {p for p in written if p.endswith(".json")} == {f"{n}_output.json" for n in kept + ("g_string_element",)}
+    assert {f"{n}_output.png" for n in kept} <= written, r.stderr
     assert r.returncode == 1 and "f_not_json" in r.stderr and "._e_sidecar" not in r.stderr
 
 
@@ -599,6 +602,8 @@ UNUSUAL = {  # legal by the schema but unlike the samples: each must stay on the
                                                   {"start": 2, "end": 9, "font_weight": "bold"}]),
     "runs with unknown keys": _when("text", style_runs=[{"start": 0, "end": 3, "underline": True, "font_size": 99}]),
     "fractional type": lambda e: e.update(font_size=float(e["font_size"]) + 0.37) if e.get("type") == "text" else None,
+    "zero-wide turned text": _when("text", width=0, rotation=90),
+    "zero-high flipped text": _when("text", height=0, rotation=180),
     "half-pixel elements": lambda e: e.update(width=0.5, height=0.5) if e.get("z_index") != 0 else None,
     "images as text": _when("image", type="text", content="Picture", font_family="Solstice Sans", font_size=30,
                             color="#fff"),

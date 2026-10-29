@@ -12,7 +12,7 @@ from typing import Dict
 
 from .blocks import Placement
 from .geometry import Rect
-from .scene import num
+from .scene import corner_radius, num
 
 
 def _fit_inside(p: Placement, W: float, H: float, rotation: float, keep_aspect: bool, is_text: bool) -> Placement:
@@ -81,6 +81,8 @@ def finalize(source: dict, W: int, H: int, placements: Dict[int, Placement], hid
         if speck:  # squeezed to a speck: rounding would bend its proportions, and it cannot be seen anyway
             s = SPECK / min(p.w, p.h)
             p = replace(p, x=p.x + p.w / 2 * (1 - s), y=p.y + p.h / 2 * (1 - s), w=p.w * s, h=p.h * s, opacity=0.0)
+        if t == "shape" and el.get("shape_type") != "line" and min(sw, sh) >= 2 and min(p.w, p.h) < 0.5:
+            p = replace(p, opacity=0.0)  # squeezed flat (a bar with nothing on it): the renderer would draw a hairline
         p = _fit_inside(p, W, H, num(el.get("rotation")), keep_aspect, t == "text")
         new["x"], new["y"] = _r(max(0.0, p.x)), _r(max(0.0, p.y))
         new["width"], new["height"] = _r(min(p.w, W)), _r(min(p.h, H))
@@ -103,5 +105,7 @@ def finalize(source: dict, W: int, H: int, placements: Dict[int, Placement], hid
                 new["z_index"] = int(math.floor(num(cover.get("z_index") if isinstance(cover, dict) else 0))) - 1
         if t == "text" and p.font is not None and num(el.get("letter_spacing"), 0.0):
             new["letter_spacing"] = _r(num(el.get("letter_spacing")) * new["font_size"] / max(1.0, num(el.get("font_size"), 1.0)))
+        if t == "shape" and el.get("shape_type") not in ("ellipse", "line") and num(el.get("corner_radius"), 0.0) > 0:
+            new["corner_radius"] = _r(corner_radius(el, new["width"], new["height"]))
         out.append(new)
     return {"canvas": {"width": int(W), "height": int(H)}, "elements": out}
