@@ -6,6 +6,7 @@ and opacity quirks, image fit) appears in some design here; each must be laid
 out by the main engine, not the fallback, and pass every hard rule."""
 
 import json
+import random
 import sys
 from functools import lru_cache
 from pathlib import Path
@@ -16,7 +17,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from engine.chameleon_layout.pipeline import retarget  # noqa: E402
-from eval.combos import build_design, covering_array  # noqa: E402
+from engine.chameleon_layout import text_metrics as tm  # noqa: E402
+from eval.combos import FACTORS, NAMES, build_design, covering_array, wellformed  # noqa: E402
 from eval.score import gate, text_ink  # noqa: E402
 
 CHUNK = 10
@@ -62,3 +64,23 @@ def test_letter_spaced_lines_stay_on_the_canvas():
         if e["type"] == "text":
             _, ink, *_ = text_ink(e)
             assert 0 <= ink[0] and ink[2] <= out["canvas"]["width"], e["id"]
+
+
+def test_well_formed_sources_are_typeset():
+    """The judged combinations are designs a designer could have made: every text's lines (as the renderer wraps
+    them) inside its column, every button label on one line inside its pill."""
+    rng, checked = random.Random(2), 0
+    while checked < 150:
+        row = [rng.randrange(len(FACTORS[n])) for n in NAMES]
+        if not wellformed(row):
+            continue
+        checked += 1
+        els = {e["id"]: e for e in build_design(row, typeset=True)[0]["elements"]}
+        for e in els.values():
+            if e["type"] != "text" or e["id"].startswith(("badge", "item")):
+                continue
+            lay = tm.layout_text(e["content"], e["font_family"], e["font_weight"], e["font_style"], e["font_size"],
+                                 e["width"], e.get("line_height") or 1.2, e.get("letter_spacing") or 0.0)
+            assert max(lay.line_widths) <= e["width"] + 0.5, (e["id"], row)
+            if e["id"] == "cta_label":
+                assert lay.n_lines == 1 and ("cta_bg" not in els or e["width"] <= els["cta_bg"]["width"]), row

@@ -96,7 +96,7 @@ def covering_array(strength: int, seed: int = 0, candidates: int = 40) -> list:
 def wellformed(row: list) -> bool:
     """A source a designer could have made: text that contrasts with what is behind it (the cream card, on a
     card), the background beneath everything, a banner row only on a banner, a grid only where it has room,
-    a headline large enough to lead and set in the lines it is allowed.  (Legality is tested on every row;
+    a headline large enough to lead, and every text legible in its place once typeset.  (Legality is tested on every row;
     how good an output looks only means something for these.)"""
     f = {n: FACTORS[n][i] for n, i in zip(NAMES, row)}
     W, H = f["source"]
@@ -104,7 +104,15 @@ def wellformed(row: list) -> bool:
     light_ground = f["layout"] == "card" or f["background"] in ("light", "none") and f["layout"] != "photo_scrim"
     return dark_text == light_ground and f["quirk"] != "reversed_z" and (f["layout"] == "row") == (W >= 2 * H) \
         and not (f["layout"] == "grid" and min(W, H) < 250) and f["size"] > 0.03 \
-        and not (f["max_lines"] == 1 and f["headline"] in (LONG, "Line one\nLine two"))
+        and not (f["max_lines"] == 1 and f["headline"] in (LONG, "Line one\nLine two")) and _settable(row)
+
+
+def _settable(row: list) -> bool:
+    try:
+        build_design(row, typeset=True)
+        return True
+    except ValueError:
+        return False
 
 
 def coverage(rows: list, strength: int) -> float:
@@ -136,11 +144,13 @@ def _text(eid, content, x, y, w, size, f, z, **extra):
     return el
 
 
-def _typeset(el: dict, max_w: float, max_h: float, one_line: bool = False) -> dict:
+def _typeset(el: dict, max_w: float, max_h: float, one_line: bool = False, tracked: bool = True) -> dict:
     """A text set as a designer sets it: the largest whole size, up to its own, whose lines (as the renderer wraps
     them, never breaking a word) fit max_w - on one line for a label, within max_lines otherwise - and max_h;
-    its box exactly as tall as those lines, and its tracking at most a tenth of an em either way."""
-    track = lambda size: max(-0.1 * size, min(0.1 * size, el.get("letter_spacing") or 0.0))  # noqa: E731
+    its box exactly as tall as those lines, and its tracking at most a tenth of an em either way (none for
+    body copy: tracking is for display type)."""
+    ls = (el.get("letter_spacing") or 0.0) if tracked else 0.0
+    track = lambda size: max(-0.1 * size, min(0.1 * size, ls))  # noqa: E731
 
     def layout(size):
         return tm.layout_text(el["content"], el["font_family"], el["font_weight"], el["font_style"], size, max_w,
@@ -149,9 +159,12 @@ def _typeset(el: dict, max_w: float, max_h: float, one_line: bool = False) -> di
     cap = 1 if one_line else max(el.get("max_lines") or len(el["content"]), el["content"].count("\n") + 1)
     size = max(4, int(el["font_size"]))  # whole pixels: the converter wraps at the size the renderer draws
     lay = layout(size)
-    while size > 4 and (max(lay.line_widths) > max_w or lay.n_lines > cap or lay.box_height > max_h):
+    unfit = lambda lay: max(lay.line_widths) > max_w or lay.n_lines > cap or lay.box_height > max_h  # noqa: E731
+    while size > 4 and unfit(lay):
         size = max(4, size - max(1, round(0.05 * size)))
         lay = layout(size)
+    if unfit(lay):
+        raise ValueError(f"{el['id']} cannot be set in {max_w:.0f} x {max_h:.0f} px")
     out = {**el, "font_size": size, "width": round(max_w, 1), "height": round(lay.box_height, 1)}
     if "letter_spacing" in el:
         out["letter_spacing"] = round(track(out["font_size"]), 2)
@@ -275,7 +288,7 @@ def build_design(row: list, typeset: bool = False) -> tuple:
         body = _text(f"body{i}", line, cx, y, cw, max(4.0, 0.025 * S), f, next(z), font_weight="regular",
                      font_style="normal")
         if typeset:
-            body = _typeset(body, cw, max(4.0, (cy + ch - y) / (len(lines) - i)))
+            body = _typeset(body, cw, max(4.0, (cy + ch - y) / (len(lines) - i)), tracked=False)
         els.append(body)
         y += body["height"] + 0.2 * body["font_size"]
     els += _button(f, *box("button"), z, head["font_size"], typeset)
