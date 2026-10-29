@@ -73,7 +73,10 @@ when space is tight.
 official converter wraps greedily at spaces using skia glyph advances and
 cr-renderer draws top-aligned at `int(font_size)`. We replicate that wrap
 verbatim (verified identical), so line counts, box heights and
-centring inside buttons are exact. Letter spacing is scaled with font size.
+centring inside buttons are exact. Letter spacing is scaled with font size;
+the renderer wraps without it, so spaced lines can be drawn wider than their
+box (a box wide enough to hold them would re-wrap them): such text is laid out
+and centred by the width its lines are drawn in, the box offset to match.
 Fallbacks: Pillow/FreeType advances, then a per-font heuristic — the engine
 still works with no fonts or assets present.
 
@@ -174,9 +177,11 @@ docker run --rm --network none \
 ```
 
 Everything is installed at build time (versions pinned in `requirements.txt`);
-nothing is fetched at run time and no model is used. Typical latency is
-~0.2 s per design; the slowest (cards inside narrow banners, where every
-candidate re-solves the card's interior) take ~4.5 s.
+nothing is fetched at run time and no model is used. Median latency is
+~0.04 s per design and 99% finish within ~1.1 s; the slowest (cards inside
+narrow banners, where every candidate re-solves the card's interior) take
+~2.8 s. A banner row's type-scale searches are kept across its two shrink
+variants, and text widths are cached per face, size and string.
 
 ## Evaluation harness (`eval/`, `tests/`)
 
@@ -210,7 +215,10 @@ Development-only tooling, not copied into the image
   `tests/test_combos.py`); 3,000 random rows cover ~100% of triples
   (`combos3`, checked in the loop for hard failures); `--wellformed` keeps
   only sources a designer could have made (text contrasting with its ground,
-  banner rows on banners...) for judging looks (`combosw`, judged in the loop).
+  banner rows on banners, a headline that leads...) and typesets them as a
+  designer would (whole-pixel sizes at which every word fits its column,
+  labels on one line in buttons that hug them, tracking within 0.1 em, copy
+  clear of the corner badge) for judging looks (`combosw`, judged in the loop).
   `check` reports hard failures, design rules scoring under 0.5, and which
   property values make failures likelier.
 * `gen_random.py` – random plausible designs (the pieces real designs are made
