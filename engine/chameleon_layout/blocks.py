@@ -44,6 +44,7 @@ class Placement:
     opacity: Optional[float] = None
     hidden: bool = False
     under: Optional[int] = None  # hidden text: the opaque shape (item idx) it is tucked beneath
+    align: Optional[str] = None  # a new text_align, when the text's column changes axis
 
     @property
     def rect(self) -> Rect:
@@ -481,11 +482,17 @@ def _list_runs(blocks: List[Block], sizes, region: Rect) -> Dict[int, float]:
 
 def _centre_snug(b: Block, r: Rect, out: Dict[int, Placement]) -> Rect:
     """Left- or right-aligned text in a centred column: the box shrinks to its
-    lines and stays centred, so its slack cannot pull the words to one side."""
+    lines and stays centred, so its slack cannot pull the words to one side.
+    Wrapped lines are centred too, as the column is: ragged ones would not sit on its axis."""
     it = b.items[0]
     p = out.get(it.idx)
     if p is None or p.hidden or not p.font or it.el.get("text_align", "left") == "center":
         return r
+    if it.text_layout(p.font, p.w).n_lines > 1:
+        w = snug(it, p.font, p.w)
+        out[it.idx] = replace(p, x=r.cx - w / 2, w=w, align="center")
+        drawn = _drawn(it, p.font, w)
+        return Rect(r.cx - drawn / 2, r.y, drawn, r.h)
     w = snug(it, p.font, p.w)
     drawn = _drawn(it, p.font, w)
     out[it.idx] = replace(p, x=r.cx - drawn / 2 - _ink_offset(it, w, drawn), w=w)

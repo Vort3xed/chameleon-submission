@@ -682,3 +682,14 @@ def test_wrapped_copy_keeps_no_lone_last_word():
                                    e["font_size"], e["width"], e.get("line_height") or 1.2,
                                    e.get("letter_spacing") or 0.0).lines
             assert len(lines) == 1 or len(lines[-1].split()) > 1, (e["id"], lines)
+
+
+def test_wrapped_copy_in_a_centred_column_is_centred():
+    """A banner row's left-aligned 'Bright / Days Ahead' restacked into a story's centred column: ragged-left lines
+    would sit off the axis the logo, product and button share, so wrapped copy is centred with them."""
+    task = json.loads((ROOT / "tests" / "fixtures" / "row_to_story.json").read_text())
+    W = task["target_canvas"]["width"]
+    out = {e["id"]: e for e in resize(task["source"], task["target_canvas"])["elements"]}
+    for key in ("headline", "subhead"):
+        e = out[key]
+        assert e["text_align"] == "center" and abs(e["x"] + e["width"] / 2 - W / 2) < 0.005 * W, (key, e)

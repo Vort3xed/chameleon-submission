@@ -90,6 +90,8 @@ def finalize(source: dict, W: int, H: int, placements: Dict[int, Placement], hid
                 new["font_size"] = int(max(1, round(p.font)))
             elif "font_size" in new:
                 new["font_size"] = int(max(1, round(num(new.get("font_size"), 16))))
+        if t == "text" and p.align:
+            new["text_align"] = p.align
         if p.opacity is not None:
             new["opacity"] = float(max(0.0, min(1.0, p.opacity)))
         if p.hidden:
