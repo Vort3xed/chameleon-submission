@@ -119,7 +119,9 @@ within 1.5% are snapped onto the shared line (also inside cards) unless that
 collides, crams a neighbour or unbalances the margins; a corner badge keeps
 its corner (product art there shrinks a little to make way, text never);
 decoration on a card moves with the card; wrapped centred titles get
-balanced lines instead of a lone last word.
+balanced lines instead of a lone last word, and any other copy of three or
+more words that would leave one word alone on its last line is balanced
+within the room the layout measured for it (so the layout itself is unchanged).
 
 **4. Rank them (`objective.py`).** Terms in [0, 1]: legibility, headline size,
 product size, visible coverage, fill, kept content, overlap beyond what the
