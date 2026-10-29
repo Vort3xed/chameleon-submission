@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT))
 
 from engine.chameleon_layout.pipeline import retarget  # noqa: E402
 from eval.combos import build_design, covering_array  # noqa: E402
-from eval.score import gate  # noqa: E402
+from eval.score import gate, text_ink  # noqa: E402
 
 CHUNK = 10
 
@@ -51,3 +51,14 @@ def test_a_loose_button_label_stays_on_its_pill():
     pill, label = out["cta_bg"], out["cta_label"]
     assert pill["x"] <= label["x"] + label["width"] / 2 <= pill["x"] + pill["width"]
     assert pill["y"] <= label["y"] <= pill["y"] + pill["height"] / 2  # the renderer sets text from the top of its box
+
+
+def test_letter_spaced_lines_stay_on_the_canvas():
+    """Letter-spaced lines are drawn wider than their box (a box wide enough to hold them would re-wrap them):
+    a headline centred by its box ran off a 2560 px canvas.  It is laid out and centred by its lines."""
+    task = json.loads((ROOT / "tests" / "fixtures" / "tracked_headline.json").read_text())
+    out = retarget(task["source"], task["target_canvas"])
+    for e in out["elements"]:
+        if e["type"] == "text":
+            _, ink, *_ = text_ink(e)
+            assert 0 <= ink[0] and ink[2] <= out["canvas"]["width"], e["id"]

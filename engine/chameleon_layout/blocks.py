@@ -181,11 +181,24 @@ def _text(b, ctx, max_w, max_h, out, x, y):
         pairs = b.role in ("headline", "subhead") and 3 <= words <= 6 and "\n" not in it.content
         fitted = fit_text(it, font, min(max_w, measure_w), pairs)  # short titles keep two words a line
     font, w, h = fitted
-    if b.role in BALANCED and it.el.get("text_align") == "center":  # a narrower centred box stays centred
+    align = it.el.get("text_align", "left")
+    if b.role in BALANCED and align == "center":  # a narrower centred box stays centred
         w = balance(it, font, w)
+    drawn = _drawn(it, font, w)
     if out is not None:
-        out[it.idx] = Placement(x, y, w, h, font)
-    return w, h
+        out[it.idx] = Placement(x - _ink_offset(it, w, drawn), y, w, h, font)
+    return drawn, h
+
+
+def _drawn(it: Item, font: int, w: float) -> float:
+    """The width a text's lines are drawn in: letter-spaced lines can reach past their box (any box wide enough
+    to hold them would re-wrap them, the renderer wrapping without the spacing)."""
+    return max(w, it.text_layout(font, w).max_line_width)
+
+
+def _ink_offset(it: Item, w: float, drawn: float) -> float:
+    """Where lines `drawn` wide start, aligned in a box `w` wide, relative to the box."""
+    return {"center": (w - drawn) / 2, "right": w - drawn}.get(it.el.get("text_align", "left"), 0.0)
 
 
 BALANCED = ("headline", "subhead")  # wrapped titles get even lines instead of a lone last word
@@ -466,8 +479,9 @@ def _centre_snug(b: Block, r: Rect, out: Dict[int, Placement]) -> Rect:
     if p is None or p.hidden or not p.font or it.el.get("text_align", "left") == "center":
         return r
     w = snug(it, p.font, p.w)
-    out[it.idx] = replace(p, x=r.cx - w / 2, w=w)
-    return Rect(r.cx - w / 2, r.y, w, r.h)
+    drawn = _drawn(it, p.font, w)
+    out[it.idx] = replace(p, x=r.cx - drawn / 2 - _ink_offset(it, w, drawn), w=w)
+    return Rect(r.cx - drawn / 2, r.y, drawn, r.h)
 
 
 def panel_pads(b: Block) -> Tuple[float, float, float, float]:
