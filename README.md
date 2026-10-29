@@ -237,8 +237,11 @@ Development-only tooling, not copied into the image
 * `judge_fit.py`, `discriminator.py` – the fitted discriminator (non-negative
   logistic on rules + scorer metrics, a floor on every rule) with an
   overfitting audit (held-out tasks, unseen defect kinds, held-out human
-  labels, invisible-change sensitivity, a shuffled-label leakage control), and
-  run-vs-run comparison: sign test, mean, severe losses.
+  labels, held-out reviewer rounds, invisible-change sensitivity, a
+  shuffled-label leakage control), and run-vs-run comparison: sign test,
+  mean, severe losses.  It learns from synthetic defects, the human labels
+  and the blind reviewer's verdicts (`eval/labels/reviewer_pairs.jsonl`);
+  side-by-side groups count as crammed under 3/4 em, the labeller's line.
 * `loop.py` – one step of the improvement loop in one command (~20 min): run
   the engine on the format set, the fresh holdout, the stress set, every
   random-design set and the extra presets, judge each against a baseline with the
@@ -250,11 +253,11 @@ Development-only tooling, not copied into the image
   local page for human A/B labels, the yardstick for every judge.
 * `blind_pairs.py` – shuffled ORIGINAL | A | B sheets of two runs (the key kept
   apart) for judging by eye, and the sign test on the labels that come back.
-  Spacing is judged this way: on the human labels the discriminator agrees
-  only ~62% of the time and rewards larger type wherever it costs air, while a
-  blind image-reading reviewer given the labeller's written standards (a gap
-  of about an em between groups, padding near edges, one centre axis) tracks
-  what people flag.
+  Spacing was judged this way when the discriminator (then ~62% on the human
+  labels) rewarded larger type wherever it cost air; a blind image-reading
+  reviewer given the labeller's written standards (a gap of about an em
+  between groups, padding near edges, one centre axis) tracks what people
+  flag, and `export` feeds its verdicts back into the discriminator.
 * `docker_parity.py` – runs a fixed sample of every test set in the amd64
   image exactly as stage one does (`--network none`) and checks each output is
   byte-identical to native `resize()`.

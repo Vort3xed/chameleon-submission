@@ -3,11 +3,14 @@ that can read images), and the verdict from the labels that come back.
 
     python -m eval.blind_pairs build --a runA --b runB --tasks eval/testsets/formats --n 40 --out DIR
     python -m eval.blind_pairs score --out DIR --labels labels.jsonl
+    python -m eval.blind_pairs export --out DIR --labels labels.jsonl --tasks eval/testsets/formats
 
 `build` renders ORIGINAL | A | B for n tasks on which the runs differ visibly,
 with each pair's sides shuffled; the key (which side is which run) goes to
 DIR/key.json, never into the images.  `score` reads {"key", "choice"} lines
-(A / B / = / X for both bad) and reports how often run b won.
+(A / B / = / X for both bad) and reports how often run b won.  `export` adds
+the decided pairs to eval/labels/reviewer_pairs.jsonl, which eval/judge_fit.py
+learns from.
 
 eval/blind_rubric.txt holds the labeller's standards, written from their notes
 on eval/labels/human.jsonl; give it to whoever judges the sheets.
@@ -26,6 +29,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 RUNS = ROOT / "eval" / "runs"
+REVIEWED = ROOT / "eval" / "labels" / "reviewer_pairs.jsonl"
 
 
 def _sheet(docs, labels, height: int = 420):
@@ -94,6 +98,26 @@ def score(out: Path, labels: Path):
         print("  worse", tid)
 
 
+def export(out: Path, labels: Path, tasks: Path):
+    """Append a judged round's decided pairs (the preferred design as good; ties and both-bad left out)."""
+    key = json.loads((out / "key.json").read_text())
+    known = {json.loads(l)["id"] for l in REVIEWED.read_text().splitlines()} if REVIEWED.exists() else set()
+    rows = []
+    for line in labels.read_text().splitlines():
+        d = json.loads(line) if line.strip() else {}
+        pair, pid = key["pairs"].get(d.get("key")), f"{out.name}:{d.get('key')}"
+        if pair is None or d["choice"] not in ("A", "B") or pid in known:
+            continue
+        load = lambda run: json.loads((RUNS / run / "outputs" / f"{pair['task_id']}.json").read_text())  # noqa: E731
+        task = json.loads((tasks / "tasks" / f"{pair['task_id']}.json").read_text())
+        rows.append({"id": pid, "task_id": pair["task_id"], "round": out.name, "source": task["source"],
+                     "target": task["target_canvas"], "good": load(pair[d["choice"]]),
+                     "bad": load(pair["B" if d["choice"] == "A" else "A"])})
+    with REVIEWED.open("a") as f:
+        f.writelines(json.dumps(r) + "\n" for r in rows)
+    print(f"{len(rows)} pairs -> {REVIEWED}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -107,11 +131,17 @@ def main():
     sp = sub.add_parser("score")
     sp.add_argument("--out", type=Path, required=True)
     sp.add_argument("--labels", type=Path, required=True)
+    ep = sub.add_parser("export")
+    ep.add_argument("--out", type=Path, required=True)
+    ep.add_argument("--labels", type=Path, required=True)
+    ep.add_argument("--tasks", type=Path, required=True)
     args = ap.parse_args()
     if args.cmd == "build":
         build(args.a, args.b, args.tasks, args.n, args.out, args.seed)
-    else:
+    elif args.cmd == "score":
         score(args.out, args.labels)
+    else:
+        export(args.out, args.labels, args.tasks)
 
 
 if __name__ == "__main__":

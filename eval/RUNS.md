@@ -395,6 +395,8 @@ not in the main catalogue, incl. 120×600, 300×1050, 468×60, 234×60,
 
 **VLM on the fresh holdout (v39d vs v38o, 2026-10-26):** the day's changes judged by the other judge on holdout2 (never tuned on): 26 differing tasks, v39d 14 - v38o 6 (6 ties), net +0.31 - same direction as the discriminator, beyond the judge's noise. Its reasons for v38o: two centred scrim layouts and a split card it found more balanced.
 
+**Discriminator refit (2026-10-29):** it opposed the blind reviewer (34% agreement on 193 judged pairs: taste_headline and rule_wrap reward the type the air costs). Side-by-side groups now count as crammed under 3/4 em (was 0.3 em), and the reviewer's verdicts are training data (`eval/labels/reviewer_pairs.jsonl`, weight 1, audited by held-out round). Held-out human 62.4% -> 64.2%; held-out reviewer round 56.6%; unseen sets 91.3 / 92.6 / 89.2% (were 92.3 / 97.5 / 89.3 - squeeze, tilt and logo drift read a little weaker); bootstrap 89.9% ± 1.8%; invisible changes 0.01. Weights: taste_headline 1.77 -> 1.49, rule_spacing 0.50 -> 0.89. v41a vs v40c now reads formats 149–132 (+0.055), holdout2 16–22 (+0.042), no severe losses - neutral instead of 93–162.
+
 **Submission check (v41a, 2026-10-29):** image rebuilt; `eval.docker_parity` 107/107 byte-identical to native (the preview renderer's qemu segfault isolated as designed).
 
 **Submission check (v40c, 2026-10-26):** image rebuilt; `eval.docker_parity` (now with the compare set) 107/107 byte-identical to native.

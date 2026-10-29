@@ -1,7 +1,9 @@
 """Fit and audit the discriminator: a logistic model on per-design features
 (design rules, two absolute taste measures found in the human labels, and the
 structural scorer's metrics), optionally plus VLM votes.  Human labels count
-HUMAN_WEIGHT times a synthetic pair.
+HUMAN_WEIGHT times a synthetic pair; a blind reviewer's verdicts on two engine
+versions, given the labeller's written standards (eval/blind_pairs.py), count
+REVIEWER_WEIGHT times.
 
 Weights are non-negative (every feature is "higher = better"), there is no
 intercept (the model compares two designs symmetrically) and L2 keeps them
@@ -10,6 +12,7 @@ small.  Overfitting is audited three ways:
   * by task      k-fold with every task's pairs held out together
   * by defect    leave one defect type out entirely (does it catch defects it never saw?)
   * by source    fit on synthetic defects, test on human labels (and vice versa)
+  * by round     reviewer verdicts held out a whole judged round at a time
   * leakage      the by-task audit with shuffled labels must fall to ~50%
 
     python -m eval.judge_fit                 # audit + save eval/judge_weights.json
@@ -33,12 +36,14 @@ if str(ROOT) not in sys.path:
 from eval.design_rules import RULES, TASTE, evaluate, role_groups, taste  # noqa: E402
 
 BENCH = ROOT / "eval" / "judge_bench"
+REVIEWED = ROOT / "eval" / "labels" / "reviewer_pairs.jsonl"
 WEIGHTS = ROOT / "eval" / "judge_weights.json"
 SCORER = ("overlap", "cutoff", "text_fit", "readability", "hierarchy", "prominence", "groups", "distortion",
           "margins", "space", "balance", "alignment", "completeness", "reading_order", "bg_coverage",
           "missing_visible")
 FEATURES = tuple(f"rule_{k}" for k in RULES) + tuple(f"taste_{k}" for k in TASTE) + tuple(f"score_{k}" for k in SCORER)
 HUMAN_WEIGHT = 5  # a human label counts as much as five synthetic pairs: they are few, and they are the yardstick
+REVIEWER_WEIGHT = 1  # a reviewer's verdict counts as one synthetic pair: it tracks the labeller's standards, not the labeller
 
 # cache keyed by the metric code too: editing the rules, the scorer or the scene analysis they share invalidates it
 _SOURCES = [ROOT / "eval" / f for f in ("design_rules.py", "score.py", "judge_fit.py")] + \
@@ -82,8 +87,9 @@ def save_cache():
 
 
 def load(which: str):
-    path = BENCH / {"synthetic": "pairs.jsonl", "human": "human_pairs.jsonl", "unseen": "unseen_pairs.jsonl",
-                    "unseen2": "unseen2_pairs.jsonl", "unseen3": "unseen3_pairs.jsonl"}[which]
+    path = REVIEWED if which == "reviewer" else BENCH / {
+        "synthetic": "pairs.jsonl", "human": "human_pairs.jsonl", "unseen": "unseen_pairs.jsonl",
+        "unseen2": "unseen2_pairs.jsonl", "unseen3": "unseen3_pairs.jsonl"}[which]
     return [json.loads(l) for l in path.read_text().splitlines()] if path.exists() else []
 
 
@@ -146,6 +152,7 @@ def audit(vlm: str = "", l2: float = 0.01):
     hum = load("human")
     syn, Xs = design_matrix(syn, vlm)
     hum, Xh = design_matrix(hum, vlm)
+    rev, Xv = design_matrix(load("reviewer"), vlm)
     ties, Xt = design_matrix(ties, vlm)
     save_cache()
     names = list(FEATURES) + (["vlm"] if vlm else [])
@@ -183,7 +190,18 @@ def audit(vlm: str = "", l2: float = 0.01):
         accs = [accuracy(Xh[hfo == k], fit(np.vstack([Xs] + [Xh[hfo != k]] * HUMAN_WEIGHT), l2))
                 for k in range(5) if (hfo == k).any()]
         print(f"  fit synthetic + other human -> held-out human: {np.mean(accs):.1%}")
-    w = fit(np.vstack([Xs] + [Xh] * HUMAN_WEIGHT) if len(hum) else Xs, l2)
+        if len(rev):
+            accs = [accuracy(Xh[hfo == k], fit(np.vstack([Xs, *[Xh[hfo != k]] * HUMAN_WEIGHT, *[Xv] * REVIEWER_WEIGHT]), l2))
+                    for k in range(5) if (hfo == k).any()]
+            print(f"    and with the reviewer verdicts:  {np.mean(accs):.1%}")
+    base = np.vstack([Xs] + [Xh] * HUMAN_WEIGHT) if len(hum) else Xs
+    if len(rev):
+        print(f"  fit synthetic + human -> reviewer verdicts: {accuracy(Xv, fit(base, l2)):.1%}  (n={len(rev)})")
+        r_of = np.array([p["round"] for p in rev])
+        accs = [accuracy(Xv[r_of == k], fit(np.vstack([base, *[Xv[r_of != k]] * REVIEWER_WEIGHT]), l2))
+                for k in sorted(set(r_of))]
+        print(f"    + other rounds -> held-out round: {np.mean(accs):.1%}")
+    w = fit(np.vstack([base, *[Xv] * REVIEWER_WEIGHT]) if len(rev) else base, l2)
     for name, title in (("unseen", "defect kinds never used in fitting (other tasks, newer engine)"),
                         ("unseen2", "a second unseen set, built after the rules were last changed"),
                         ("unseen3", "a third: failures the engine could make (cropped art, text off its card, ...)")):

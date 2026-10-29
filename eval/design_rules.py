@@ -160,12 +160,13 @@ def _clearance(a: Rect, b: Rect) -> float:
 
 
 TIGHT = 0.012  # neighbours closer than this (fraction of the short side) read as crammed,
-EM = 0.3  # and so do groups closer than 0.3 em of the larger text beside them (groups need more air than lines)
+EM = 0.3  # and so do groups closer than 0.3 em of the larger text beside them (groups need more air than lines),
+SIDE_EM = 0.75  # or side by side, closer than 3/4 em (people flag a headline stuck to its button below that)
 
 
 def cramming(src_blocks, out_blocks, sW, sH, W, H) -> float:
     """Share of facing neighbour pairs that are not newly crammed: closer than
-    1.2% of the short side or 0.3 em now (fully at half that), although they were comfortably apart
+    1.2% of the short side or 0.3 em now (3/4 em side by side; fully at half that), although they were comfortably apart
     in the source.  Pairs count by how far they face each other (fully from 1.5% of the short side), so
     nudging one past another's corner cannot add or drop a pair.  Blocks are (ids, drawn extent, largest
     font), matched across source and output by their element ids."""
@@ -173,8 +174,8 @@ def cramming(src_blocks, out_blocks, sW, sH, W, H) -> float:
     L = min(W, H)
     total = crammed = 0.0
     for i, j, gap, over in _facing([r for _, r, _ in out_blocks]):
-        (ia, _, fa), (ib, _, fb) = out_blocks[i], out_blocks[j]
-        tight = max(TIGHT * L, EM * max(fa, fb))
+        (ia, ra, fa), (ib, rb, fb) = out_blocks[i], out_blocks[j]
+        tight = max(TIGHT * L, (SIDE_EM if rb.x >= ra.x1 else EM) * max(fa, fb))
         a, b = src.get(frozenset(ia)), src.get(frozenset(ib))
         was = max(TIGHT * min(sW, sH), EM * max(a[1], b[1])) if a and b else 0.0
         apart = 1.0 if was == 0.0 else _ramp(_clearance(a[0], b[0]), was / 2, was)
