@@ -147,7 +147,7 @@ def test_a_full_width_bar_pulled_off_its_edge_scores_lower():
 def test_roles_are_read_in_the_source():
     """Product art is the source's product, followed by id: a resize that merely nudges a side panel must not
     flip what reads as the product (analysed afresh, the panel and all it holds once became 'product art')."""
-    task = json.loads((ROOT / "eval" / "testsets" / "crazy" / "tasks" / "crazy_sidebar__728x90.json").read_text())
+    task = json.loads((ROOT / "tests" / "fixtures" / "sidebar_task.json").read_text())
     runs = [json.loads((ROOT / "tests" / "fixtures" / f"sidebar_{k}.json").read_text()) for k in ("a", "b")]
     a, b = (quality(task["source"], task["target_canvas"], d) for d in runs)
     assert abs(a - b) < 0.2
