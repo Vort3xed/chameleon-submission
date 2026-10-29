@@ -28,6 +28,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from engine.chameleon_layout import text_metrics as tm  # noqa: E402
+
 LONG = "Introducing the all-new limited-batch botanical sparkling collection for golden hour"
 FACTORS = {
     "layout": ["stack", "split_left", "split_right", "row", "card", "text_only", "photo_scrim", "grid", "bars"],
@@ -92,15 +94,17 @@ def covering_array(strength: int, seed: int = 0, candidates: int = 40) -> list:
 
 
 def wellformed(row: list) -> bool:
-    """A source a designer could have made: text that contrasts with what is behind it, the background
-    beneath everything, a banner row only on a banner, a grid only where it has room.  (Legality is tested
-    on every row; how good an output looks only means something for these.)"""
+    """A source a designer could have made: text that contrasts with what is behind it (the cream card, on a
+    card), the background beneath everything, a banner row only on a banner, a grid only where it has room,
+    a headline large enough to lead and set in the lines it is allowed.  (Legality is tested on every row;
+    how good an output looks only means something for these.)"""
     f = {n: FACTORS[n][i] for n, i in zip(NAMES, row)}
     W, H = f["source"]
     dark_text = f["color"] == "rgba(25,20,30,1)"
-    light_ground = f["background"] in ("light", "none") and f["layout"] not in ("photo_scrim", "bars")
+    light_ground = f["layout"] == "card" or f["background"] in ("light", "none") and f["layout"] != "photo_scrim"
     return dark_text == light_ground and f["quirk"] != "reversed_z" and (f["layout"] == "row") == (W >= 2 * H) \
-        and not (f["layout"] == "grid" and min(W, H) < 250)
+        and not (f["layout"] == "grid" and min(W, H) < 250) and f["size"] > 0.03 \
+        and not (f["max_lines"] == 1 and f["headline"] in (LONG, "Line one\nLine two"))
 
 
 def coverage(rows: list, strength: int) -> float:
@@ -130,6 +134,28 @@ def _text(eid, content, x, y, w, size, f, z, **extra):
     el["font_family"] = f["font"]
     el.update(extra)
     return el
+
+
+def _typeset(el: dict, max_w: float, max_h: float, one_line: bool = False) -> dict:
+    """A text set as a designer sets it: the largest whole size, up to its own, whose lines (as the renderer wraps
+    them, never breaking a word) fit max_w - on one line for a label, within max_lines otherwise - and max_h;
+    its box exactly as tall as those lines, and its tracking at most a tenth of an em either way."""
+    track = lambda size: max(-0.1 * size, min(0.1 * size, el.get("letter_spacing") or 0.0))  # noqa: E731
+
+    def layout(size):
+        return tm.layout_text(el["content"], el["font_family"], el["font_weight"], el["font_style"], size, max_w,
+                              el.get("line_height") or 1.2, track(size))
+
+    cap = 1 if one_line else max(el.get("max_lines") or len(el["content"]), el["content"].count("\n") + 1)
+    size = max(4, int(el["font_size"]))  # whole pixels: the converter wraps at the size the renderer draws
+    lay = layout(size)
+    while size > 4 and (max(lay.line_widths) > max_w or lay.n_lines > cap or lay.box_height > max_h):
+        size = max(4, size - max(1, round(0.05 * size)))
+        lay = layout(size)
+    out = {**el, "font_size": size, "width": round(max_w, 1), "height": round(lay.box_height, 1)}
+    if "letter_spacing" in el:
+        out["letter_spacing"] = round(track(out["font_size"]), 2)
+    return out
 
 
 def _runs(kind: str, content: str) -> list:
@@ -179,8 +205,10 @@ BODY = {"none": [], "line": ["Small-batch. Low sugar. All flavour."],
         "bullets": ["• Real fruit", "• No added sugar", "• Ships in 2 days"]}
 
 
-def build_design(row: list) -> tuple:
-    """(source design, target canvas, factor values) for one row of level indices."""
+def build_design(row: list, typeset: bool = False) -> tuple:
+    """(source design, target canvas, factor values) for one row of level indices; with `typeset`, every
+    text fits its place as a designer would have set it (legality tests keep the raw sizes: overflowing
+    labels and words wider than the canvas are cases to survive too)."""
     f = {n: FACTORS[n][i] for n, i in zip(NAMES, row)}
     W, H = f["source"]
     S, slots, z = min(W, H), SLOTS[f["layout"]], iter(range(1, 100))
@@ -231,25 +259,29 @@ def build_design(row: list) -> tuple:
             y = H - h - 0.03 * H
         els.append(_image("logo", "solstice_logo_lockup.png", x, y, w, h, "contain", next(z)))
     cx, cy, cw, ch = box("copy")
+    bx, by, bw, bh = _badge_box(f["badge"], W, H)
+    if typeset and f["badge"] != "none" and cy < by + bh and cx + cw > bx:  # the copy keeps clear of the badge
+        cw = max(0.5 * cw, bx - 0.03 * W - cx)
     size = max(4.0, f["size"] * S)
     head = _text("headline", f["headline"], cx, cy, cw, size, f, next(z))
+    if typeset:
+        head = _typeset(head, cw, ch * (0.55 if BODY[f["body"]] else 1.0))
     if runs := _runs(f["runs"], f["headline"]):
         head["style_runs"] = runs
     els.append(head)
     y = cy + head["height"] + 0.3 * size
-    for i, line in enumerate(BODY[f["body"]]):
+    lines = BODY[f["body"]]
+    for i, line in enumerate(lines):
         body = _text(f"body{i}", line, cx, y, cw, max(4.0, 0.025 * S), f, next(z), font_weight="regular",
                      font_style="normal")
+        if typeset:
+            body = _typeset(body, cw, max(4.0, (cy + ch - y) / (len(lines) - i)))
         els.append(body)
         y += body["height"] + 0.2 * body["font_size"]
-    els += _button(f, *box("button"), z, size)
+    els += _button(f, *box("button"), z, head["font_size"], typeset)
     if f["badge"] != "none":
-        bw, bh = 0.2 * S, 0.06 * S
         extra = {"rotation": -15} if f["badge"] == "ribbon_rotated" else \
             {"rotation": 12, "shape_type": "ellipse"} if f["badge"] == "corner_ellipse_rotated" else {}
-        if f["badge"] == "corner_ellipse_rotated":
-            bh = bw
-        bx, by = W - bw - 0.03 * W, 0.03 * H
         els.append(_shape("badge_bg", bx, by, bw, bh, "rgba(232,106,58,1)", next(z), group_id="badge", **extra))
         els.append(_text("badge_label", "NEW", bx, by + bh / 2 - 0.02 * S, bw, max(4, 0.03 * S), f, next(z),
                          group_id="badge", text_align="center", color="rgba(255,255,255,1)",
@@ -264,10 +296,29 @@ def build_design(row: list) -> tuple:
         {"width": f["target"][0], "height": f["target"][1]}, {n: str(v) for n, v in f.items()}
 
 
-def _button(f, x, y, w, h, z, head: float) -> list:
-    size = max(4.0, min(0.45 * h, 0.8 * head))  # a button label never outranks the headline
-    label = lambda color: _text("cta_label", "Shop the Summer Line", x, y + 0.2 * h, w, size, f,  # noqa: E731
-                                next(z), text_align="center", color=color)
+def _badge_box(badge: str, W: float, H: float) -> tuple:
+    S = min(W, H)
+    bw, bh = 0.2 * S, (0.2 if badge == "corner_ellipse_rotated" else 0.06) * S
+    return W - bw - 0.03 * W, 0.03 * H, bw, bh
+
+
+CTA = "Shop the Summer Line"
+
+
+def _button(f, x, y, w, h, z, head: float, typeset: bool = False) -> list:
+    size, set_h = max(4.0, min(0.45 * h, 0.8 * head)), None  # a button label never outranks the headline
+    if typeset:  # as a designer sets it: the label on one line, the button hugging it, centred where it was
+        label_set = _typeset(_text("cta_label", CTA, x, y, w, size, f, 0), 0.8 * w, 0.5 * h, one_line=True)
+        size, set_h = label_set["font_size"], label_set["height"]
+        lw = tm.natural_width(CTA, f["font"], *f["weight_style"], size, label_set.get("letter_spacing", 0.0))
+        pw, ph = min(w, lw + (3 if f["button"] == "ellipse" else 2) * size), min(h, set_h + size)
+        x, y, w, h = x + (w - pw) / 2, y + (h - ph) / 2, pw, ph
+
+    def label(color):
+        el = _text("cta_label", CTA, x, y + 0.2 * h, w, size, f, next(z), text_align="center", color=color)
+        return el if set_h is None else {**el, "y": y + (h - set_h) / 2, "height": set_h,
+                                         **{k: label_set[k] for k in ("letter_spacing",) if k in label_set}}
+
     if f["button"] == "link":
         return [label("rgba(232,106,58,1)")]
     radius = {"rect": 0, "pill": h / 2, "rounded": 0.15 * h, "ellipse": 0, "huge_radius": 3 * h}[f["button"]]
@@ -282,12 +333,12 @@ def _button(f, x, y, w, h, z, head: float) -> list:
     return [pill, text]
 
 
-def build(out: Path, rows: list, label: str):
+def build(out: Path, rows: list, label: str, typeset: bool = False):
     tasks = out / "tasks"
     tasks.mkdir(parents=True, exist_ok=True)
     manifest = []
     for i, row in enumerate(rows):
-        src, target, factors = build_design(row)
+        src, target, factors = build_design(row, typeset)
         tid = f"{label}_{i:04d}"
         (tasks / f"{tid}.json").write_text(json.dumps({"task_id": tid, "archetype": "combos", "source": src,
                                                        "target_canvas": target, "factors": factors}))
@@ -361,7 +412,7 @@ def main():
         else:
             rows = covering_array(a.strength, a.seed)
         print(f"pairwise coverage {coverage(rows, 2):.1%}, 3-wise {coverage(rows, 3):.1%}")
-        build(a.out, rows, "combo")
+        build(a.out, rows, "combo", typeset=a.wellformed)
     else:
         check(a.run, a.tasks)
 
