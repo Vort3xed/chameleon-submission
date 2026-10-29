@@ -440,6 +440,8 @@ not in the main catalogue, incl. 120×600, 300×1050, 468×60, 234×60,
 
 **Lesson (2026-10-29):** the v41a-v41c runs and their scratch trials were scored with `run_eval --no-render` (contrast a flat 1.0, ~58 s per formats run); a run that renders scores ~0.06 lower on formats for identical outputs (logo contrast measured). Only compare runs scored the same way; the v41d numbers above are `--no-render` too.
 
+**Submission check (v41g, 2026-10-29):** fresh clone of 1de1bca, image `chameleon-v41g`; `eval.docker_parity` 115/115 byte-identical to native; `pytest tests` 770 passed; all 17 sets byte-identical to the scratch engine that was judged.
+
 **Submission check (v41f, 2026-10-29):** fresh clone of df2a88e, image built uncached in 5.7 min; `eval.docker_parity` 115/115 byte-identical to native; the judges' exact `docker run --network none` on the samples plus six malformed files (no elements, a BOM, no target, a `._` sidecar, not JSON, a string element) wrote every JSON it could, the samples identical to native and passing the gate. Full suite 766 passed from a fresh clone. PNG previews are box placeholders under qemu only (the renderer segfaults importing pandas there).
 
 **Submission check (v41e, 2026-10-29):** image rebuilt; `eval.docker_parity` 115/115 byte-identical to native.
