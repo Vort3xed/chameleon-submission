@@ -21,8 +21,9 @@ if it did before; a deliberately bottom-heavy poster may stay bottom-heavy).
   presence   every block keeps about its share of the canvas (capped there: growing past
              it earns nothing, so an oversized button gains nothing); a resize that leaves
              small elements floating in a bigger canvas fails
-  wrap       a one-line label (button, badge, price) stays one line, and a short phrase is
-             not broken one word per line when the source kept its words together
+  wrap       a one-line label (button, badge, price) stays one line, a short phrase is
+             not broken one word per line when the source kept its words together, and
+             wrapped copy does not leave one word alone on its last line (half a fault)
   corners    corner badges / ribbons stay in their source corner
   pairs      a caption set under its piece (a stat's label, a numbered step's text, a feature
              title's detail) still sits just under it, centred: split apart, a number no longer
@@ -320,6 +321,10 @@ def _lines(it, font, width):
     return it.text_layout(font, width).lines
 
 
+def _widow(lines) -> bool:
+    return len(lines) > 1 and len(lines[-1].split()) == 1
+
+
 def wrapping(ssc, sc) -> float:
     """Share of texts wrapped acceptably, judged with the renderer's exact wrap."""
     src = {i.el.get("id"): i for i in ssc.items if i.type == "text"}
@@ -337,6 +342,8 @@ def wrapping(ssc, sc) -> float:
             ok += len(out_lines) == 1
         elif 2 <= words <= 5 and len(out_lines) >= words and len(src_lines) < words:
             ok += 0  # one word per line, though the source kept words together
+        elif words >= 3 and _widow(out_lines) and not _widow(src_lines):
+            ok += 0.5  # a lone last word the source did not have
         else:
             ok += 1
     return ok / n if n else 1.0
