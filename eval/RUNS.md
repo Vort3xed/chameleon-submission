@@ -420,7 +420,7 @@ not in the main catalogue, incl. 120×600, 300×1050, 468×60, 234×60,
 
 **Well-formed combos rebuilt (2026-10-29):** judged myself, the old combosw sources had button labels spilling out of their pills, words wider than the canvas, white headlines on the cream card, 3% headlines over 2.5% body copy and 0.4 em tracking on 6 px labels. `--wellformed` now typesets (whole-pixel sizes at which every word fits its column, labels on one line in buttons that hug them, tracking within 0.1 em, copy clear of the corner badge) and drops what a designer would not make (card copy contrasts with the card, headlines at least 7% of the short side, no forced line break or essay on one line). Untypeset designs are unchanged (3,107 checked), so test_combos and combos3 are as before. v41d on the new set: 0 gate failures, 0 crashes; of 8 random outputs 6 would ship (the misses both 320x50: a scrim floating as a grey box, a placeholder crammed against the logo).
 
-**Lesson (2026-10-29):** the loop's runs have been scored without render-based contrast (contrast a flat 1.0 and ~58 s per formats run, v41a-v41c and every scratch since); a run that renders scores ~0.06 lower on formats for identical outputs (logo contrast measured). Only compare runs scored the same way.
+**Lesson (2026-10-29):** the v41a-v41c runs and their scratch trials were scored with `run_eval --no-render` (contrast a flat 1.0, ~58 s per formats run); a run that renders scores ~0.06 lower on formats for identical outputs (logo contrast measured). Only compare runs scored the same way; the v41d numbers above are `--no-render` too.
 
 **Submission check (v41c, 2026-10-29):** image rebuilt; `eval.docker_parity` 115/115 byte-identical to native (now sampling the combinatorial set too).
 
