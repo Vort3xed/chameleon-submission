@@ -185,43 +185,51 @@ _width_cache: Dict[Tuple[str, float, str], float] = {}
 
 def char_widths(family: str, font_weight, font_style, size: float, text: str) -> List[float]:
     """Per-character advance widths, same numbers the converter wraps with."""
-    if not text:
-        return []
+    return list(_face_widths(*_face_key(family, font_weight, font_style), float(size), text)) if text else []
+
+
+def _face_key(family: str, font_weight, font_style) -> Tuple[Optional[str], str]:
+    """(font file, style) the renderer resolves a text's font to: what its widths depend on."""
     weight, style = weight_style(font_weight, font_style)
     face = _lookup_face(family, weight, style)
-    size = float(size)
-    if face is not None and _HAVE_SKIA:
+    return (str(face.path) if face is not None else None), style
+
+
+@lru_cache(maxsize=16384)
+def _face_widths(path: Optional[str], style: str, size: float, text: str) -> Tuple[float, ...]:
+    """char_widths for a resolved face: the layout search measures the same strings over and over."""
+    if path is not None and _HAVE_SKIA:
         try:
-            font = _skia_font(str(face.path), size)
+            font = _skia_font(path, size)
             widths = list(font.getWidths(font.textToGlyphs(text)))
             if len(widths) == len(text):
-                return [float(w) for w in widths]
+                return tuple(float(w) for w in widths)
             # surrogate pairs etc.: fall back to per-char measurement
             out = []
             for ch in text:
-                key = (str(face.path), size, ch)
+                key = (path, size, ch)
                 if key not in _width_cache:
                     ws = font.getWidths(font.textToGlyphs(ch))
                     _width_cache[key] = float(sum(ws))
                 out.append(_width_cache[key])
-            return out
+            return tuple(out)
         except Exception:
             pass
-    if face is not None and _HAVE_PIL:
+    if path is not None and _HAVE_PIL:
         try:
-            font = _pil_font(str(face.path), int(size))
+            font = _pil_font(path, int(size))
             scale = size / max(1, int(size))
             out = []
             for ch in text:
-                key = (str(face.path), size, ch)
+                key = (path, size, ch)
                 if key not in _width_cache:
                     _width_cache[key] = float(font.getlength(ch)) * scale
                 out.append(_width_cache[key])
-            return out
+            return tuple(out)
         except Exception:
             pass
     avg = _HEURISTIC_AVG_WIDTH.get(style, 0.57) * size
-    return [avg * (0.45 if ch == " " else (0.8 if ch.islower() else 1.0)) for ch in text]
+    return tuple(avg * (0.45 if ch == " " else (0.8 if ch.islower() else 1.0)) for ch in text)
 
 
 def greedy_wrap(text: str, widths: List[float], max_width: float) -> str:
@@ -349,7 +357,14 @@ def layout_text(
 def longest_word_width(content: str, family: str, font_weight, font_style, font_size: float, letter_spacing: float = 0.0) -> float:
     """Width of the widest unbreakable run (the renderer never breaks words)."""
     content = "" if content is None else str(content)
-    widths = char_widths(family, font_weight, font_style, float(max(1, int(font_size))), content)
+    return _longest_run(*_face_key(family, font_weight, font_style), float(max(1, int(font_size))), content,
+                        letter_spacing)
+
+
+@lru_cache(maxsize=16384)
+def _longest_run(path: Optional[str], style: str, size: float, content: str, letter_spacing: float) -> float:
+    """longest_word_width for a resolved face."""
+    widths = _face_widths(path, style, size, content) if content else ()
     best = cur = 0.0
     n = 0
     for ch, w in zip(content, widths):

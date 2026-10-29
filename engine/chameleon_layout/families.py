@@ -18,6 +18,7 @@ from __future__ import annotations
 import itertools
 import math
 from dataclasses import dataclass, field, replace
+from functools import lru_cache
 from typing import Callable, Dict, List, Optional, Tuple
 
 from . import blocks as B
@@ -372,16 +373,17 @@ def _heads_copy(logo: Block, blocks: List[Block]) -> bool:
     return head is not None and logo.src.y1 <= head.src.y and min(logo.src.x1, head.src.x1) > max(logo.src.x, head.src.x)
 
 
-def row(scope: Scope, ctx0: Ctx, shrink: float = 1.0) -> List[Layout]:
+def row(scope: Scope, ctx0: Ctx, shrink: float, searches: dict) -> List[Layout]:
     """Banner rows with the logo leading - or, beside product art on a banner (not a strip), still heading
-    the copy it headed if that costs the type little: a logo set apart by the product reads as a stray."""
+    the copy it headed if that costs the type little: a logo set apart by the product reads as a stray.
+    `searches` keeps the type scales found, which do not depend on the shrink, across the calls for a scope."""
     logo = next((b for b in scope.blocks if b.role == "logo"), None)
-    lead = _row(scope, ctx0, shrink, logo, False)
+    lead = _row(scope, ctx0, shrink, searches, logo, False)
     reg = scope.region
     if logo is None or not _heads_copy(logo, scope.blocks) or reg.w >= STRIP * reg.h or \
             visual_block([b for b in scope.blocks if b is not logo]) is None:
         return lead
-    topped = _row(scope, ctx0, shrink, logo, True)
+    topped = _row(scope, ctx0, shrink, searches, logo, True)
     scale = lambda lays: max((lay.ctx.ts for lay in lays), default=0.0)  # noqa: E731
     keeps = scale(topped) >= LOGO_COST * scale(lead) and _drawn_h(topped, logo) >= LOGO_KEPT * _drawn_h(lead, logo)
     return topped if keeps else lead
@@ -395,7 +397,7 @@ def _drawn_h(lays: List[Layout], b: Block) -> float:
     return max(map(h, lays), default=0.0)
 
 
-def _row(scope: Scope, ctx0: Ctx, shrink: float, logo: Optional[Block], topped: bool) -> List[Layout]:
+def _row(scope: Scope, ctx0: Ctx, shrink: float, searches: dict, logo: Optional[Block], topped: bool) -> List[Layout]:
     reg, blocks = scope.region, scope.blocks
     rest = [b for b in blocks if b is not logo]
     vis = visual_block(rest)
@@ -408,6 +410,12 @@ def _row(scope: Scope, ctx0: Ctx, shrink: float, logo: Optional[Block], topped: 
     heads = [i.font for b in blocks if b.role == "headline" for i in b.texts]
     # the text may grow until a headline fills two lines of the row's height; logo and button keep the usual cap
     hi = max(hi0, reg.h / 2.6 / max(heads)) if heads else hi0
+
+    @lru_cache(maxsize=None)
+    def ends(t, relax):  # the leading picture and the button at a scale: the same for every partition and spacing
+        cf = Ctx(ctx0.W, ctx0.H, ctx0.src_W, ctx0.src_H, t, t, relax)
+        return [(b, _slot_size(b, cf, reg)) for b in lead], [(b, _slot_size(b, cf, reg)) for b in cta]
+
     def fitted(partitions, spacing) -> List[Layout]:
         layouts = []
         margins, ems, air = spacing
@@ -420,9 +428,7 @@ def _row(scope: Scope, ctx0: Ctx, shrink: float, logo: Optional[Block], topped: 
 
             def columns(ts, relax, even):
                 c = Ctx(ctx0.W, ctx0.H, ctx0.src_W, ctx0.src_H, ts, ts, relax)
-                cf = Ctx(ctx0.W, ctx0.H, ctx0.src_W, ctx0.src_H, min(ts, hi0), min(ts, hi0), relax)
-                fixed = [(b, _slot_size(b, cf, reg)) for b in lead]
-                tail = [(b, _slot_size(b, cf, reg)) for b in cta]
+                fixed, tail = ends(min(ts, hi0), relax)
                 inset = (_edge_inset(fixed[0], 0, reg.x) if fixed else 0.0,
                          _edge_inset(tail[-1], 2, c.W - reg.x1) if tail else 0.0)
                 if even:  # a padded end sets the drawn margin on both ends
@@ -447,11 +453,11 @@ def _row(scope: Scope, ctx0: Ctx, shrink: float, logo: Optional[Block], topped: 
 
             made = []  # (scale, layout) for the row as fitted, then with even ends
             for even in (False, True):
-                ts = relax = None
-                for relax in (1.0, 0.8, 0.6):
-                    ts = bisect(lambda t: fits(t, relax, even), lo, hi, steps=10)
-                    if ts is not None:
-                        break
+                key = (topped, spacing, even, tuple(tuple(map(id, part)) for part in parts))
+                if key not in searches:  # the largest type that fits, least relaxed: the same at any shrink
+                    found = ((bisect(lambda t: fits(t, relax, even), lo, hi, 10), relax) for relax in (1.0, 0.8, 0.6))
+                    searches[key] = next((tr for tr in found if tr[0] is not None), (None, None))
+                ts, relax = searches[key]
                 if ts is None:
                     break
                 c, fixed, tail, widths, inset, gaps = columns(ts * shrink, relax, even)
@@ -650,13 +656,14 @@ def arrangements(scope: Scope, ctx0: Ctx, items, allow_preserve: bool = True) ->
     aspect = reg.w / max(reg.h, 1e-6)
     vis = visual_block(scope.blocks)
     side = "left" if vis is None or vis.src.cx <= scope.src.cx else "right"
+    searches: dict = {}
     for shrink in SHRINKS:  # the largest text that fits, and a calmer variant
         out += [lay for k in (0.7, 1.0, 1.4, 2.0) if (lay := stack(scope, ctx0, k, shrink))]
         if aspect > 0.9:
             out += [lay for frac in (0.38, 0.5, 0.62) for k in (1.0, 1.5)
                     if (lay := split(scope, ctx0, side, frac, k, shrink))]
         if aspect > 1.8:
-            out += row(scope, ctx0, shrink)
+            out += row(scope, ctx0, shrink, searches)
     return out
 
 
