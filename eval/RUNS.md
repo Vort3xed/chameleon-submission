@@ -406,6 +406,8 @@ not in the main catalogue, incl. 120×600, 300×1050, 468×60, 234×60,
 
 **Discriminator refit 4 (2026-10-29):** + the gap-floor rounds (336 reviewer verdicts, every judged round kept): held-out human 61.9% (62.4% without reviewer data - one pair is 1.2 points), held-out reviewer round 58.3%, unseen 91.0 / 91.5 / 89.1%.
 
+**Submission check (v41b, 2026-10-29):** image rebuilt; `eval.docker_parity` 107/107 byte-identical to native.
+
 **Submission check (v41a, 2026-10-29):** image rebuilt; `eval.docker_parity` 107/107 byte-identical to native (the preview renderer's qemu segfault isolated as designed).
 
 **Submission check (v40c, 2026-10-26):** image rebuilt; `eval.docker_parity` (now with the compare set) 107/107 byte-identical to native.
