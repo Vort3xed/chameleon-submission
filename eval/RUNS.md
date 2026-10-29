@@ -431,6 +431,8 @@ not in the main catalogue, incl. 120×600, 300×1050, 468×60, 234×60,
 
 **Lesson (2026-10-29):** the v41a-v41c runs and their scratch trials were scored with `run_eval --no-render` (contrast a flat 1.0, ~58 s per formats run); a run that renders scores ~0.06 lower on formats for identical outputs (logo contrast measured). Only compare runs scored the same way; the v41d numbers above are `--no-render` too.
 
+**Submission check (v41e, 2026-10-29):** image rebuilt; `eval.docker_parity` 115/115 byte-identical to native.
+
 **Submission check (v41d, 2026-10-29):** image rebuilt; `eval.docker_parity` 115/115 byte-identical to native.
 
 **Submission check (v41c, 2026-10-29):** image rebuilt; `eval.docker_parity` 115/115 byte-identical to native (now sampling the combinatorial set too).
