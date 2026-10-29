@@ -536,3 +536,96 @@ def test_extreme_designs_stay_on_the_main_pipeline(kind, target):
         EXTREMES[kind](e)
     tc = {"width": target[0], "height": target[1]}
     assert_valid(src, tc, retarget(copy.deepcopy(src), tc))
+
+
+def _when(kind, **fields):
+    return lambda e: e.update(fields) if e.get("type") == kind else None
+
+
+UNUSUAL = {  # legal by the schema but unlike the samples: each must stay on the layout engine and pass every hard rule
+    "rotated everything": lambda e: e.update(rotation=45),
+    "upside-down text": _when("text", rotation=180),
+    "tilted text": _when("text", rotation=12.5),
+    "nearly invisible": lambda e: e.update(opacity=0.0001),
+    "z ties": lambda e: e.update(z_index=1),
+    "z negative": lambda e: e.update(z_index=-int(e.get("z_index") or 0)),
+    "no z": lambda e: e.pop("z_index", None),
+    "one group": lambda e: e.update(group_id="everything"),
+    "a group each": lambda e: e.update(group_id=f"g_{e.get('id')}"),
+    "empty group ids": lambda e: e.update(group_id=""),
+    "rgb colours": lambda e: e.update(color="rgb(255, 0, 0)", fill_color="rgb(0, 0, 0)"),
+    "hex colours": lambda e: e.update(color="#fff", fill_color="#FFCC0080"),
+    "named colours": lambda e: e.update(color="white", fill_color="transparent"),
+    "unknown font": _when("text", font_family="Arial"),
+    "remote asset": _when("image", asset_id="https://example.com/x.png"),
+    "path asset": _when("image", asset_id="../../etc/passwd"),
+    "empty asset": _when("image", asset_id=""),
+    "emoji copy": _when("text", content="😀🎉🔥"),
+    "thai and korean copy": _when("text", content="ไทย ภาษา 한국어 텍스트"),
+    "markup copy": _when("text", content="<b>Sale</b> &amp; more"),
+    "zero-width copy": _when("text", content="​"),
+    "one long word": _when("text", content="A" * 80),
+    "huge radius": _when("shape", corner_radius=10000),
+    "negative radius": _when("shape", corner_radius=-5),
+    "huge stroke": _when("shape", stroke_width=500, stroke_color="#ffffff"),
+    "stroked text": _when("text", stroke_width=2, stroke_color="#000000"),
+    "all lines": _when("shape", shape_type="line", height=0),
+    "cramped leading": _when("text", line_height=0.1),
+    "loose leading": _when("text", line_height=5),
+    "no lines allowed": _when("text", max_lines=0),
+    "overlapping runs": _when("text", style_runs=[{"start": 0, "end": 5, "color": "#f00"},
+                                                  {"start": 2, "end": 9, "font_weight": "bold"}]),
+    "runs with unknown keys": _when("text", style_runs=[{"start": 0, "end": 3, "underline": True, "font_size": 99}]),
+    "fractional type": lambda e: e.update(font_size=float(e["font_size"]) + 0.37) if e.get("type") == "text" else None,
+    "half-pixel elements": lambda e: e.update(width=0.5, height=0.5) if e.get("z_index") != 0 else None,
+    "images as text": _when("image", type="text", content="Picture", font_family="Solstice Sans", font_size=30,
+                            color="#fff"),
+    "images as shapes": _when("image", type="shape", shape_type="rectangle", fill_color="#888"),
+    "extra fields": lambda e: e.update(name="Layer 7", locked=True, shadow={"x": 2, "blur": 8}, blend_mode="multiply",
+                                       metadata={"a": [1, 2]}, visible=False, filters=[{"type": "blur"}]),
+}
+
+FORBIDDEN = {  # values the schema rules out: the engine can't know what they mean, so it keeps them as given
+    "unknown types": lambda e: e.update(type={"shape": "svg", "image": "video"}.get(e.get("type"), e.get("type"))),
+    "group with children": _when("shape", type="group", children=[{"id": "kid", "type": "shape"}]),
+    "unknown shape": _when("shape", shape_type="star"),
+    "unknown fit": _when("image", fit="scale-down"),
+    "numeric weights": _when("text", font_weight=700),
+    "justified": _when("text", text_align="justify"),
+    "opacity above one": lambda e: e.update(opacity=1.5),
+    "fractional z": lambda e: e.update(z_index=float(e.get("z_index") or 0) + 0.5),
+    "numeric ids": lambda e: e.update(id=sum(map(ord, str(e.get("id"))))),
+}
+
+
+def _variant(change, sample):
+    src = copy.deepcopy(load(sample)["source"])
+    for e in src["elements"]:
+        change(e)
+    return src
+
+
+@pytest.mark.parametrize("name", sorted(UNUSUAL))
+@pytest.mark.parametrize("target", [(1080, 1920), (728, 90)])
+def test_unusual_elements_pass_gate(name, target):
+    from engine.chameleon_layout.pipeline import retarget
+
+    tc = {"width": target[0], "height": target[1]}
+    for sample in SAMPLES:
+        src = _variant(UNUSUAL[name], sample)
+        out = retarget(copy.deepcopy(src), tc)
+        assert not gate(src, tc, out)
+        extra = {"name", "locked", "shadow", "blend_mode", "metadata", "visible", "filters"}
+        kept = {e["id"]: {k: e[k] for k in extra & set(e)} for e in out["elements"]}
+        assert all(kept[e["id"]] == {k: e[k] for k in extra & set(e)} for e in src["elements"])  # passed through
+
+
+@pytest.mark.parametrize("name", sorted(FORBIDDEN))
+@pytest.mark.parametrize("target", [(1080, 1920), (728, 90)])
+def test_forbidden_values_stay_on_the_main_pipeline(name, target):
+    from engine.chameleon_layout.pipeline import retarget
+
+    tc = {"width": target[0], "height": target[1]}
+    for sample in SAMPLES:
+        src = _variant(FORBIDDEN[name], sample)
+        assert_valid(src, tc, retarget(copy.deepcopy(src), tc))
