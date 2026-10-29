@@ -668,3 +668,17 @@ def test_a_lifted_button_hugs_its_label(target, most):
     assert pill["width"] <= most * W
     assert pill["x"] <= label["x"] and label["x"] + label["width"] <= pill["x"] + pill["width"]
     assert pill["y"] <= label["y"] and label["y"] + label["height"] <= pill["y"] + pill["height"] + 1
+
+
+def test_wrapped_copy_keeps_no_lone_last_word():
+    """A billboard subhead wrapped as 'Naturally bright, never too / sweet.': the lines are balanced within the
+    room the layout measured ('Naturally bright, / never too sweet.'), which leaves the layout as it was."""
+    from engine.chameleon_layout import text_metrics as tm
+
+    task = json.loads((ROOT / "tests" / "fixtures" / "widow_subhead.json").read_text())
+    for e in resize(task["source"], task["target_canvas"])["elements"]:
+        if e["type"] == "text" and len(e["content"].split()) >= 3:
+            lines = tm.layout_text(e["content"], e["font_family"], e.get("font_weight"), e.get("font_style"),
+                                   e["font_size"], e["width"], e.get("line_height") or 1.2,
+                                   e.get("letter_spacing") or 0.0).lines
+            assert len(lines) == 1 or len(lines[-1].split()) > 1, (e["id"], lines)

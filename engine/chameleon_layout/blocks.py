@@ -185,9 +185,17 @@ def _text(b, ctx, max_w, max_h, out, x, y):
     if b.role in BALANCED and align == "center":  # a narrower centred box stays centred
         w = balance(it, font, w)
     drawn = _drawn(it, font, w)
-    if out is not None:
-        out[it.idx] = Placement(x - _ink_offset(it, w, drawn), y, w, h, font)
+    if out is not None:  # a lone last word is avoided within the room measured, so the layout stays as it is
+        bw = balance(it, font, w) if _widowed(it, font, w) else w
+        bd = _drawn(it, font, bw)
+        out[it.idx] = Placement(x - _ink_offset(it, bd, drawn) - _ink_offset(it, bw, bd), y, bw, h, font)
     return drawn, h
+
+
+def _widowed(it: Item, font: int, w: float) -> bool:
+    """Wrapped text whose last line is one word, which three or more words can avoid."""
+    lines = it.text_layout(font, w).lines
+    return len(lines) > 1 and len(lines[-1].split()) == 1 and len(it.content.split()) >= 3
 
 
 def _drawn(it: Item, font: int, w: float) -> float:
