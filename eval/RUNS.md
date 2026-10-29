@@ -411,6 +411,8 @@ not in the main catalogue, incl. 120×600, 300×1050, 468×60, 234×60,
 
 **Combinatorial suite (2026-10-29):** `eval/combos.py` builds designs from 24 properties (layout, source and target size, headline text, font, size, weight/style, alignment, line height, letter spacing, max lines, style runs, colour formats, six button shapes, strokes, groups, body copy, product and logo placement, rotated badges, backgrounds, decoration, z-order and opacity quirks, image fit). combos2 (107 designs) covers every pair and is in the test suite; combos3 (3,000) covers ~every triple, checked for hard failures; combosw (1,000 well-formed) is judged. Blind reviewer on 40 well-formed outputs: half the synthetic sources still read as odd; of the usable ones 7/20 would ship (alignment, edge padding, the loose-button bug - fixed in v41c - a logo crammed above the product, a header band floating loose). Design rules under 0.5 on combosw: corners 19%, hero 10%, margins 10%, presence 8% - mostly 320x50 and 728x90 targets and rotated corner badges. Slowest design 12.9 s (a photo scrim with bullets into a small canvas).
 
+**Submission check (v41c, 2026-10-29):** image rebuilt; `eval.docker_parity` 115/115 byte-identical to native (now sampling the combinatorial set too).
+
 **Submission check (v41b, 2026-10-29):** image rebuilt; `eval.docker_parity` 107/107 byte-identical to native.
 
 **Submission check (v41a, 2026-10-29):** image rebuilt; `eval.docker_parity` 107/107 byte-identical to native (the preview renderer's qemu segfault isolated as designed).
