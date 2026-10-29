@@ -302,7 +302,8 @@ def _snug(pill: Item, label: Item, s: float, base: float, out, x: float, y: floa
     font = keep_lines(label, label.font * s, label.box.w * s)
     p = _tighten(label, Placement(0.0, 0.0, label.box.w * s, label.box.h * s, font))
     ink = label.ink_at(Rect(p.x, p.y, p.w, p.h), font)
-    pads = ((pill.box.w - label.ink.w) / 2, (pill.box.h - label.ink.h) / 2)
+    # the source's padding round the label's ink (none where the label overflowed its pill)
+    pads = (max(0.0, pill.box.w - label.ink.w) / 2, max(0.0, pill.box.h - label.ink.h) / 2)
     px, py = (min(pad * s, max(pad * base, em * font)) for pad, em in zip(pads, PAD_EM))
     if out is not None:
         out[pill.idx] = Placement(x, y, ink.w + 2 * px, ink.h + 2 * py)

@@ -36,6 +36,7 @@ def _fit_inside(p: Placement, W: float, H: float, rotation: float, keep_aspect: 
 
 
 _DEFAULTS = {"opacity": 1.0, "line_height": 1.2}
+SPECK = 2.0  # px: an image whose short side would be smaller is kept at this size, in proportion, and hidden
 
 
 def _finite(value, key=None):
@@ -76,6 +77,10 @@ def finalize(source: dict, W: int, H: int, placements: Dict[int, Placement], hid
             p = replace(p, x=cx - w / 2, y=cy - h / 2, w=w, h=h)
         if keep_aspect and (p.w >= W - 1 and p.h >= H - 1):
             keep_aspect = False  # full-bleed backgrounds are exempt
+        speck = keep_aspect and 0 < min(p.w, p.h) < SPECK
+        if speck:  # squeezed to a speck: rounding would bend its proportions, and it cannot be seen anyway
+            s = SPECK / min(p.w, p.h)
+            p = replace(p, x=p.x + p.w / 2 * (1 - s), y=p.y + p.h / 2 * (1 - s), w=p.w * s, h=p.h * s, opacity=0.0)
         p = _fit_inside(p, W, H, num(el.get("rotation")), keep_aspect, t == "text")
         new["x"], new["y"] = _r(max(0.0, p.x)), _r(max(0.0, p.y))
         new["width"], new["height"] = _r(min(p.w, W)), _r(min(p.h, H))
