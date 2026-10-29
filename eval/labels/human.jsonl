@@ -140,3 +140,27 @@
 {"key": "p139", "choice": "B"}
 {"key": "p140", "choice": "B"}
 {"key": "p141", "choice": "B"}
+{"key": "p142", "choice": "X"}
+{"key": "p143", "choice": "A"}
+{"key": "p144", "choice": "="}
+{"key": "p145", "choice": "X"}
+{"key": "p146", "choice": "X"}
+{"key": "p147", "choice": "B"}
+{"key": "p148", "choice": "="}
+{"key": "p149", "choice": "=", "note": "this looks okay but im not sure if this aligns with design principles. "}
+{"key": "p150", "choice": "X"}
+{"key": "p151", "choice": "A"}
+{"key": "p152", "choice": "B"}
+{"key": "p153", "choice": "A"}
+{"key": "p154", "choice": "A"}
+{"key": "p155", "choice": "X"}
+{"key": "p156", "choice": "B"}
+{"key": "p157", "choice": "B"}
+{"key": "p158", "choice": "B", "note": "sub text should be under the large text, and the button (and the text(s) components) should be centered. "}
+{"key": "p159", "choice": "B"}
+{"key": "p160", "choice": "A"}
+{"key": "p161", "choice": "A"}
+{"key": "p162", "choice": "="}
+{"key": "p163", "choice": "B"}
+{"key": "p164", "choice": "A"}
+{"key": "p165", "choice": "="}
