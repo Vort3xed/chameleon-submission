@@ -293,7 +293,13 @@ Development-only tooling, not copied into the image
   determinism, no-fonts/no-assets operation, import from any cwd or as a
   top-level module, `python -m engine.main` end to end, every stress
   design at five targets and 20 random designs at three - each passing the
-  gate with its headline shown.
+  gate with its headline shown. 37 legal-but-unusual element variants
+  (rotated or near-invisible elements, tied or missing z, odd colour formats,
+  unknown fonts and asset paths, emoji and markup copy, line shapes, extra
+  fields, images retyped as text) pass every hard rule with extra fields kept;
+  9 values the schema forbids (unknown types and shapes, numeric weights,
+  `justify`) are kept as given and never knock a design onto the fallback.
+  The suite runs from a fresh clone: it never reads the generated test sets.
 * `tests/test_combos.py` – every pair of property values (`eval/combos.py`)
   laid out by the main engine, not the fallback, passing every hard rule.
 * `tests/test_structure.py` – structure survives any canvas: header and footer
