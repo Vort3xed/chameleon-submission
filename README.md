@@ -160,7 +160,7 @@ to hide behind, text is never dropped.
 
 ## Run it
 
-Python 3.10+ (developed on 3.11). With [uv](https://docs.astral.sh/uv/):
+Python 3.11+ (the pinned numpy and pandas need it). With [uv](https://docs.astral.sh/uv/):
 
 ```bash
 uv venv --python 3.11 .venv

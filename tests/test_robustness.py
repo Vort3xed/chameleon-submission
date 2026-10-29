@@ -308,6 +308,28 @@ def test_main_end_to_end(tmp_path):
         assert (tmp_path / "output" / f"{s.stem}_output.png").stat().st_size > 1000
 
 
+def test_main_survives_bad_task_files(tmp_path):
+    """One odd task file costs at most its own output: a source the self-check cannot read, a byte-order mark,
+    a missing target, a macOS `._` sidecar and a file that is not JSON leave every other task its JSON and PNG."""
+    import shutil
+
+    for d in ("engine", "renderer", "brand_kit"):
+        shutil.copytree(ROOT / d, tmp_path / d, ignore=shutil.ignore_patterns("__pycache__"))
+    task = load(SAMPLES[0])
+    files = {"a_no_elements": json.dumps({"source": {"canvas": task["source"]["canvas"]},
+                                          "target_canvas": task["target_canvas"]}),
+             "b_bom": "﻿" + json.dumps(task), "c_no_target": json.dumps({"source": task["source"]}),
+             "d_good": json.dumps(task), "._e_sidecar": "\x00\x05\x16\x07", "f_not_json": "{nope"}
+    (tmp_path / "input").mkdir()
+    for name, text in files.items():
+        (tmp_path / "input" / f"{name}.json").write_text(text, encoding="utf-8")
+    r = subprocess.run([sys.executable, "-m", "engine.main"], cwd=tmp_path, capture_output=True, text=True, timeout=600)
+    written = sorted(p.name for p in (tmp_path / "output").iterdir())
+    assert written == [f"{n}_output.{ext}" for n in ("a_no_elements", "b_bom", "c_no_target", "d_good")
+                       for ext in ("json", "png")], r.stderr
+    assert r.returncode == 1 and "f_not_json" in r.stderr and "._e_sidecar" not in r.stderr
+
+
 # ---------------------------------------------------------------------------
 # stress designs (eval/gen_crazy.py): walls of text, 3x3 grids, vertical and
 # rotated type, non-Latin scripts, unbreakable words, nested cards, ...

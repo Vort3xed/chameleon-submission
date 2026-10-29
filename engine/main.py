@@ -125,7 +125,7 @@ def render_isolated(design: dict, assets_dir: Path, png_path: Path) -> bool:
 
 def main() -> int:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    task_files = sorted(INPUT_DIR.glob("*.json"))
+    task_files = [p for p in sorted(INPUT_DIR.glob("*.json")) if not p.name.startswith(".")]  # not ._x.json
     if not task_files:
         print(f"No task files found in {INPUT_DIR}", file=sys.stderr)
         return 1
@@ -134,8 +134,8 @@ def main() -> int:
     done = []
     for task_path in task_files:  # every output JSON first: drawing previews can never cost one
         try:
-            task = json.loads(task_path.read_text())
-            source, target_canvas = task["source"], task["target_canvas"]
+            task = json.loads(task_path.read_text(encoding="utf-8-sig"))  # a byte-order mark is harmless
+            source, target_canvas = task["source"], task.get("target_canvas")  # resize() copes with a missing one
         except Exception as e:  # one malformed task must not stop the others
             print(f"[{task_path.name}] unreadable task: {e}", file=sys.stderr)
             exit_code = 1
@@ -145,10 +145,13 @@ def main() -> int:
         output = resize(source, target_canvas)
         elapsed = time.time() - t0
 
-        problems = self_check(source, output)
         stem = task_path.stem
         (OUTPUT_DIR / f"{stem}_output.json").write_text(json.dumps(output, indent=2))
         done.append((stem, output))
+        try:
+            problems = self_check(source, output)
+        except Exception as e:  # a malformed source can trip the check itself; its output is written already
+            problems = [f"self-check could not run: {e!r}"]
 
         status = "OK" if not problems else f"{len(problems)} self-check warning(s)"
         print(f"[{task_path.name}] {status} in {elapsed:.2f}s -> {stem}_output.json")

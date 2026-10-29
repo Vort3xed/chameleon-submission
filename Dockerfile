@@ -1,6 +1,7 @@
 FROM --platform=linux/amd64 python:3.11-slim
 
 WORKDIR /app
+ENV PYTHONUNBUFFERED=1
 
 # System libs some renderer backends (e.g. skia) need at runtime, plus git
 # (build-time only) so pip can install cr-renderer straight from its repo.
