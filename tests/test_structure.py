@@ -709,3 +709,16 @@ def test_corners_keep_their_shape(target):
             o = out[s["id"]]
             want = min(o["width"], o["height"]) / 2 if r >= 0.45 * short else r * min(o["width"], o["height"]) / short
             assert abs(o["corner_radius"] - want) < 0.02, (path.stem, s["id"], o["corner_radius"], want)
+
+
+@pytest.mark.parametrize("target,inset", [((160, 600), 1.0), ((300, 250), 1.0), ((1080, 1920), 0.6), ((728, 90), 0.6)])
+def test_a_corner_badge_sits_a_margin_in_when_there_is_room(target, inset):
+    """The core sample's 'NEW FLAVOR' badge sits a full margin in from its corner, as the source's does, where that
+    leaves air between it and the content; where the corner is crowded it tucks in closer rather than leave it."""
+    from engine.chameleon_layout.families import margin
+
+    W, H = target
+    src = json.loads((ROOT / "input" / "chameleon_sample_level2_core.json").read_text())["source"]
+    badge = next(e for e in resize(src, {"width": W, "height": H})["elements"] if e["id"] == "badge_bg")
+    m = margin(W, H)
+    assert abs(badge["x"] - inset * m) < 0.05 * m and abs(badge["y"] - inset * m) < 0.05 * m, (badge, m)

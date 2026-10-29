@@ -117,7 +117,9 @@ banner rows share one *drawn* centre line and equal drawn outer margins
 closing a gap, a logo beside a card, below the margin it opens); near-misses
 within 1.5% are snapped onto the shared line (also inside cards) unless that
 collides, crams a neighbour or unbalances the margins; a corner badge keeps
-its corner (product art there shrinks a little to make way, text never);
+its corner, a full margin in where that leaves air round it (blind reviewer
+26-0), else tucked closer (product art there shrinks a little to make way,
+text never);
 decoration on a card moves with the card; wrapped centred titles get
 balanced lines instead of a lone last word, and any other copy of three or
 more words that would leave one word alone on its last line is balanced

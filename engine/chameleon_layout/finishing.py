@@ -75,9 +75,9 @@ def _measure_ornament(b: Block, c: Ctx, rot: float, m: float):
     return w, h, foot, fit
 
 
-def _in_corner(b: Block, ctx: Ctx, rot: float, m: float, taken):
+def _in_corner(b: Block, ctx: Ctx, rot: float, m: float, taken, shrinks=CORNER_SHRINKS):
     """The ornament in its own corner, shrunk a little if that is what it takes to stay clear."""
-    for shrink in CORNER_SHRINKS:
+    for shrink in shrinks:
         c = ctx.with_scale(ctx.ts * shrink, ctx.img * shrink)
         w, h, foot, fit = _measure_ornament(b, c, rot, m)
         if fit < 1.0:
@@ -150,12 +150,15 @@ def _make_way(b: Block, lay: Layout, rot: float, m: float) -> bool:
 
 def place_ornaments(ornaments: List[Block], lay: Layout):
     ctx = lay.ctx
-    m = margin(ctx.W, ctx.H) * 0.6
+    full = margin(ctx.W, ctx.H)
+    m = full * 0.6
     for b in ornaments:
         taken = [r for _, r in lay.placed]
         # a single rotated element measures unrotated; groups already measure rotated bounds
         rot = b.items[0].rotation if b.kind in ("text", "image", "shape") else 0.0
-        spot = _in_corner(b, ctx, rot, m, taken)
+        # a full margin in, as designers set corner badges, where that leaves air round it; else tucked closer
+        roomy = [r.inset(-m) for r in taken]
+        spot = _in_corner(b, ctx, rot, full, roomy, (1.0,)) or _in_corner(b, ctx, rot, m, taken)
         if spot is None and _make_way(b, lay, rot, m):
             taken = [r for _, r in lay.placed]
             spot = _in_corner(b, ctx, rot, m, taken)
