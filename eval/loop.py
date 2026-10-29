@@ -42,6 +42,7 @@ SETS = {  # run-name prefix: test set
     "m_{}": "marketing",
     "o_{}": "offers",
     "cp_{}": "compare",
+    "cb3_{}": "combos3",
     "x_{}": "formats_extra",
 }
 SAFETY_ONLY = ("formats_extra",)  # checked for gate failures and crashes, not judged for quality

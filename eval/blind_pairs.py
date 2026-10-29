@@ -4,6 +4,7 @@ that can read images), and the verdict from the labels that come back.
     python -m eval.blind_pairs build --a runA --b runB --tasks eval/testsets/formats --n 40 --out DIR
     python -m eval.blind_pairs score --out DIR --labels labels.jsonl
     python -m eval.blind_pairs export --out DIR --labels labels.jsonl --tasks eval/testsets/formats
+    python -m eval.blind_pairs review --a run --tasks eval/testsets/combos3 --n 40 --out DIR   # one run, would it ship?
 
 `build` renders ORIGINAL | A | B for n tasks on which the runs differ visibly,
 with each pair's sides shuffled; the key (which side is which run) goes to
@@ -98,6 +99,22 @@ def score(out: Path, labels: Path):
         print("  worse", tid)
 
 
+def review(run: str, tasks: Path, n: int, out: Path, seed: int):
+    """ORIGINAL | RESIZED sheets for a random sample of one run's outputs (absolute verdicts, no pairing)."""
+    rng = random.Random(seed)
+    ids = sorted(q.stem for q in (RUNS / run / "outputs").glob("*.json"))
+    out.mkdir(parents=True, exist_ok=True)
+    key = {}
+    for tid in rng.sample(ids, min(n, len(ids))):
+        name = f"r{len(key):03d}"
+        src = json.loads((tasks / "tasks" / f"{tid}.json").read_text())["source"]
+        _sheet([src, json.loads((RUNS / run / "outputs" / f"{tid}.json").read_text())], ("ORIGINAL", "RESIZED")).save(
+            out / f"{name}.png")
+        key[name] = {"task_id": tid}
+    (out / "key.json").write_text(json.dumps({"a": run, "pairs": key}, indent=1))
+    print(f"{len(key)} sheets -> {out}")
+
+
 def export(out: Path, labels: Path, tasks: Path):
     """Append a judged round's decided pairs (the preferred design as good; ties and both-bad left out)."""
     key = json.loads((out / "key.json").read_text())
@@ -131,6 +148,12 @@ def main():
     sp = sub.add_parser("score")
     sp.add_argument("--out", type=Path, required=True)
     sp.add_argument("--labels", type=Path, required=True)
+    rp = sub.add_parser("review")
+    rp.add_argument("--a", required=True)
+    rp.add_argument("--tasks", type=Path, required=True)
+    rp.add_argument("--n", type=int, default=40)
+    rp.add_argument("--out", type=Path, required=True)
+    rp.add_argument("--seed", type=int, default=0)
     ep = sub.add_parser("export")
     ep.add_argument("--out", type=Path, required=True)
     ep.add_argument("--labels", type=Path, required=True)
@@ -140,6 +163,8 @@ def main():
         build(args.a, args.b, args.tasks, args.n, args.out, args.seed)
     elif args.cmd == "score":
         score(args.out, args.labels)
+    elif args.cmd == "review":
+        review(args.a, args.tasks, args.n, args.out, args.seed)
     else:
         export(args.out, args.labels, args.tasks)
 

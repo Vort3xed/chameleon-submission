@@ -200,6 +200,16 @@ Development-only tooling, not copied into the image
   watermark word, imagery with no text, a sidebar, art bleeding off an edge,
   feature cards, the eyebrow-to-legal stack, copy on a bare background) × 10
   targets including 10:1 strips, 64 px squares and 4K.
+* `combos.py` – combinatorial designs: 24 properties (layout, source and target
+  size, headline text incl. empty / one long word / line breaks / accents, font,
+  size, weight and style, alignment, line height, letter spacing, max lines,
+  style runs, colour formats, six button shapes, strokes, groups, body copy,
+  product and logo placement, rotated badges, backgrounds, decoration,
+  z-order and opacity quirks, image fit). A greedy covering array puts every
+  pair of values in some design (107 designs, `combos2`, run by
+  `tests/test_combos.py`); 3,000 random rows cover ~100% of triples
+  (`combos3`, in the loop). `check` reports hard failures, design rules
+  scoring under 0.5, and which property values make failures likelier.
 * `gen_random.py` – random plausible designs (the pieces real designs are made
   of, combined at random in four skeletons) × random catalogue targets, plus
   kinds (`--kind`) for banner and skyscraper sources (`strips`, `tall`) and
@@ -271,6 +281,8 @@ Development-only tooling, not copied into the image
   top-level module, `python -m engine.main` end to end, every stress
   design at five targets and 20 random designs at three - each passing the
   gate with its headline shown.
+* `tests/test_combos.py` – every pair of property values (`eval/combos.py`)
+  laid out by the main engine, not the fallback, passing every hard rule.
 * `tests/test_structure.py` – structure survives any canvas: header and footer
   bars stay full-width on their edges with their content inside (as stripes
   when too thin for it), a side panel
