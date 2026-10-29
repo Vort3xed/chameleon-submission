@@ -249,7 +249,9 @@ def find_containers(content: List[Item]) -> Dict[int, Item]:
     for c in content:
         best = None
         for s in shapes:
-            if s is c or s.box.area <= c.bounds.area * 1.1:
+            # a button's label is centred in a pill a few lines tall at most: its box may overhang the pill
+            pill = s.box.h <= 3 * c.ink.h and abs(s.box.cy - c.ink.cy) <= 0.2 * s.box.h
+            if s is c or s.box.area <= (c.ink if pill else c.bounds).area * 1.1:
                 continue
             if _paints_above(c, s) and s.box.contains(c.ink, 0.85):
                 # the innermost; of two alike (a card and its shadow) the one painted just beneath

@@ -43,9 +43,11 @@ SETS = {  # run-name prefix: test set
     "o_{}": "offers",
     "cp_{}": "compare",
     "cb3_{}": "combos3",
+    "cbw_{}": "combosw",
     "x_{}": "formats_extra",
 }
-SAFETY_ONLY = ("formats_extra",)  # checked for gate failures and crashes, not judged for quality
+SAFETY_ONLY = ("formats_extra", "combos3")  # checked for gate failures and crashes, not judged for quality
+# (combos3 holds every combination, sources a designer would never make among them; combosw is judged)
 
 
 def run_set(name: str, tset: str, workers: int, note: str) -> dict:

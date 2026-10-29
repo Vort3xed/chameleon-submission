@@ -208,8 +208,11 @@ Development-only tooling, not copied into the image
   z-order and opacity quirks, image fit). A greedy covering array puts every
   pair of values in some design (107 designs, `combos2`, run by
   `tests/test_combos.py`); 3,000 random rows cover ~100% of triples
-  (`combos3`, in the loop). `check` reports hard failures, design rules
-  scoring under 0.5, and which property values make failures likelier.
+  (`combos3`, checked in the loop for hard failures); `--wellformed` keeps
+  only sources a designer could have made (text contrasting with its ground,
+  banner rows on banners...) for judging looks (`combosw`, judged in the loop).
+  `check` reports hard failures, design rules scoring under 0.5, and which
+  property values make failures likelier.
 * `gen_random.py` – random plausible designs (the pieces real designs are made
   of, combined at random in four skeletons) × random catalogue targets, plus
   kinds (`--kind`) for banner and skyscraper sources (`strips`, `tall`) and

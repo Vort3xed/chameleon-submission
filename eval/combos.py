@@ -9,6 +9,7 @@ values, so `check` can say which values make outputs fail.
 
     python -m eval.combos build --strength 2 --out eval/testsets/combos2     # pairwise covering array
     python -m eval.combos build --random 3000 --out eval/testsets/combos3    # ~3-wise by sampling
+    python -m eval.combos build --random 1000 --wellformed --out eval/testsets/combosw   # sources worth judging
     python -m eval.run_eval --name c2 --tasks eval/testsets/combos2 --no-render
     python -m eval.combos check --run c2 --tasks eval/testsets/combos2       # legal? looks good? which values fail?
 """
@@ -88,6 +89,18 @@ def covering_array(strength: int, seed: int = 0, candidates: int = 40) -> list:
         left -= gain
         rows.append(best)
     return rows
+
+
+def wellformed(row: list) -> bool:
+    """A source a designer could have made: text that contrasts with what is behind it, the background
+    beneath everything, a banner row only on a banner, a grid only where it has room.  (Legality is tested
+    on every row; how good an output looks only means something for these.)"""
+    f = {n: FACTORS[n][i] for n, i in zip(NAMES, row)}
+    W, H = f["source"]
+    dark_text = f["color"] == "rgba(25,20,30,1)"
+    light_ground = f["background"] in ("light", "none") and f["layout"] not in ("photo_scrim", "bars")
+    return dark_text == light_ground and f["quirk"] != "reversed_z" and (f["layout"] == "row") == (W >= 2 * H) \
+        and not (f["layout"] == "grid" and min(W, H) < 250)
 
 
 def coverage(rows: list, strength: int) -> float:
@@ -229,7 +242,7 @@ def build_design(row: list) -> tuple:
                      font_style="normal")
         els.append(body)
         y += body["height"] + 0.2 * body["font_size"]
-    els += _button(f, *box("button"), z)
+    els += _button(f, *box("button"), z, size)
     if f["badge"] != "none":
         bw, bh = 0.2 * S, 0.06 * S
         extra = {"rotation": -15} if f["badge"] == "ribbon_rotated" else \
@@ -251,8 +264,9 @@ def build_design(row: list) -> tuple:
         {"width": f["target"][0], "height": f["target"][1]}, {n: str(v) for n, v in f.items()}
 
 
-def _button(f, x, y, w, h, z) -> list:
-    label = lambda color: _text("cta_label", "Shop the Summer Line", x, y + 0.2 * h, w, max(4, 0.45 * h), f,  # noqa: E731
+def _button(f, x, y, w, h, z, head: float) -> list:
+    size = max(4.0, min(0.45 * h, 0.8 * head))  # a button label never outranks the headline
+    label = lambda color: _text("cta_label", "Shop the Summer Line", x, y + 0.2 * h, w, size, f,  # noqa: E731
                                 next(z), text_align="center", color=color)
     if f["button"] == "link":
         return [label("rgba(232,106,58,1)")]
@@ -331,6 +345,7 @@ def main():
     b.add_argument("--out", type=Path, required=True)
     b.add_argument("--strength", type=int, default=2)
     b.add_argument("--random", type=int, default=0, help="this many random rows instead of a covering array")
+    b.add_argument("--wellformed", action="store_true", help="random rows only where the source is well formed")
     b.add_argument("--seed", type=int, default=0)
     c = sub.add_parser("check")
     c.add_argument("--run", required=True)
@@ -338,8 +353,11 @@ def main():
     a = ap.parse_args()
     if a.cmd == "build":
         if a.random:
-            rng = random.Random(a.seed)
-            rows = [[rng.randrange(len(FACTORS[n])) for n in NAMES] for _ in range(a.random)]
+            rng, rows = random.Random(a.seed), []
+            while len(rows) < a.random:
+                row = [rng.randrange(len(FACTORS[n])) for n in NAMES]
+                if not a.wellformed or wellformed(row):
+                    rows.append(row)
         else:
             rows = covering_array(a.strength, a.seed)
         print(f"pairwise coverage {coverage(rows, 2):.1%}, 3-wise {coverage(rows, 3):.1%}")

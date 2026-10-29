@@ -41,3 +41,13 @@ def test_an_image_squeezed_to_a_speck_keeps_its_proportions():
     task = json.loads((ROOT / "tests" / "fixtures" / "thin_header_logo.json").read_text())
     out = retarget(task["source"], task["target_canvas"])
     assert gate(task["source"], task["target_canvas"], out) == []
+
+
+def test_a_loose_button_label_stays_on_its_pill():
+    """An ungrouped button whose label's box overhangs the pill (its ink does not) was read as a bare shape
+    and a stray text: the label landed beside an empty pill.  It is one button, the label centred on it."""
+    task = json.loads((ROOT / "tests" / "fixtures" / "loose_button.json").read_text())
+    out = {e["id"]: e for e in retarget(task["source"], task["target_canvas"])["elements"]}
+    pill, label = out["cta_bg"], out["cta_label"]
+    assert pill["x"] <= label["x"] + label["width"] / 2 <= pill["x"] + pill["width"]
+    assert pill["y"] <= label["y"] <= pill["y"] + pill["height"] / 2  # the renderer sets text from the top of its box
