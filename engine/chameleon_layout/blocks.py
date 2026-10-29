@@ -283,9 +283,39 @@ def rigid_scale(b: Block, ctx: Ctx, max_w: float = INF, max_h: float = INF) -> f
     return _uniform_fit(b.visible, s, max_w, max_h)
 
 
+PAD_EM = (1.0, 0.45)  # a snug button keeps at least this much padding round its label (em, across and up)
+BALLOON = 0.2  # a lifted button this wide (of the canvas) or wider has ballooned: it hugs its label instead
+
+
+def _button(b: Block):
+    """(pill, label) when a rigid group is one shape with one text on it, else None."""
+    shapes, texts = [i for i in b.items if i.type == "shape"], [i for i in b.items if i.type == "text"]
+    if len(b.items) == 2 and len(shapes) == len(texts) == 1 and not texts[0].rotation and \
+            shapes[0].box.contains(texts[0].ink, 0.95):
+        return shapes[0], texts[0]
+    return None
+
+
+def _snug(pill: Item, label: Item, s: float, base: float, out, x: float, y: float) -> Tuple[float, float]:
+    """A button whose label was lifted to its legibility floor: the label grows, its padding only follows
+    the layout (at least PAD_EM) - the pill hugs the label instead of ballooning with it."""
+    font = keep_lines(label, label.font * s, label.box.w * s)
+    p = _tighten(label, Placement(0.0, 0.0, label.box.w * s, label.box.h * s, font))
+    ink = label.ink_at(Rect(p.x, p.y, p.w, p.h), font)
+    pads = ((pill.box.w - label.ink.w) / 2, (pill.box.h - label.ink.h) / 2)
+    px, py = (min(pad * s, max(pad * base, em * font)) for pad, em in zip(pads, PAD_EM))
+    if out is not None:
+        out[pill.idx] = Placement(x, y, ink.w + 2 * px, ink.h + 2 * py)
+        out[label.idx] = replace(p, x=x + px - (ink.x - p.x), y=y + py - (ink.y - p.y))
+    return ink.w + 2 * px, ink.h + 2 * py
+
+
 def _rigid(b, ctx, max_w, max_h, out, x, y):
     src = b.visible
     s = rigid_scale(b, ctx, max_w, max_h)
+    base = _uniform_fit(src, ctx.ts if b.texts else ctx.img, max_w, max_h)
+    if s > 1.05 * base and src.w * s >= BALLOON * ctx.W and (pair := _button(b)):
+        return _snug(*pair, s, base, out, x, y)
     if out is not None:
         for it in b.items:
             p = Placement(x + (it.box.x - src.x) * s, y + (it.box.y - src.y) * s, it.box.w * s, it.box.h * s)

@@ -98,7 +98,9 @@ never the logo.  In banner rows, images fill the height while their
 transparent padding stays on the canvas, the logo never outgrows the text by
 more than 1.5× its original proportion, the text may grow until a headline
 fills two lines of the row, items keep the row's gap unit apart, and the
-button never outshines the headline. Long copy may re-wrap to a comfortable ~40-character line even when
+button never outshines the headline. A button whose label had to be lifted to its legibility floor hugs the
+label (at least an em of padding across, 0.45 em up) once it would span a fifth
+of the canvas, instead of ballooning with it. Long copy may re-wrap to a comfortable ~40-character line even when
 its source box was narrow.
 Strips get wider end margins (a 320×50 button no longer sits 2 px from the
 edge); sparse designs may scale up to 2× more into a bigger canvas.

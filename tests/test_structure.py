@@ -656,3 +656,15 @@ def test_a_row_of_price_cards_keeps_its_cards():
     dropped to give the headline air."""
     out = resize(_units("pricing_duo"), {"width": 600, "height": 200})
     assert all(e.get("opacity", 1) > 0 for e in out["elements"])
+
+
+@pytest.mark.parametrize("target,most", [((300, 250), 0.6), ((336, 280), 0.56), ((250, 250), 0.7)])
+def test_a_lifted_button_hugs_its_label(target, most):
+    """The core sample's label is lifted to its legibility floor on small canvases; its pill hugs the label
+    (padding at least an em across) instead of ballooning to two thirds of the width over a 12 px headline."""
+    W, H = target
+    out = {e["id"]: e for e in resize(CORE.get("source", CORE), {"width": W, "height": H})["elements"]}
+    pill, label = out["cta_bg"], out["cta_label"]
+    assert pill["width"] <= most * W
+    assert pill["x"] <= label["x"] and label["x"] + label["width"] <= pill["x"] + pill["width"]
+    assert pill["y"] <= label["y"] and label["y"] + label["height"] <= pill["y"] + pill["height"] + 1
