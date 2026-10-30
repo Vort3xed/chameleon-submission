@@ -1,0 +1,14 @@
+[
+  {
+    "file": "sample-0.json",
+    "name": "Level1 Warmup"
+  },
+  {
+    "file": "sample-1.json",
+    "name": "Level2 Core"
+  },
+  {
+    "file": "sample-2.json",
+    "name": "Level3 Advanced"
+  }
+]

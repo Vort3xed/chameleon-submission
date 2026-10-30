@@ -528,13 +528,14 @@ def test_text_hides_beneath_its_card_when_there_is_no_background():
     assert out["headline"].get("opacity", 1) != 0
 
 
-def test_text_hides_beneath_a_button_without_background_or_card():
-    """No opaque background, no card: a dropped text goes beneath the button."""
+@pytest.mark.parametrize("repeats", [2, 40])
+def test_text_is_retained_when_readable_or_hidden_beneath_button(repeats):
+    """Keep fitting copy; genuinely oversized copy must hide beneath the button."""
     els = [
         {"id": "headline", "type": "text", "x": 60, "y": 200, "width": 960, "height": 120, "content": "Stay Golden",
          "font_family": "Solstice Serif", "font_size": 96, "color": "rgba(35,24,38,1)", "z_index": 2},
         {"id": "legal", "type": "text", "x": 60, "y": 1000, "width": 960, "height": 40, "font_family": "Solstice Sans",
-         "content": "Please drink responsibly. Botanical Sparkling Co., 2026. Void where prohibited. " * 2,
+         "content": "Please drink responsibly. Botanical Sparkling Co., 2026. Void where prohibited. " * repeats,
          "font_size": 14, "color": "rgba(35,24,38,1)", "z_index": 3},
         {"id": "cta_bg", "type": "shape", "x": 380, "y": 700, "width": 320, "height": 70, "shape_type": "rectangle",
          "fill_color": "rgba(232,106,58,1)", "group_id": "cta", "z_index": 4},
@@ -544,7 +545,14 @@ def test_text_hides_beneath_a_button_without_background_or_card():
     out = {e["id"]: e for e in resize({"canvas": {"width": 1080, "height": 1080}, "elements": els},
                                       {"width": 320, "height": 50})["elements"]}
     legal, button = out["legal"], out["cta_bg"]
-    assert legal.get("opacity") == 0, "the legal line should be dropped at 320x50"
+    if repeats == 2:
+        assert legal.get("opacity", 1) > 0
+        assert legal["font_size"] >= 7
+        assert legal["content"] == els[1]["content"]
+        assert (legal["y"] >= button["y"] + button["height"] or legal["y"] + legal["height"] <= button["y"]
+                or legal["x"] >= button["x"] + button["width"] or legal["x"] + legal["width"] <= button["x"])
+        return
+    assert legal.get("opacity") == 0, "oversized copy should not be squeezed below readable size"
     assert legal["z_index"] < button["z_index"]
     assert button["x"] <= legal["x"] and legal["x"] + legal["width"] <= button["x"] + button["width"]
     assert button["y"] <= legal["y"] and legal["y"] + legal["height"] <= button["y"] + button["height"]

@@ -7,8 +7,17 @@ from PIL import Image, ImageDraw
 def asset_path(assets_dir: Optional[str], asset_id: Optional[str]) -> Optional[Path]:
     if not assets_dir or not asset_id:
         return None
-    candidate = Path(assets_dir) / asset_id
-    return candidate if candidate.is_file() else None
+    try:
+        root = Path(assets_dir).resolve()
+        name = Path(asset_id)
+        if name.is_absolute() or ".." in name.parts:
+            return None
+        candidate = (root / name).resolve()
+        if not candidate.is_relative_to(root):
+            return None
+        return candidate if candidate.is_file() else None
+    except (OSError, ValueError, TypeError):
+        return None
 
 
 def load_asset_image(

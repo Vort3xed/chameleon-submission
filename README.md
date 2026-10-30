@@ -1,337 +1,100 @@
-# CHAMELEON — design retargeting engine
+# Project Chameleon
 
-`engine/resize.py::resize(source, target_canvas)` re-lays-out a design for a new
-canvas instead of stretching it. It moves the furniture: it works out what
-each element *is* (no labels are given), picks a layout that suits the new
-shape, sizes text so it renders legibly with the real renderer, and checks
-every hard rule before it returns.
+The engine takes a design and a target canvas size, then rearranges its text, images, and shapes to fit the new format.
 
-```
-source design + target canvas
-  └─ scene.py      structure inference  (backgrounds, decor, groups, containers, rows, roles)
-  └─ arrange.py    candidate layouts    (every family, per drop level; bands kept at their edges)
-       └─ families.py preserve / stack / split / row
-       └─ blocks.py   measure + place    (exact renderer text wrapping, aspect-locked images)
-       └─ finishing.py decoration, corner ornaments, alignment snapping
-  └─ objective.py  rank candidates      (legibility, headline & product size, coverage, overlap…)
-  └─ finalize.py   enforce hard rules   (ids, order, bounds, aspect, ints, finite numbers)
-```
+It runs locally without model downloads or API calls at runtime.
 
 ## Approach
 
-**1. Understand the design (`scene.py`).** Elements are classified without
-semantic labels:
+The engine uses layout rules and candidate search:
 
-* *backgrounds* – images/shapes covering ≥90% of the canvas → re-fitted full-bleed;
-* *decor* – faint, tiny or off-canvas shapes holding no content, and faint
-  texture type (a huge 8%-opacity word behind everything) → kept, re-anchored
-  proportionally (large faint frames instead keep their distance to each canvas edge);
-* *hidden* – invisible elements, elements wholly off the source canvas (never
-  seen, so never revealed) and small images whose asset is missing (the
-  intentional `holiday_watermark` case) → skipped gracefully (opacity 0); a
-  large image we cannot find is laid out as usual - only the logo is a fixed
-  asset, so the scorer's bundle may hold product art we have never seen;
-* *effects* – copies of one text stacked on each other (drop shadows,
-  outlines) echo the topmost copy, wrapping as it does; a shape just beneath a
-  card or button of nearly its box is its shadow or outline and stays with it,
-  whatever its opacity; a small icon beside a one-line label is one unit with
-  it, and list items (icons with labels, lines opening with a bullet or a
-  number) keep one left edge when stacked;
-* *bands* – full-width bars on the top or bottom edge (header, footer, photo
-  scrim) → stay bars on that edge with their content inside; the rest flows
-  between them (and under them, as far as the source let it).  A full-height
-  panel on a side edge (a colour block bleeding off half the canvas) does the
-  same on a canvas relatively as wide as the source or wider; on a narrower
-  one it flows like any block (a bare bar - a two-tone background, a colour
-  strip - keeps its edge on any canvas).  A bar too thin to hold its content stays a
-  stripe on its edge while its logo or small print flows with the rest - if
-  that content stays legible off it (the bar is close in tone to the
-  background); else the bar grows to hold it.  A thin bar holding the message
-  flows as a card behind it;
-* *blocks* – the units that get laid out: single texts and images, **rigid
-  groups** (shared `group_id`, e.g. button shape + label, rotated ribbons,
-  product tiles), **panels** (a container shape such as a card or scrim whose
-  children are re-laid out *inside* it, recursively), **rows**
-  (side-by-side runs like a badge strip), **tables** (three or more
-  stacked rows of aligned text cells - a menu, a price list - which keep
-  their columns, each aligned as in the source; four columns fold to two
-  over two when the canvas is narrow) and **column units** (a row of pieces
-  each set over its caption - a stat over its label, a numbered step over its
-  text, a feature title over its detail: each column travels as one, wrapping
-  as a row of tiles, and a big stat never takes the headline role); two
-  prices side by side a word apart (was and now) are one price;
-* *ornaments* – rotated or corner-pinned small blocks, placed last in free corner space.
+1. **Identify structure.** Infer headlines, logos, product images, buttons, cards, and related groups from the source’s geometry, typography, and content.
+2. **Generate arrangements.** Try preserving the original composition, stacking content, splitting imagery and copy, or arranging elements across a banner.
+3. **Measure and score.** Measure text using the bundled fonts and renderer-compatible wrapping. Rank candidates on readability, overlap, hierarchy, spacing, content retention, and similarity to the source.
+4. **Finish the layout.** Adjust alignment, decoration, and corner elements, then write the output JSON and render a preview.
 
-Roles come from cues a designer would use: largest type → headline (a price
-like "From $24" is never the headline, even when it is the biggest), verbs like
-"Shop/Buy/Learn" or the biggest pill → CTA, wide image near an edge or an
-asset named *logo* → logo, the block carrying the most product imagery → hero,
-smallest long text near the bottom → legal. Each role has an importance used
-when space is tight.
+Images reuse the supplied assets. Text content and font families are preserved. On constrained canvases, the engine may hide lower-priority content while retaining its element records in the JSON.
 
-**2. Measure exactly what the renderer will draw (`text_metrics.py`).** The
-official converter wraps greedily at spaces using skia glyph advances and
-cr-renderer draws top-aligned at `int(font_size)`. We replicate that wrap
-verbatim (verified identical), so line counts, box heights and
-centring inside buttons are exact. Letter spacing is scaled with font size;
-the renderer wraps without it, so spaced lines can be drawn wider than their
-box (a box wide enough to hold them would re-wrap them): such text is laid out
-and centred by the width its lines are drawn in, the box offset to match.
-Fallbacks: Pillow/FreeType advances, then a per-font heuristic — the engine
-still works with no fonts or assets present.
+## Run with Docker
 
-**3. Generate candidate layouts (`arrange.py`, `families.py`).**
-
-* **preserve** – nearby aspect ratios: uniform scale; blocks whose drawn content
-  overlaps move together and only the space between them stretches (corner
-  pieces stay by their corner; an inset border frame is the canvas the content
-  lives in). The same shape (aspect within 8%) always keeps the composition;
-* **stack** – a single column in reading order (tall/square canvases); groups stay compact and the spare height goes to the margins and the gaps between groups, drawn halfway to how the source spaced them (a headline the designer centred does not sink to the bottom of a tall canvas);
-* **split** – product imagery in one column, everything else stacked beside it;
-* **row** – banners: logo | product | text columns | CTA, with text partitioned into 1–3 columns (a list kept in one, unless splitting it buys the type over 25%); beside product art on a banner (not a strip), a logo that headed the copy stays at the head of the headline's column when that costs the type under 20% (set apart by the product, it reads as a stray); copy columns narrow to their lines and the spare width is shared between the row's items, so the gaps are even. Rows are spaced the way a designer spaces a banner: one gap unit throughout (a margin, or a full em of the row's largest copy if that is wider, so a headline never sits against the logo or button) and 8% of the height clear above and below the copy, unless that costs the type over 15%. Strips, and rows of cards, keep tight gutters (a third of an em): a strip cannot spare the room, and a card's frame carries its own air.
-
-Each arrangement binary-searches the largest text scale that fits (and a
-calmer 0.82× variant), for several image-to-text ratios. Text never drops
-below a legibility floor tuned to how a judge views the canvas (≈10.5 px at
-1024 px viewing size, less for legal/badges, never more than the source had).
-When even that cannot fit — e.g. a 17-element poster into 728×90 — whole
-low-importance blocks (also inside cards) are dropped progressively (legal →
-badges/ribbons → body → secondary text → product), never the headline or CTA;
-never the logo.  In banner rows, images fill the height while their
-transparent padding stays on the canvas, the logo never outgrows the text by
-more than 1.5× its original proportion, the text may grow until a headline
-fills two lines of the row, items keep the row's gap unit apart, and the
-button never outshines the headline. A button whose label had to be lifted to its legibility floor hugs the
-label (at least an em of padding across, 0.45 em up) once it would span a fifth
-of the canvas, instead of ballooning with it. Long copy may re-wrap to a comfortable ~40-character line even when
-its source box was narrow.
-Strips get wider end margins (a 320×50 button no longer sits 2 px from the
-edge); sparse designs may scale up to 2× more into a bigger canvas.
-
-**3b. Finish like a designer (`finishing.py`).** One alignment per column (mixed columns
-centre); a column keeps its groups compact - the widest gaps of the original
-separate groups, a gap inside a group stays between half and 1.2 em of the
-text beside it, and spare height goes only between groups and to the margins; side-by-side columns and
-banner rows share one *drawn* centre line and equal drawn outer margins
-(transparent padding in product art or a logo does not count - but never by
-closing a gap, a logo beside a card, below the margin it opens); near-misses
-within 1.5% are snapped onto the shared line (also inside cards) unless that
-collides, crams a neighbour or unbalances the margins; a corner badge keeps
-its corner, a full margin in where that leaves air round it (blind reviewer
-26-0), else tucked closer (product art there shrinks a little to make way,
-text never);
-decoration on a card moves with the card; wrapped centred titles get
-balanced lines instead of a lone last word, and any other copy of three or
-more words that would leave one word alone on its last line is balanced
-within the room the layout measured for it (so the layout itself is unchanged);
-left- or right-aligned copy restacked into a centred column is boxed to its
-lines and, once it wraps, centred line by line, so it shares the axis of the
-logo and button around it (a blind reviewer preferred this 18-0).
-
-**4. Rank them (`objective.py`).** Terms in [0, 1]: legibility, headline size,
-product size, visible coverage, fill, kept content, overlap beyond what the
-source layered, short phrases not shattered into one-word lines, faithfulness
-of position, the headline still leading the other text, visual mass centred -
-plus which arrangement family suits how stretched the canvas is
-(near-square → keep the composition, wide → product beside text, very wide →
-banner row). The weights started as a logistic fit to an AI judge's rankings
-of the engine's own candidates on ~320 tasks (`eval/collect_prefs.py` +
-`eval/fit_prefs.py`); human labels then moved them: headline size and
-legibility count more, content kept more (size must not be bought by
-dropping content), and two terms reward using the canvas - the headline's
-share of the short side and the product's share of the area.  The family
-priors are kept small (a quarter of the fit): they are the judge's taste in
-arrangements and must not outvote the quality terms.  A family's prior
-follows the less stretched of the canvas and the region it laid out: beside
-a side panel a stack sits in a near-square space whatever the canvas, but a
-scrim along the bottom of a square ad does not make its content a banner.  A layout that collides never
-outranks a clean one.
-
-**5. Enforce the rules (`finalize.py`).** Same elements in the same order,
-only geometry / `font_size` / `opacity` change (plus `z_index` for hidden text,
-`text_align` for wrapped copy centred in its column, `letter_spacing`
-scaled with its font, and `corner_radius` scaled with its shape: a pill stays
-a pill, other corners keep their share of the short side, so a card shrunk
-into a banner does not turn into a blob - blind reviewer 32-1);
-images keep their exact source aspect (full-bleed backgrounds excepted);
-every box lies on the canvas (rotated footprints too where possible); text
-boxes are strictly positive (cr-renderer rejects zero); font sizes are
-integers; NaN/inf anywhere is replaced. `resize()` never raises: on any
-internal error it falls back to a letterboxed copy of the design.
-
-**Hidden elements.** Dropped images/shapes get `opacity: 0`. cr-renderer
-ignores opacity on text, so dropped text gets `opacity: 0` *and* a `z_index`
-just below the opaque full-canvas background, which hides it in the
-reference renderer as well. Without such a background, a dropped text is
-squeezed to 1 px in the middle of its own opaque card - or else the design's
-biggest opaque button - with a `z_index` just beneath it. With nothing opaque
-to hide behind, text is never dropped.
-
-## Run it
-
-Python 3.11+ (the pinned numpy and pandas need it). With [uv](https://docs.astral.sh/uv/):
+Build the image:
 
 ```bash
-uv venv --python 3.11 .venv
-uv pip install --python .venv/bin/python -r requirements.txt
-.venv/bin/python -m engine.main          # every input/*.json -> output/<task>_output.{json,png}
+docker build --platform linux/amd64 -t chameleon-engine .
 ```
 
-(or `python -m venv .venv && .venv/bin/pip install -r requirements.txt`).
-
-Docker — exactly how stage one runs it:
+Process the tasks in `input/`:
 
 ```bash
-docker build --platform linux/amd64 -t my-chameleon-engine .
 docker run --rm --network none \
-  -v $(pwd)/input:/app/input -v $(pwd)/output:/app/output my-chameleon-engine
+  -v "$(pwd)/input:/app/input" \
+  -v "$(pwd)/output:/app/output" \
+  chameleon-engine
 ```
 
-Everything is installed at build time (versions pinned in `requirements.txt`);
-nothing is fetched at run time and no model is used. Median latency is
-~0.04 s per design and 99% finish within ~1.1 s; the slowest (cards inside
-narrow banners, where every candidate re-solves the card's interior) take
-~2.8 s. A banner row's type-scale searches are kept across its two shrink
-variants, and text widths are cached per face, size and string.
+Dependencies are installed during the build. The container runs without network access.
 
-## Evaluation harness (`eval/`, `tests/`)
+## Run locally
 
-Development-only tooling, not copied into the image
-(`uv pip install -r requirements-dev.txt` for `jsonschema`/`pytest`).
-
-* `gen_testset.py` – procedural Solstice-brand designs from 12 archetypes
-  (posters, split heroes, banners, typographic flyers, cards with contained-but-
-  ungrouped content, scrims, product grids, event flyers, sale promos, minimal,
-  story stacks, adversarial messes with junk fields, rotation, missing assets,
-  off-canvas and zero-size elements), each paired with near / far / extreme
-  targets from a 42-format catalogue; `--formats` builds every design × every
-  format (1,638 tasks); `--extra-formats` the same idea over 14 more presets
-  kept apart (120×600, 300×1050, 468×60, 234×60, 1128×191, 3000×3000, menus,
-  invitations, book covers…); `--seed 2026` and `--seed 4242` give holdout sets
-  never used for tuning.
-* `gen_crazy.py` – 35 stress designs (walls of text, 3×3 grids, giant type,
-  two CTAs, photo + scrim, no background, vertical and rotated type, collages,
-  CJK/Arabic/emoji, unbreakable words, hard line breaks, nested cards, one
-  group holding everything, edge bars, price lists, lone elements, a faint
-  watermark word, imagery with no text, a sidebar, art bleeding off an edge,
-  feature cards, the eyebrow-to-legal stack, copy on a bare background) × 10
-  targets including 10:1 strips, 64 px squares and 4K.
-* `combos.py` – combinatorial designs: 24 properties (layout, source and target
-  size, headline text incl. empty / one long word / line breaks / accents, font,
-  size, weight and style, alignment, line height, letter spacing, max lines,
-  style runs, colour formats, six button shapes, strokes, groups, body copy,
-  product and logo placement, rotated badges, backgrounds, decoration,
-  z-order and opacity quirks, image fit). A greedy covering array puts every
-  pair of values in some design (107 designs, `combos2`, run by
-  `tests/test_combos.py`); 3,000 random rows cover ~100% of triples
-  (`combos3`, checked in the loop for hard failures); `--wellformed` keeps
-  only sources a designer could have made (text contrasting with its ground,
-  banner rows on banners, a headline that leads...) and typesets them as a
-  designer would (whole-pixel sizes at which every word fits its column,
-  labels on one line in buttons that hug them, tracking within 0.1 em, copy
-  clear of the corner badge) for judging looks (`combosw`, judged in the loop).
-  `check` reports hard failures, design rules scoring under 0.5, and which
-  property values make failures likelier.
-* `gen_random.py` – random plausible designs (the pieces real designs are made
-  of, combined at random in four skeletons) × random catalogue targets, plus
-  kinds (`--kind`) for banner and skyscraper sources (`strips`, `tall`) and
-  further skeletons (`patterns`: Z-pattern, product grid, half-bleed panel;
-  `skeletons`: copy in a colour block, scrim, feature columns, partner
-  footer, card overlap; `wild`: full-bleed photo, menu, grouped offers,
-  badge ring, testimonial; `effects`: card and text shadows, outlined type,
-  two-tone backgrounds, bare colour strips; `marketing`: stats row, numbered
-  steps, coupon code, star rating, QR corner; `offers`: was/now price,
-  countdown, store badges, social proof; `compare`: two pricing cards with
-  bullet lists); `hunt.py` ranks the engine's outputs on any set by the source-relative part
-  of the discriminator and shows the worst - where new weaknesses come from.
-* `score.py` – a hard structural gate (schema, ids, frozen content/fonts/assets,
-  bounds, aspect, renderability) plus 17 rubric metrics computed from real font
-  metrics and actual renders (collisions, cut-off, readability, contrast,
-  hierarchy, group integrity, margins, balance, completeness, …).
-* `run_eval.py` – parallel engine + scorer over a test set (`--vlm` adds AI-judge scores).
-* `vlm_judge.py`, `vlm_pairwise.py` – a local multimodal LLM as a stand-in for
-  the AI evaluator: absolute rubric scores, and A/B preference between engine versions.
-* `vlm_sanity.py` – how far the judge can be trusted: a resize against copies
-  with known defects (smaller text, collisions, squashed product, text cut off,
-  dropped headline, naive stretch) and against itself, in both orders.
-* `design_rules.py` – exact design-rule metrics, each relative to the source
-  (alignment incl. inside cards, edge crowding, margin balance, newly crammed
-  neighbours, headline lead, product and logo share - nested in panels too -,
-  fill, corner pieces, header and footer bars kept on their edges, captions
-  kept under the piece they caption, wrapped copy in a centred column kept on
-  its axis). Roles are
-  read in the source and followed into the resize by element id (analysed
-  afresh, a resize could merge a side panel with its content into 'product
-  art'); thresholds ramp in over a band and specks under 3 px are not seen, so
-  a nudge too small to see cannot flip a verdict.
-* `judge_bench.py` – known-answer pairs for judges: an output against a copy
-  with one defect at graded severity, tie controls (identical, 1 px moves),
-  the brief's anti-examples (shrunk, stretched), and three sets of held-out
-  defect kinds (`--set unseen3`: failures the engine could make - cropped art,
-  text off its card, overflowing text, a bar slipped off its edge).
-* `judge_fit.py`, `discriminator.py` – the fitted discriminator (non-negative
-  logistic on rules + scorer metrics, a floor on every rule) with an
-  overfitting audit (held-out tasks, unseen defect kinds, held-out human
-  labels, held-out reviewer rounds, invisible-change sensitivity, a
-  shuffled-label leakage control), and run-vs-run comparison: sign test,
-  mean, severe losses.  It learns from synthetic defects, the human labels
-  and the blind reviewer's verdicts (`eval/labels/reviewer_pairs.jsonl`);
-  side-by-side groups count as crammed under 3/4 em, the labeller's line.
-* `loop.py` – one step of the improvement loop in one command (~20 min): run
-  the engine on the format set, the fresh holdout, the stress set, every
-  random-design set and the extra presets, judge each against a baseline with the
-  discriminator (sign test, mean, severe losses); accepted when no set blocks
-  and at least one improves significantly; logged to `eval/runs/loop.jsonl`.
-* `attack.py` – hill-climbs outputs on the discriminator's score to expose
-  what it over-rewards (found the label-wrapping hole).
-* `judges.py` – VLM judge variants measured on the bench; `label_app.py` – a
-  local page for human A/B labels, the yardstick for every judge.
-* `blind_pairs.py` – shuffled ORIGINAL | A | B sheets of two runs (the key kept
-  apart) for judging by eye, and the sign test on the labels that come back.
-  Spacing was judged this way when the discriminator (then ~62% on the human
-  labels) rewarded larger type wherever it cost air; a blind image-reading
-  reviewer given the labeller's written standards (a gap of about an em
-  between groups, padding near edges, one centre axis) tracks what people
-  flag, and `export` feeds its verdicts back into the discriminator.
-* `docker_parity.py` – runs a fixed sample of every test set in the amd64
-  image exactly as stage one does (`--network none`) and checks each output is
-  byte-identical to native `resize()`.
-* `sheets.py`, `format_sheet.py` – contact sheets for eyeballing results.
-* `tests/test_robustness.py` – the bulk of the suite: samples pass the gate at many sizes,
-  fuzzed/malformed inputs never crash or break invariants (and are absorbed
-  by the main engine, not just the fallback), outputs render,
-  determinism, no-fonts/no-assets operation, import from any cwd or as a
-  top-level module, `python -m engine.main` end to end, every stress
-  design at five targets and 20 random designs at three - each passing the
-  gate with its headline shown. 37 legal-but-unusual element variants
-  (rotated or near-invisible elements, tied or missing z, odd colour formats,
-  unknown fonts and asset paths, emoji and markup copy, line shapes, extra
-  fields, images retyped as text) pass every hard rule with extra fields kept;
-  9 values the schema forbids (unknown types and shapes, numeric weights,
-  `justify`) are kept as given and never knock a design onto the fallback.
-  The suite runs from a fresh clone: it never reads the generated test sets.
-* `tests/test_combos.py` – every pair of property values (`eval/combos.py`)
-  laid out by the main engine, not the fallback, passing every hard rule.
-* `tests/test_structure.py` – structure survives any canvas: header and footer
-  bars stay full-width on their edges with their content inside (as stripes
-  when too thin for it), a side panel
-  stays a full-height bar holding the product with the copy beside it in
-  reading order; a price list keeps each price with its item; grouped offers
-  never outgrow the headline; faint texture type stays decoration, never the
-  headline; the logo that headed the copy keeps heading it beside product art;
-  a centred headline stays near the middle of a tall canvas; each stat and
-  numbered step keeps its caption; a was and a now price stay side by side.
-* `tests/test_discriminator.py` – the discriminator's invariants: a designer's
-  original scores 1.0 on every rule against itself, a 1 px move is a tie,
-  collisions / shrunk headlines / edge-crowding / a header bar floating loose
-  from its logo or slipped off its edge score lower, the naive
-  shrink loses to a real layout when the shape changes, product art is the
-  source's, and a sub-pixel nudge of every element barely moves the verdict.
-* `RUNS.md` – log of every kept change and rejected experiment with scorer
-  and AI-judge results.
+Use Python 3.11:
 
 ```bash
-.venv/bin/python -m eval.gen_testset --out eval/testsets/main
-.venv/bin/python -m eval.run_eval --name mine
-.venv/bin/python -m pytest tests -q
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python -m engine.main
 ```
+
+Each input file contains a `source` design and a `target_canvas`. The three supplied examples are in `input/`.
+
+For each task, the engine writes:
+
+- `<task>_output.json` — the resized design.
+- `<task>_output.png` — a rendered preview.
+
+If preview rendering fails, the engine retains the JSON and attempts a simplified box preview. Check the console output for rendering warnings.
+
+## Adobe Express viewer
+
+The add-on in `viewer/` includes the three samples, original/resized comparisons, JSON and PNG downloads, and an action to insert the resized image into Express. It inserts a flattened PNG; it does not reconstruct editable layers or run the engine inside Express.
+
+```bash
+cd viewer
+npm ci
+npm start
+```
+
+See [viewer setup and packaging](viewer/README.md) for Express installation, custom review bundles, and building `viewer/dist.zip`.
+
+## Repository structure
+
+| Path | Purpose |
+|---|---|
+| `engine/resize.py` | Main `resize(source, target_canvas)` interface |
+| `engine/chameleon_layout/` | Structure inference, layout search, scoring, and finishing |
+| `engine/main.py` | Batch input, output, and preview rendering |
+| `renderer/` | Conversion and rendering through `cr-renderer` |
+| `brand_kit/` | Bundled images and fonts |
+| `input/` | Sample tasks |
+| `viewer/` | Adobe Express viewer, bundled previews, and export utility |
+| `tests/` | Structural, rendering, and regression tests |
+| `eval/` | Design generators, quality metrics, and comparison tools |
+
+## Testing and evaluation
+
+Install the development dependencies and run the tests:
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest tests -q
+```
+
+The tests cover element preservation, geometry, rendering, determinism, malformed inputs, and layout relationships such as button labels and card contents.
+
+Development evaluation uses generated designs, structural checks, and visual comparisons. AI-assisted and human/reviewer preferences informed parts of the scoring approach. These evaluation tools are separate from the runtime engine and are not included in the Docker image.
+
+## Limitations
+
+Structure detection relies on heuristics, so unusual compositions can be misinterpreted. Dense designs resized into narrow banners may lose supporting content or require small text. Dense offer cards, ungrouped captions, and background fit modes remain difficult cases. Product grids now retain their products and captions; short-banner text is enlarged when it can fit without increasing overlap.
+
+The engine preserves element IDs and records, but does not guarantee that every element remains visible or that every output is ready to publish.

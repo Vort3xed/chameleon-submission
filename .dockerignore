@@ -5,3 +5,6 @@ tests/
 output/
 **/__pycache__/
 *.pyc
+viewer/
+docs/
+tools/

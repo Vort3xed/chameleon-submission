@@ -45,12 +45,14 @@ def self_check(source: dict, output: dict) -> list[str]:
     if "canvas" not in output or "elements" not in output:
         return ["output is missing top-level 'canvas' or 'elements'"]
 
-    src_ids = {el["id"] for el in source["elements"]}
-    out_ids = {el.get("id") for el in output["elements"]}
+    from collections import Counter
+
+    src_ids = Counter(el["id"] for el in source["elements"])
+    out_ids = Counter(el.get("id") for el in output["elements"])
     if src_ids != out_ids:
         problems.append(
-            f"element id mismatch — missing {sorted(src_ids - out_ids)}, "
-            f"unexpected {sorted(out_ids - src_ids)}"
+            f"element id mismatch — missing {list((src_ids - out_ids).elements())}, "
+            f"unexpected {list((out_ids - src_ids).elements())}"
         )
 
     cw, ch = output["canvas"].get("width"), output["canvas"].get("height")
@@ -71,20 +73,11 @@ def self_check(source: dict, output: dict) -> list[str]:
 
 
 def render_to_png(design: dict, assets_dir: Path, png_path: Path) -> None:
-    """Renders `design` to a PNG. Prefers the real renderer
-    (transformer-convertor, wrapping cr-renderer) if it's vendored into
-    ./renderer; falls back to a plain box-and-label preview otherwise so
-    this repo is runnable before that's wired in. Swap the fallback out
-    once ./renderer is populated — don't ship the fallback's output as a
-    real preview."""
-    try:
-        from renderer.converter.convert import render_design_to_png  # type: ignore
-        render_design_to_png(design, assets_dir, str(png_path))
-        return
-    except ImportError:
-        pass
-
-    _fallback_render(design, png_path)
+    """Render with the real converter; propagate failures to the isolated parent."""
+    # Let the isolated parent report failure explicitly. An ImportError must
+    # not turn a box preview into an apparently successful real render.
+    from renderer.converter.convert import render_design_to_png  # type: ignore
+    render_design_to_png(design, assets_dir, str(png_path))
 
 
 def _fallback_render(design: dict, png_path: Path) -> None:
@@ -117,6 +110,7 @@ def render_isolated(design: dict, assets_dir: Path, png_path: Path) -> bool:
     proc.join(timeout=120)
     if proc.is_alive():
         proc.kill()
+        proc.join()
     if proc.exitcode == 0 and png_path.exists():
         return True
     try:

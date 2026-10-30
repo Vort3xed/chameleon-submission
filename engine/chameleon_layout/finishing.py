@@ -411,3 +411,97 @@ def snap_alignment(scene: Scene, lay: Layout) -> None:
 
     snap([b for b in every if b not in scene.ornaments], Rect(0, 0, W, H))
     follow_echoes(scene, lay)
+
+
+def lift_small_text(scene: Scene, lay: Layout) -> None:
+    """Use free space for tiny banner labels and supporting copy without hiding content.
+
+    Re-measure each proposed font/box and reject it if it leaves its container,
+    leaves the canvas, or increases overlap. Buttons grow with their labels.
+    """
+    from .blocks import fit_text
+
+    from .objective import leaf_blocks
+
+    W, H = lay.ctx.W, lay.ctx.H
+    banner = W >= 3 * H and H <= 150
+    supporting = {it.idx for b in leaf_blocks(scene.blocks) if b.role in ("legal", "body") for it in b.texts}
+    if not banner and not supporting:
+        return
+    canvas = Rect(0, 0, W, H)
+    visible = [it for it in scene.items if it.idx in lay.out and not lay.out[it.idx].hidden
+               and lay.out[it.idx].opacity != 0 and it.alpha > 0]
+    for it in visible:
+        p = lay.out[it.idx]
+        if (not banner and it.idx not in supporting) or it.type != "text" or it.rotation or not p.font or p.font >= 7:
+            continue
+        # A single-label pill can expand; larger panels must continue to contain the text.
+        pills = [s for s in visible if s.type == "shape" and not s.rotation
+                 and s.box.contains(it.ink, .95) and s.box.area < .15 * scene.W * scene.H
+                 and sum(s.box.contains(t.ink, .95) for t in visible if t.type == "text") == 1]
+        pill = min(pills, key=lambda s: s.box.area, default=None)
+        font = 9 if pill else 7
+        center = lay.out[pill.idx].rect if pill else p.rect
+        for width in (p.w, fit_text(it, font, INF)[1]):
+            f, w, h = fit_text(it, font, width)
+            if f < font or w > W or h > H:
+                continue
+            q = replace(p, x=min(max(0, center.cx - w / 2), W - w),
+                        y=min(max(0, center.cy - h / 2), H - h), w=w, h=h, font=f)
+            positions = [q.y]
+            if not banner and not pill:
+                # Supporting copy in a footer may need to move below its logos
+                # when wrapping at a readable size. Keep every neighbor fixed.
+                for other in visible:
+                    if other.idx == it.idx or (other.z < it.z and other.box.contains(it.ink, .95)):
+                        continue
+                    op = lay.out[other.idx]
+                    obstacle = other.ink_at(op.rect, op.font)
+                    if obstacle.x < q.x + q.w and obstacle.x1 > q.x:
+                        positions += [obstacle.y1 + 2, obstacle.y - h - 2]
+                positions = sorted(set(positions), key=lambda y: abs(y - q.y))
+            accepted = False
+            for top in positions:
+                q = replace(q, y=top)
+                changes = {it.idx: q}
+                if pill:
+                    old = lay.out[pill.idx]
+                    pw, ph = max(old.w, w + 4), max(old.h, h + 2)
+                    if pw > W or ph > H:
+                        continue
+                    changes[pill.idx] = replace(old, x=min(max(0, center.cx - pw / 2), W - pw),
+                                               y=min(max(0, center.cy - ph / 2), H - ph), w=pw, h=ph)
+                    box = changes[pill.idx].rect
+                    changes[it.idx] = q = replace(q, x=box.cx-w/2, y=box.cy-h/2)
+                valid = True
+                for changed in [v for v in visible if v.idx in changes]:
+                    old = lay.out[changed.idx]
+                    new = changes[changed.idx]
+                    ink = changed.ink_at(new.rect, new.font)
+                    if not canvas.contains(ink, .999) or not canvas.contains(new.rect, .999):
+                        valid = False
+                        break
+                    old_ink = changed.ink_at(old.rect, old.font)
+                    for other in visible:
+                        if other.idx in changes:
+                            continue
+                        op = lay.out[other.idx]
+                        obstacle = other.ink_at(op.rect, op.font)
+                        if other.z < changed.z and other.box.contains(changed.ink, .95):
+                            if not op.rect.contains(ink, .99):
+                                valid = False
+                                break
+                            continue
+                        overlap = ink.intersection(obstacle) / max(1, min(ink.area, obstacle.area))
+                        previous = old_ink.intersection(obstacle) / max(1, min(old_ink.area, obstacle.area))
+                        if overlap > max(.02, previous) + .001:
+                            valid = False
+                            break
+                    if not valid:
+                        break
+                if valid:
+                    lay.out.update(changes)
+                    accepted = True
+                    break
+            if accepted:
+                break

@@ -20,16 +20,26 @@ def _fit_inside(p: Placement, W: float, H: float, rotation: float, keep_aspect: 
     if is_text:
         w, h = max(1.0, w), max(1.0, h)
     if w > W or h > H:  # too big for the canvas: shrink (uniformly when aspect matters)
-        if keep_aspect:
+        if keep_aspect or (is_text and rotation):
             s = min(W / max(w, 1e-9), H / max(h, 1e-9))
             w, h = w * s, h * s
+            if is_text and p.font is not None:
+                p = replace(p, font=max(1, math.floor(p.font * s)))
         else:
             w, h = min(w, W), min(h, H)
-    # shift so the box - and, if possible, its rotated footprint - stays on canvas
-    bx, by = Rect(0, 0, w, h).rotated_bounds(rotation).w, Rect(0, 0, w, h).rotated_bounds(rotation).h
+    # Fit the entire rotated footprint before positioning it. Clamping the
+    # center alone cannot contain a rotated rectangle larger than the canvas.
+    bounds = Rect(0, 0, w, h).rotated_bounds(rotation)
+    shrink = min(1.0, W / max(bounds.w, w, 1e-9), H / max(bounds.h, h, 1e-9))
+    if shrink < 1.0:
+        w, h = w * shrink, h * shrink
+        if is_text and p.font is not None:
+            p = replace(p, font=max(1, math.floor(p.font * shrink)))
+    bounds = Rect(0, 0, w, h).rotated_bounds(rotation)
+    bx, by = bounds.w, bounds.h
     cx = p.x + p.w / 2 if p.w else p.x
     cy = p.y + p.h / 2 if p.h else p.y
-    half_w, half_h = max(w, min(bx, W)) / 2, max(h, min(by, H)) / 2
+    half_w, half_h = max(w, bx) / 2, max(h, by) / 2
     cx = min(max(cx, half_w), W - half_w)
     cy = min(max(cy, half_h), H - half_h)
     return replace(p, x=cx - w / 2, y=cy - h / 2, w=w, h=h)
@@ -83,6 +93,8 @@ def finalize(source: dict, W: int, H: int, placements: Dict[int, Placement], hid
             p = replace(p, x=p.x + p.w / 2 * (1 - s), y=p.y + p.h / 2 * (1 - s), w=p.w * s, h=p.h * s, opacity=0.0)
         if t == "shape" and el.get("shape_type") != "line" and min(sw, sh) >= 2 and min(p.w, p.h) < 0.5:
             p = replace(p, opacity=0.0)  # squeezed flat (a bar with nothing on it): the renderer would draw a hairline
+        if t == "text" and p.font is None:
+            p = replace(p, font=max(1, num(el.get("font_size"), 16)))
         p = _fit_inside(p, W, H, num(el.get("rotation")), keep_aspect, t == "text")
         new["x"], new["y"] = _r(max(0.0, p.x)), _r(max(0.0, p.y))
         new["width"], new["height"] = _r(min(p.w, W)), _r(min(p.h, H))

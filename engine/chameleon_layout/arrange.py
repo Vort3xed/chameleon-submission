@@ -24,6 +24,9 @@ def _never_dropped(b: Block) -> bool:
     """Headline, button and logo stay, and so does any panel holding one; a
     panel holding only small print (a footer bar with legal text) may go."""
     return b.importance >= DROP_STEPS[-1] or b.role in ("headline", "cta", "logo") or \
+        (b.kind == "rigid" and b.role in ("hero", "image") and b.texts
+         and any(it.type == "image" and not it.missing for it in b.items)) or \
+        (b.kind == "row" and sum(it.type == "image" and not it.missing for it in b.items) >= 2) or \
         b.kind == "panel" and (not b.children or any(_never_dropped(c) for c in b.children))
 
 

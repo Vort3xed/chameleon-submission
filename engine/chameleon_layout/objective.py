@@ -131,6 +131,19 @@ def evaluate(lay: Layout, scope: Scope, items) -> Dict[str, float]:
     for f in FAMILIES:
         for b in BANDS:
             t[f"is_{f}_{b}"] = 1.0 if (f, b) == (family, band) else 0.0
+    # Prefer readable short-banner candidates when one fits without collisions.
+    # Readability participates in selection instead of blindly inflating fonts.
+    t["readable"] = 1.0
+    tiles = [b for b in leaf_blocks(scope.blocks) if b.kind == "rigid" and b.role in ("hero", "image")
+             and b.texts and any(it.type == "image" for it in b.items)]
+    grid_labels = {it.idx for b in tiles for it in b.texts} if len(tiles) >= 2 and min(ctx.W, ctx.H) <= 600 else set()
+    banner = ctx.W >= 3 * ctx.H and ctx.H <= 150
+    for b, it, _, _ in vis:
+        p = lay.out[it.idx]
+        if (banner or it.idx in grid_labels) and it.type == "text" and p.font and \
+                p.font * ctx.view < min(7.0, it.font * ctx.src_view) - .5:
+            t["readable"] = 0.0
+            break
     t["total"] = sum(WEIGHTS.get(k, 0.0) * v for k, v in t.items())
     return t
 
@@ -142,10 +155,10 @@ def _stretch(r) -> float:
 CLEAN = 0.9  # overlap term at or above this: no collision worth the name
 
 
-def rank(terms: Dict[str, float]) -> Tuple[bool, float]:
+def rank(terms: Dict[str, float]) -> Tuple[bool, float, float]:
     """Sort key for candidates: any clean layout before any that collides
-    ("no collisions" comes first in the brief), then by total score."""
-    return terms["overlap"] >= CLEAN, terms["total"]
+    ("no collisions" comes first in the brief), then readability and total score."""
+    return terms["overlap"] >= CLEAN, terms.get("readable", 1.0), terms["total"]
 
 
 def _hierarchy(lay: Layout, vis) -> float:

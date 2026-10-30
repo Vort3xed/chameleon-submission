@@ -29,3 +29,14 @@ eval/snapshots/
 eval/gallery/
 eval/judge_bench/
 eval/labels/img/
+
+# Express viewer build artifacts
+viewer/node_modules/
+viewer/dist/
+viewer/*.zip
+
+# Local submission reviews and generated review evidence
+/docs/SUBMISSION_REVIEW*.md
+/docs/adversarial-results*.json
+/docs/retention-comparison.json
+/docs/evidence/*.png

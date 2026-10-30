@@ -8,4 +8,9 @@ LIMIT_BYTES = 16 * 1024 ** 3
 
 soft, hard = resource.getrlimit(resource.RLIMIT_AS)
 if hard == resource.RLIM_INFINITY or hard > LIMIT_BYTES:
-    resource.setrlimit(resource.RLIMIT_AS, (LIMIT_BYTES, hard))
+    try:
+        resource.setrlimit(resource.RLIMIT_AS, (LIMIT_BYTES, hard))
+    except (ValueError, OSError):
+        # macOS may report an unlimited limit but reject setting RLIMIT_AS.
+        # Keep the host's current limit instead of aborting test collection.
+        pass

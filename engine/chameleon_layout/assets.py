@@ -39,6 +39,22 @@ def assets_dir() -> Optional[Path]:
     return None
 
 
+
+def asset_path(asset_id) -> Optional[Path]:
+    """Resolve only files inside the selected brand kit, including symlink checks."""
+    d = assets_dir()
+    if d is None or not isinstance(asset_id, str) or not asset_id:
+        return None
+    try:
+        name, root = Path(asset_id), d.resolve()
+        if name.is_absolute() or ".." in name.parts:
+            return None
+        candidate = (root / name).resolve()
+        return candidate if candidate.is_relative_to(root) and candidate.is_file() else None
+    except (OSError, ValueError):
+        return None
+
+
 def is_missing(asset_id) -> bool:
     """True when the renderer would draw its 'missing asset' placeholder.
     Unknown (no assets folder found) counts as present."""
@@ -48,7 +64,7 @@ def is_missing(asset_id) -> bool:
     if d is None:
         return False
     try:
-        return not (d / str(asset_id)).is_file()
+        return asset_path(asset_id) is None
     except Exception:
         return False
 
@@ -60,7 +76,7 @@ def content_bounds(asset_id) -> Tuple[float, float, float, float]:
     if d is None or Image is None or not asset_id:
         return (0.0, 0.0, 1.0, 1.0)
     try:
-        with Image.open(d / str(asset_id)) as im:
+        with Image.open(asset_path(asset_id)) as im:
             im = im.convert("RGBA")
             box = im.getchannel("A").point(lambda a: 255 if a > 16 else 0).getbbox()
             if not box:
@@ -77,7 +93,7 @@ def is_opaque(asset_id) -> bool:
     if d is None or Image is None or not asset_id:
         return False
     try:
-        with Image.open(d / str(asset_id)) as im:
+        with Image.open(asset_path(asset_id)) as im:
             if "A" not in im.getbands() and im.mode != "P":
                 return True
             return im.convert("RGBA").getchannel("A").getextrema()[0] >= 250
@@ -92,7 +108,7 @@ def mean_luminance(asset_id) -> Optional[float]:
     if d is None or Image is None or not asset_id:
         return None
     try:
-        with Image.open(d / str(asset_id)) as im:
+        with Image.open(asset_path(asset_id)) as im:
             r, g, b = ImageStat.Stat(im.convert("RGB").resize((32, 32))).mean
     except Exception:
         return None
@@ -113,7 +129,7 @@ def pixel_size(asset_id) -> Optional[Tuple[int, int]]:
     if d is None or Image is None or not asset_id:
         return None
     try:
-        with Image.open(d / str(asset_id)) as im:
+        with Image.open(asset_path(asset_id)) as im:
             return im.size
     except Exception:
         return None

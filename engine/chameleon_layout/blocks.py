@@ -333,10 +333,49 @@ def _snug(pill: Item, label: Item, s: float, base: float, out, x: float, y: floa
     return ink.w + 2 * px, ink.h + 2 * py
 
 
+def _product_tile(b, ctx, max_w, max_h, out, x, y):
+    """Let a product image shrink independently of its captions on small canvases."""
+    images = [it for it in b.items if it.type == "image"]
+    labels = sorted(b.texts, key=lambda it: it.box.y)
+    if len(images) != 1 or not labels or len(b.items) != len(labels) + 1 or b.rotated:
+        return None
+    image = images[0]
+    if any(it.box.y < image.box.y1 - 1 for it in labels):
+        return None  # overlays and embedded product artwork must stay rigid
+    # Caption floors are seven pixels; full body-copy floors make compact grids impossible.
+    label_ctx = replace(ctx, floor_relax=max(ctx.floor_relax, 1.0))
+    caption_blocks = [Block("text", [it], role="badge") for it in labels]
+    sizes = [measure(c, label_ctx, max_w) for c in caption_blocks]
+    gap = 2.0
+    text_h = sum(h for _, h in sizes) + gap * len(sizes)
+    iw, ih = image.box.w, image.box.h
+    scale = _uniform_fit(image.box, ctx.img, max_w, max(1.0, max_h - text_h))
+    iw, ih = iw * scale, ih * scale
+    width = max(iw, *(w for w, _ in sizes))
+    if out is not None:
+        out[image.idx] = Placement(x + (width - iw) / 2, y, iw, ih)
+        yy = y + ih + gap
+        for c, (w, h) in zip(caption_blocks, sizes):
+            place(c, label_ctx, x + (width - w) / 2, yy, w + .01, INF, out)
+            yy += h + gap
+    return width, ih + text_h
+
+
 def _rigid(b, ctx, max_w, max_h, out, x, y):
+    if min(ctx.W, ctx.H) <= 600 and b.role in ("hero", "image"):
+        tile = _product_tile(b, ctx, max_w, max_h, out, x, y)
+        if tile is not None:
+            return tile
     src = b.visible
     s = rigid_scale(b, ctx, max_w, max_h)
     base = _uniform_fit(src, ctx.ts if b.texts else ctx.img, max_w, max_h)
+    if b.role == "cta" and ctx.W >= 3 * ctx.H and ctx.H <= 150 and (pair := _button(b)):
+        label = pair[1]
+        need = min(9.0, label.font * ctx.src_view) / ctx.view
+        lifted = max(s, need / label.font)
+        size = _snug(*pair, lifted, base, None, x, y)
+        if size[0] <= max_w and size[1] <= max_h:
+            return _snug(*pair, lifted, base, out, x, y)
     if s > 1.05 * base and src.w * s >= BALLOON * ctx.W and (pair := _button(b)):
         return _snug(*pair, s, base, out, x, y)
     if out is not None:

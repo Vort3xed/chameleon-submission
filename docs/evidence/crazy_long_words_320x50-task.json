@@ -1,0 +1,97 @@
+{
+  "source": {
+    "canvas": {
+      "width": 1080,
+      "height": 1080
+    },
+    "elements": [
+      {
+        "id": "bg",
+        "type": "image",
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1080.0,
+        "height": 1080.0,
+        "asset_id": "solstice_bg_gradient.png",
+        "fit": "cover",
+        "z_index": 0
+      },
+      {
+        "id": "headline",
+        "type": "text",
+        "x": 60.0,
+        "y": 216.0,
+        "width": 960.0,
+        "height": 56.0,
+        "content": "Donaudampfschifffahrtsgesellschaftskapit\u00e4n",
+        "font_family": "Solstice Serif",
+        "font_size": 42,
+        "color": "rgba(255,255,255,1)",
+        "text_align": "center",
+        "font_weight": "bold",
+        "z_index": 1
+      },
+      {
+        "id": "url",
+        "type": "text",
+        "x": 60.0,
+        "y": 486.0,
+        "width": 960.0,
+        "height": 38.0,
+        "content": "https://www.solstice-botanical-sparkling.com/summer-collection-2026",
+        "font_family": "Solstice Sans",
+        "font_size": 25,
+        "color": "rgba(240,178,66,1)",
+        "text_align": "center",
+        "z_index": 2
+      },
+      {
+        "id": "hashtag",
+        "type": "text",
+        "x": 60.0,
+        "y": 594.0,
+        "width": 960.0,
+        "height": 50.0,
+        "content": "#ChaseTheLightSummerCollection2026",
+        "font_family": "Solstice Sans",
+        "font_size": 34,
+        "color": "rgba(255,255,255,1)",
+        "text_align": "center",
+        "z_index": 3
+      },
+      {
+        "id": "cta_bg",
+        "type": "shape",
+        "x": 377.7,
+        "y": 810.0,
+        "width": 324.6,
+        "height": 62.4,
+        "shape_type": "rectangle",
+        "fill_color": "rgba(232,106,58,1)",
+        "corner_radius": 31.2,
+        "group_id": "cta",
+        "z_index": 4
+      },
+      {
+        "id": "cta_label",
+        "type": "text",
+        "x": 377.7,
+        "y": 823.1,
+        "width": 324.6,
+        "height": 37.0,
+        "content": "Reserve Your Spot",
+        "font_family": "Solstice Sans",
+        "font_size": 26,
+        "font_weight": "bold",
+        "color": "rgba(255,255,255,1)",
+        "text_align": "center",
+        "group_id": "cta",
+        "z_index": 5
+      }
+    ]
+  },
+  "target_canvas": {
+    "width": 320,
+    "height": 50
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "chameleon-viewer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "ccweb-add-on-scripts start --analytics off",
+    "build": "node scripts/check.mjs && ccweb-add-on-scripts build --analytics off",
+    "package": "npm run build && ccweb-add-on-scripts package --no-rebuild --analytics off",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "devDependencies": { "@adobe/ccweb-add-on-scripts": "3.11.0" }
+}

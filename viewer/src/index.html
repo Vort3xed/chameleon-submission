@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chameleon Viewer</title><link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header><div class="eyebrow">PROJECT CHAMELEON</div><h1>Review a resize</h1><p>Compare the original design with the engine’s result.</p></header>
+  <main>
+    <section class="controls" aria-label="Choose a design">
+      <label for="sample">Sample design</label>
+      <select id="sample" disabled><option value="">Loading samples…</option></select>
+      <label class="file-label" for="upload">Open a review bundle<input id="upload" type="file" accept=".json,application/json"></label>
+      <p class="hint">Export other tasks with the repository’s viewer export command. Files stay in this panel.</p>
+    </section>
+    <p id="status" role="status" aria-live="polite">Loading…</p>
+    <section id="result" hidden>
+      <div class="result-heading"><h2 id="name"></h2><label class="zoom"><input type="checkbox" id="actual"> Actual pixels</label></div>
+      <div id="previews">
+        <figure><figcaption>Original <span id="source-size"></span></figcaption><div class="image-frame"><img id="source" alt="Original design"></div></figure>
+        <figure><figcaption>Resized <span id="output-size"></span></figcaption><div class="image-frame"><img id="output" alt="Resized design"></div></figure>
+      </div>
+      <p id="summary" class="hint"></p>
+      <details id="warnings"><summary id="warning-title">Review notes</summary><ul id="notes"></ul></details>
+      <div class="actions"><button id="add" class="primary" disabled>Add resized image to Express</button><div class="downloads"><button id="png">Download PNG</button><button id="json">Download JSON</button></div></div>
+      <p class="hint">Express receives a flattened image on the current page. Download the JSON to retain the element data. This viewer does not run the resize engine or reconstruct editable Express layers.</p>
+    </section>
+    <p id="host" class="host" role="status">Checking Adobe Express connection…</p>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

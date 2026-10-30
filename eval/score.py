@@ -435,6 +435,12 @@ def gate(source: dict, target: dict, output, schema: bool = True) -> List[str]:
             errs.append(f"{el.get('id')}: text box w/h must be > 0 (renderer crashes)")
         if x < -0.5 or y < -0.5 or x + w > cw + 0.5 or y + h > ch + 0.5:
             errs.append(f"{el.get('id')}: off-canvas")
+        if num(el.get("rotation")) and num(el.get("opacity"), 1) > 0:
+            r = math.radians(num(el["rotation"]))
+            rw, rh = abs(w * math.cos(r)) + abs(h * math.sin(r)), abs(w * math.sin(r)) + abs(h * math.cos(r))
+            cx, cy = x + w / 2, y + h / 2
+            if cx - rw / 2 < -.5 or cy - rh / 2 < -.5 or cx + rw / 2 > cw + .5 or cy + rh / 2 > ch + .5:
+                errs.append(f"{el.get('id')}: rotated footprint off-canvas")
         if el.get("type") == "image" and el.get("fit", "contain") != "cover":
             sw, sh = num(s.get("width")), num(s.get("height"))
             full = w >= cw - 1 and h >= ch - 1
