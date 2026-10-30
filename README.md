@@ -92,9 +92,3 @@ python -m pytest tests -q
 The tests cover element preservation, geometry, rendering, determinism, malformed inputs, and layout relationships such as button labels and card contents.
 
 Development evaluation uses generated designs, structural checks, and visual comparisons. AI-assisted and human/reviewer preferences informed parts of the scoring approach. These evaluation tools are separate from the runtime engine and are not included in the Docker image.
-
-## Limitations
-
-Structure detection relies on heuristics, so unusual compositions can be misinterpreted. Dense designs resized into narrow banners may lose supporting content or require small text. Dense offer cards, ungrouped captions, and background fit modes remain difficult cases. Product grids now retain their products and captions; short-banner text is enlarged when it can fit without increasing overlap.
-
-The engine preserves element IDs and records, but does not guarantee that every element remains visible or that every output is ready to publish.
